@@ -82,8 +82,6 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     // Process charts
     const charts = content.querySelectorAll('.recharts-wrapper');
     charts.forEach(chart => {
-      chart.setAttribute('width', '500');
-      chart.setAttribute('height', '300');
       const svg = chart.querySelector('svg');
       if (svg) {
         svg.setAttribute('width', '500');
@@ -91,49 +89,46 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         svg.style.overflow = 'visible';
       }
     });
-    // Add print styles
-    const style = document.createElement('style');
-    style.textContent = `
-      @page { margin: 20mm; }
-      body { font-size: 12px; }
-      h1 { font-size: 24px !important; margin-bottom: 20px !important; }
-      h2 { font-size: 20px !important; margin-bottom: 15px !important; }
-      h3 { font-size: 16px !important; margin-bottom: 10px !important; }
-      table { page-break-inside: avoid !important; margin-bottom: 20px !important; width: 100% !important; }
-      tr { page-break-inside: avoid !important; }
-      td, th { padding: 8px !important; text-align: left !important; }
-      .page-break { page-break-before: always !important; }
-      * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; print-color-adjust: exact !important; }
-    `;
-    content.insertBefore(style, content.firstChild);
-    // Configure PDF options
+    // Configure PDF options with improved settings
     const opt = {
-      margin: 10,
+      margin: [15, 15, 15, 15],
+      // Increased margins
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "jpeg",
-        quality: 1
+        quality: 0.98
       },
+      // Increased quality
       html2canvas: {
         scale: 2,
         useCORS: true,
-        logging: true,
+        logging: false,
         allowTaint: true,
-        foreignObjectRendering: true,
-        imageTimeout: 0,
-        removeContainer: true,
-        backgroundColor: '#ffffff'
+        scrollY: -window.scrollY,
+        // Fix for scrolled content
+        windowWidth: 1200,
+        // Fixed width for consistent rendering
+        onclone: doc => {
+          // Ensure all content is visible
+          Array.from(doc.getElementsByTagName('*')).forEach(el => {
+            const element = el as HTMLElement;
+            element.style.overflow = 'visible';
+          });
+        }
       },
       jsPDF: {
         unit: "mm",
         format: "a4",
-        orientation: "portrait"
+        orientation: "portrait",
+        compress: true
+      },
+      pagebreak: {
+        mode: 'avoid-all'
       }
     };
-    // Generate PDF with error handling
+    // Generate PDF with progress tracking
     try {
-      const worker = window.html2pdf();
-      await worker.set(opt).from(content).save();
+      const worker = window.html2pdf().from(content).set(opt).save();
       if (onProgress) {
         onProgress(100);
       }
