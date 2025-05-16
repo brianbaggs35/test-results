@@ -90,15 +90,14 @@ export const FailureAnalysisProgress = ({
   const inProgressTests = failedTests.filter(test => test.status === 'in_progress').length;
   const handleShowStackTrace = (test: FailureProgressItem) => {
     // Find the original test data to get all details
-    const testDetails = testData.suites.flatMap(suite => suite.testcases).find(t => t.name === test.name && t.suite === test.suite);
+    const suite = testData.suites.find(s => s.name === test.suite);
+    const testDetails = suite?.testcases.find(t => t.name === test.name);
     if (!testDetails) return;
     // Create a complete test object with all necessary fields
     const modalTest = {
-      name: test.name,
+      ...testDetails,
       suite: test.suite,
       status: 'failed',
-      time: testDetails.time,
-      classname: testDetails.classname,
       errorMessage: testDetails.errorMessage || test.errorMessage,
       failureDetails: testDetails.failureDetails || {
         message: testDetails.errorMessage || test.errorMessage,
