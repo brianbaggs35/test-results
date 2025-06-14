@@ -56,13 +56,20 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
   const style = document.createElement("style");
   style.textContent = `
     @page { 
-      margin: 20mm 15mm 20mm 15mm; 
+      margin: 10mm 10mm 10mm 10mm; 
       size: A4 portrait;
     }
     body { 
       font-size: 11px; 
       line-height: 1.4;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      width: 100% !important;
+      max-width: none !important;
+    }
+    /* Ensure container elements don't restrict width */
+    .max-w-4xl, .container {
+      max-width: none !important;
+      width: 100% !important;
     }
     h1 { 
       font-size: 22px !important; 
@@ -92,9 +99,9 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       page-break-inside: auto !important; 
       margin-bottom: 16px !important;
       width: 100% !important;
-      max-width: 100% !important;
+      max-width: none !important;
       font-size: 10px !important;
-      table-layout: fixed !important;
+      table-layout: auto !important;
     }
     thead {
       display: table-header-group !important;
@@ -109,7 +116,8 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     td, th {
       padding: 6px 8px !important;
       word-wrap: break-word !important;
-      max-width: 200px !important;
+      max-width: none !important;
+      white-space: normal !important;
     }
     .page-break { 
       page-break-before: always !important; 
@@ -135,13 +143,32 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     .grid > div {
       margin-bottom: 12px !important;
       width: 100% !important;
+      display: block !important;
+      max-width: none !important;
+    }
+    /* Fix responsive grid classes */
+    .grid-cols-1, .grid-cols-2, .grid-cols-3, .md\\:grid-cols-2, .md\\:grid-cols-3 {
+      display: block !important;
+    }
+    .grid-cols-1 > *, .grid-cols-2 > *, .grid-cols-3 > *, 
+    .md\\:grid-cols-2 > *, .md\\:grid-cols-3 > * {
+      display: block !important;
+      width: 100% !important;
+      margin-bottom: 12px !important;
+      max-width: none !important;
     }
     .overflow-x-auto {
       overflow: visible !important;
+      max-width: none !important;
     }
     /* Improve table responsiveness in PDF */
     .min-w-full {
       min-width: 100% !important;
+      max-width: none !important;
+    }
+    /* Fix width constraints */
+    .max-w-xs, .max-w-sm, .max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl, .max-w-3xl, .max-w-4xl {
+      max-width: none !important;
     }
     .divide-y {
       border-collapse: collapse !important;
@@ -175,18 +202,20 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       margin-top: 20px !important;
     }
     .mb-12 {
-      margin-bottom: 20px !important;
+      margin-bottom: 16px !important;
       page-break-after: auto !important;
     }
     .pb-12 {
-      padding-bottom: 16px !important;
+      padding-bottom: 12px !important;
     }
     /* Ensure section breaks for large content areas */
     .bg-white.p-8 {
-      page-break-inside: avoid !important;
+      page-break-inside: auto !important;
+      padding: 16px !important;
     }
     .max-w-4xl > div {
-      page-break-inside: avoid !important;
+      page-break-inside: auto !important;
+      max-width: none !important;
     }
     * { 
       -webkit-print-color-adjust: exact !important; 
@@ -210,26 +239,38 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     
     // Configure PDF options with improved settings for A4 format
     const opt = {
-      margin: [20, 15, 20, 15], // Top, Right, Bottom, Left margins in mm for A4
+      margin: [10, 10, 10, 10], // Reduced margins for more content space
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "jpeg",
-        quality: 0.95
+        quality: 0.98
       },
       html2canvas: {
-        scale: 1.2, // Reduced scale for better performance and fitting
+        scale: 1.0, // Reduced scale to ensure content fits
         useCORS: true,
         logging: false,
         allowTaint: true,
         scrollY: -window.scrollY,
-        windowWidth: 800, // Optimized width for A4 pages
-        // Remove height restriction to capture full content
+        windowWidth: 1200, // Increased width to capture more content
+        windowHeight: window.innerHeight,
         onclone: doc => {
           // Ensure all content is visible and properly styled
           Array.from(doc.getElementsByTagName('*')).forEach(el => {
             const element = el as HTMLElement;
             element.style.overflow = 'visible';
             element.style.boxSizing = 'border-box';
+            // Fix max-width constraints that might hide content
+            if (element.style.maxWidth) {
+              element.style.maxWidth = 'none';
+            }
+          });
+          
+          // Fix container widths
+          const containers = doc.querySelectorAll('.max-w-4xl, .container');
+          containers.forEach(container => {
+            const elem = container as HTMLElement;
+            elem.style.maxWidth = 'none';
+            elem.style.width = '100%';
           });
         }
       },
