@@ -139,6 +139,13 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     .overflow-x-auto {
       overflow: visible !important;
     }
+    /* Improve table responsiveness in PDF */
+    .min-w-full {
+      min-width: 100% !important;
+    }
+    .divide-y {
+      border-collapse: collapse !important;
+    }
     .bg-gray-50, .bg-gray-100 {
       background-color: #f9fafb !important;
     }
@@ -241,7 +248,9 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     };
     // Generate PDF with progress tracking
     try {
-      const worker = window.html2pdf().from(content).set(opt).save();
+      const worker = window.html2pdf().from(content).set(opt);
+      // Await the PDF generation to properly handle completion
+      await worker.save();
       if (onProgress) {
         onProgress(100);
       }
