@@ -94,6 +94,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       width: 100% !important;
       max-width: 100% !important;
       font-size: 10px !important;
+      table-layout: fixed !important;
     }
     thead {
       display: table-header-group !important;
@@ -138,6 +139,13 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     .overflow-x-auto {
       overflow: visible !important;
     }
+    /* Improve table responsiveness in PDF */
+    .min-w-full {
+      min-width: 100% !important;
+    }
+    .divide-y {
+      border-collapse: collapse !important;
+    }
     .bg-gray-50, .bg-gray-100 {
       background-color: #f9fafb !important;
     }
@@ -160,17 +168,25 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     li {
       margin-bottom: 4px !important;
     }
-    .space-y-3 > * + * {
-      margin-top: 8px !important;
+    .space-y-6 > * + * {
+      margin-top: 16px !important;
     }
-    .space-y-4 > * + * {
-      margin-top: 12px !important;
+    .space-y-8 > * + * {
+      margin-top: 20px !important;
     }
     .mb-12 {
       margin-bottom: 20px !important;
+      page-break-after: auto !important;
     }
     .pb-12 {
       padding-bottom: 16px !important;
+    }
+    /* Ensure section breaks for large content areas */
+    .bg-white.p-8 {
+      page-break-inside: avoid !important;
+    }
+    .max-w-4xl > div {
+      page-break-inside: avoid !important;
     }
     * { 
       -webkit-print-color-adjust: exact !important; 
@@ -188,24 +204,10 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     await new Promise(resolve => setTimeout(resolve, 3000));
     const reportElement = document.getElementById("report-preview");
     if (!reportElement) throw new Error("Report content not found");
-    // Create a deep clone of the content
-    const content = reportElement.cloneNode(true) as HTMLElement;
-    // Remove interactive elements
-    const elementsToRemove = content.querySelectorAll('button, .print-hide, input, select, .recharts-tooltip-wrapper');
-    elementsToRemove.forEach(el => el.remove());
-    // Process charts for better PDF rendering
-    const charts = content.querySelectorAll('.recharts-wrapper');
-    charts.forEach(chart => {
-      const svg = chart.querySelector('svg');
-      if (svg) {
-        // Set responsive chart dimensions that fit A4 page width
-        svg.setAttribute('width', '420'); // Adjusted for A4 width (~170mm usable)
-        svg.setAttribute('height', '280');
-        svg.style.overflow = 'visible';
-        svg.style.maxWidth = '100%';
-        svg.style.height = 'auto';
-      }
-    });
+    
+    // Use the prepareContent function to properly process the content
+    const content = prepareContent(reportElement);
+    
     // Configure PDF options with improved settings for A4 format
     const opt = {
       margin: [20, 15, 20, 15], // Top, Right, Bottom, Left margins in mm for A4
@@ -215,13 +217,13 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         quality: 0.95
       },
       html2canvas: {
-        scale: 1.5, // Reduced scale for better performance and fitting
+        scale: 1.2, // Reduced scale for better performance and fitting
         useCORS: true,
         logging: false,
         allowTaint: true,
         scrollY: -window.scrollY,
         windowWidth: 800, // Optimized width for A4 pages
-        height: window.innerHeight,
+        // Remove height restriction to capture full content
         onclone: doc => {
           // Ensure all content is visible and properly styled
           Array.from(doc.getElementsByTagName('*')).forEach(el => {
@@ -246,7 +248,9 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     };
     // Generate PDF with progress tracking
     try {
-      const worker = window.html2pdf().from(content).set(opt).save();
+      const worker = window.html2pdf().from(content).set(opt);
+      // Await the PDF generation to properly handle completion
+      await worker.save();
       if (onProgress) {
         onProgress(100);
       }
