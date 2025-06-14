@@ -9,12 +9,23 @@ interface Html2PdfOptions {
     scale: number;
     useCORS: boolean;
     logging: boolean;
-    letterRendering: boolean;
+    allowTaint?: boolean;
+    scrollY?: number;
+    windowWidth?: number;
+    windowHeight?: number;
+    onclone?: (doc: Document) => void;
   };
   jsPDF: {
     unit: string;
     format: string;
     orientation: string;
+    compress?: boolean;
+  };
+  pagebreak?: {
+    mode: string[];
+    before: string;
+    after: string;
+    avoid: string[];
   };
 }
 declare global {
@@ -51,6 +62,15 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     svg.style.margin = "12px auto";
     svg.style.maxWidth = "100%";
     svg.style.height = "auto";
+  });
+  
+  // Fix ResponsiveContainer issues in PDF
+  const responsiveContainers = content.querySelectorAll('.recharts-responsive-container');
+  Array.from(responsiveContainers).forEach(container => {
+    const elem = container as HTMLElement;
+    elem.style.width = '420px';
+    elem.style.height = '280px';
+    elem.style.position = 'relative';
   });
   // Add PDF-specific styles
   const style = document.createElement("style");
@@ -231,11 +251,20 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     await loadHtml2Pdf();
     // Wait longer for charts and content to fully render
     await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Ensure all async content is loaded
+    if (onProgress) onProgress(10);
+    
     const reportElement = document.getElementById("report-preview");
     if (!reportElement) throw new Error("Report content not found");
     
+    // Wait for any remaining chart animations or async rendering
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (onProgress) onProgress(20);
+    
     // Use the prepareContent function to properly process the content
     const content = prepareContent(reportElement);
+    if (onProgress) onProgress(30);
     
     // Configure PDF options with improved settings for A4 format
     const opt = {
@@ -289,7 +318,9 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     };
     // Generate PDF with progress tracking
     try {
+      if (onProgress) onProgress(40);
       const worker = window.html2pdf().from(content).set(opt);
+      if (onProgress) onProgress(60);
       // Await the PDF generation to properly handle completion
       await worker.save();
       if (onProgress) {
