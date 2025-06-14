@@ -149,7 +149,7 @@ export const ReportPreview = ({
               </p>}
           </div>
           {/* Table of Contents */}
-          <div className="mb-12 pb-12 border-b border-gray-200">
+          <div className="mb-12 pb-12 border-b border-gray-200 page-break-after">
             <div className="flex items-center mb-6">
               <BookOpenIcon className="w-6 h-6 text-blue-600 mr-2" />
               <h2 className="text-2xl font-bold text-gray-800">
@@ -184,7 +184,7 @@ export const ReportPreview = ({
             </ul>
           </div>
           {/* Executive Summary */}
-          {config.includeExecutiveSummary && <div id="executive-summary" className="mb-12 pb-12 border-b border-gray-200">
+          {config.includeExecutiveSummary && <div id="executive-summary" className="mb-12 pb-12 border-b border-gray-200 page-break-before avoid-break">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
                 1. Executive Summary
               </h2>
@@ -251,7 +251,7 @@ export const ReportPreview = ({
               </div>
             </div>}
           {/* Test Metrics */}
-          {config.includeTestMetrics && <div id="test-metrics" className="mb-12 pb-12 border-b border-gray-200">
+          {config.includeTestMetrics && <div id="test-metrics" className="mb-12 pb-12 border-b border-gray-200 page-break-before avoid-break">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
                 2. Test Metrics
               </h2>
@@ -282,61 +282,61 @@ export const ReportPreview = ({
                   <h3 className="text-lg font-semibold text-gray-700 mb-4">
                     Test Results Summary
                   </h3>
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 avoid-break">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Metric
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Value
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                           Total Tests
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                           {summary.total}
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                           Passed Tests
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium">
                           {summary.passed} (
                           {(summary.passed / summary.total * 100).toFixed(1)}
                           %)
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                           Failed Tests
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-medium">
                           {summary.failed} (
                           {(summary.failed / summary.total * 100).toFixed(1)}
                           %)
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                           Skipped Tests
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600 font-medium">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-yellow-600 font-medium">
                           {summary.skipped} (
                           {(summary.skipped / summary.total * 100).toFixed(1)}
                           %)
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                           Total Duration
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                           {formatDuration(summary.time)} (
                           {summary.time.toFixed(2)} seconds)
                         </td>
@@ -347,40 +347,40 @@ export const ReportPreview = ({
               </div>
             </div>}
           {/* Failed Tests */}
-          {config.includeFailedTests && <div id="failed-tests" className="mb-12 pb-12 border-b border-gray-200">
+          {config.includeFailedTests && <div id="failed-tests" className="mb-12 pb-12 border-b border-gray-200 page-break-before avoid-break">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
                 3. Failed Tests
               </h2>
               {failedTests.length > 0 ? <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 avoid-break">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Test Name
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Suite
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Duration
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Error Message
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {failedTests.map((test, index) => <tr key={index}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                          <td className="px-4 py-3 text-sm font-medium text-red-600 break-words">
                             {test.name}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-500 break-words">
                             {test.suite}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {parseFloat(test.time).toFixed(2)}s
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                          <td className="px-4 py-3 text-sm text-gray-500 break-words max-w-xs">
                             {test.errorMessage || 'No error message provided'}
                           </td>
                         </tr>)}
@@ -396,37 +396,37 @@ export const ReportPreview = ({
                 </div>}
             </div>}
           {/* All Tests */}
-          {config.includeAllTests && <div id="all-tests" className="mb-12">
+          {config.includeAllTests && <div id="all-tests" className="mb-12 page-break-before avoid-break">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
                 4. All Test Cases
               </h2>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 avoid-break">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Test Name
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Suite
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Duration
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {testData.suites.flatMap(suite => suite.testcases.map((test, testIndex) => <tr key={`${suite.name}-${testIndex}`}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 break-words">
                             {test.name}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-500 break-words">
                             {suite.name}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center">
                               {getStatusIcon(test.status)}
                               <span className={`ml-2 text-sm ${test.status === 'passed' ? 'text-green-800' : test.status === 'failed' ? 'text-red-800' : 'text-yellow-800'}`}>
@@ -434,7 +434,7 @@ export const ReportPreview = ({
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {parseFloat(test.time).toFixed(2)}s
                           </td>
                         </tr>))}
@@ -442,7 +442,7 @@ export const ReportPreview = ({
                 </table>
               </div>
             </div>}
-          {config.includeResolutionProgress && <div id="resolution-progress" className="mb-12 pb-12 border-b border-gray-200">
+          {config.includeResolutionProgress && <div id="resolution-progress" className="mb-12 pb-12 border-b border-gray-200 page-break-before avoid-break">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">
                 5. Failure Resolution Progress
               </h2>
@@ -483,44 +483,44 @@ export const ReportPreview = ({
                       </div>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
+                      <table className="min-w-full divide-y divide-gray-200 avoid-break">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Test Name
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Suite
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Status
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Assignee
                             </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Notes
                             </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {failedTests.map((test: any, index: number) => <tr key={index}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900 break-words">
                                 {test.name}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-3 text-sm text-gray-500 break-words">
                                 {test.suite}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                                   ${test.status === 'completed' ? 'bg-green-100 text-green-800' : test.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
                                   {test.status.replace('_', ' ').charAt(0).toUpperCase() + test.status.slice(1)}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <td className="px-4 py-3 text-sm text-gray-500 break-words">
                                 {test.assignee || '-'}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-500">
+                              <td className="px-4 py-3 text-sm text-gray-500 break-words">
                                 {test.notes || '-'}
                               </td>
                             </tr>)}
