@@ -190,6 +190,31 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     .max-w-xs, .max-w-sm, .max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl, .max-w-3xl, .max-w-4xl {
       max-width: none !important;
     }
+    /* Ensure flex containers work properly in PDF */
+    .flex {
+      display: block !important;
+    }
+    .flex > * {
+      display: block !important;
+      width: 100% !important;
+      margin-bottom: 8px !important;
+    }
+    /* Fix specific flex utilities that might hide content */
+    .justify-between, .justify-center, .justify-start, .justify-end,
+    .items-center, .items-start, .items-end {
+      display: block !important;
+    }
+    .justify-between > *, .justify-center > *, .justify-start > *, .justify-end > *,
+    .items-center > *, .items-start > *, .items-end > * {
+      display: block !important;
+      width: 100% !important;
+      margin-bottom: 4px !important;
+    }
+    /* Fix responsive spacing classes */
+    .space-x-4 > *, .space-x-2 > *, .gap-4 > *, .gap-6 > *, .gap-8 > * {
+      margin-right: 0 !important;
+      margin-bottom: 8px !important;
+    }
     .divide-y {
       border-collapse: collapse !important;
     }
