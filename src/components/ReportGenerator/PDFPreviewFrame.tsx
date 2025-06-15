@@ -69,14 +69,14 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
       id="pdf-preview-frame"
       className="pdf-frame"
       style={{
-        width: '210mm',
-        minHeight: '297mm',
+        width: '300mm',
+        minHeight: '400mm',
         backgroundColor: 'white',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '15mm 25mm 15mm 15mm', // Optimized right padding to reduce whitespace while maintaining readability
+        padding: '10mm 160mm 10mm 5mm', // Optimized right padding to reduce whitespace while maintaining readability
         margin: '0',
         boxSizing: 'border-box'
       }}
@@ -249,7 +249,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}>
                 Test Results Distribution
               </h3>
-              <div style={{ height: '180px', width: '100%' }}>
+              <div style={{ height: '200px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
