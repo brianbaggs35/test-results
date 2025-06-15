@@ -3,6 +3,7 @@ import { ArrowLeftIcon, DownloadIcon, BookOpenIcon, CheckIcon, XIcon, AlertCircl
 import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
 import { generatePDF } from './pdfGenerator';
+import { PDFPreviewFrame } from './PDFPreviewFrame';
 export const ReportPreview = ({
   testData,
   config,
@@ -266,7 +267,7 @@ export const ReportPreview = ({
                         <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={0} dataKey="value" labelLine={false} label={renderCustomizedLabel} minAngle={2}>
                           {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} />)}
                         </Pie>
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<CustomTooltip active={false} payload={[]} />} />
                         <Legend verticalAlign="bottom" height={36} formatter={(value, entry) => <span style={{
                       color: entry.color,
                       fontWeight: 500,
@@ -531,6 +532,11 @@ export const ReportPreview = ({
           })()}
             </div>}
         </div>
+      </div>
+      
+      {/* Hidden PDF Preview Frame - optimized for PDF generation */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
+        <PDFPreviewFrame testData={testData} config={config} />
       </div>
     </div>;
 };

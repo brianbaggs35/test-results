@@ -47,100 +47,30 @@ const loadHtml2Pdf = async (): Promise<void> => {
 };
 const prepareContent = (element: HTMLElement): HTMLElement => {
   const content = element.cloneNode(true) as HTMLElement;
+  
   // Remove elements that shouldn't be in the PDF
   const elementsToRemove = [".recharts-tooltip-wrapper", "button", ".print-hide", "input", "select"];
   elementsToRemove.forEach(selector => {
     const elements = content.querySelectorAll(selector);
     elements.forEach(el => el.remove());
   });
-  // Process SVG elements for better PDF rendering
-  const svgs = content.getElementsByTagName("svg");
-  Array.from(svgs).forEach(svg => {
-    svg.setAttribute("width", "420"); // Consistent with chart processing
-    svg.setAttribute("height", "280");
-    svg.style.display = "block";
-    svg.style.margin = "12px auto";
-    svg.style.maxWidth = "100%";
-    svg.style.height = "auto";
-  });
-  
-  // Fix ResponsiveContainer issues in PDF
-  const responsiveContainers = content.querySelectorAll('.recharts-responsive-container');
-  Array.from(responsiveContainers).forEach(container => {
-    const elem = container as HTMLElement;
-    elem.style.width = '420px';
-    elem.style.height = '280px';
-    elem.style.position = 'relative';
-  });
-  // Add PDF-specific styles
+
+  // Add minimal PDF-specific styles for page breaks and print optimization
   const style = document.createElement("style");
   style.textContent = `
     @page { 
-      margin: 10mm 10mm 10mm 10mm; 
+      margin: 0; 
       size: A4 portrait;
     }
     body { 
-      font-size: 11px; 
-      line-height: 1.4;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
       width: 100% !important;
       max-width: none !important;
     }
-    /* Ensure container elements don't restrict width */
-    .max-w-4xl, .container {
-      max-width: none !important;
-      width: 100% !important;
-    }
-    h1 { 
-      font-size: 22px !important; 
-      margin-bottom: 18px !important; 
-      page-break-after: avoid !important;
-      line-height: 1.2 !important;
-    }
-    h2 { 
-      font-size: 18px !important; 
-      margin-bottom: 14px !important; 
-      margin-top: 24px !important;
-      page-break-after: avoid !important;
-      line-height: 1.3 !important;
-    }
-    h3 { 
-      font-size: 14px !important; 
-      margin-bottom: 10px !important; 
-      margin-top: 16px !important;
-      page-break-after: avoid !important;
-    }
-    h4 {
-      font-size: 12px !important;
-      margin-bottom: 8px !important;
-      margin-top: 12px !important;
-    }
-    table { 
-      page-break-inside: auto !important; 
-      margin-bottom: 16px !important;
-      width: 100% !important;
-      max-width: none !important;
-      font-size: 10px !important;
-      table-layout: auto !important;
-    }
-    thead {
-      display: table-header-group !important;
-    }
-    tfoot {
-      display: table-footer-group !important;
-    }
-    tr { 
-      page-break-inside: avoid !important; 
-      page-break-after: auto !important;
-    }
-    td, th {
-      padding: 6px 8px !important;
-      word-wrap: break-word !important;
-      max-width: none !important;
-      white-space: normal !important;
-    }
-    .page-break { 
-      page-break-before: always !important; 
+    .pdf-frame {
+      box-sizing: border-box !important;
+      overflow: visible !important;
     }
     .page-break-before {
       page-break-before: always !important;
@@ -150,117 +80,6 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     }
     .avoid-break {
       page-break-inside: avoid !important;
-    }
-    svg { 
-      max-width: 100% !important; 
-      height: auto !important; 
-      display: block !important;
-      margin: 12px auto !important;
-    }
-    .grid {
-      display: block !important;
-    }
-    .grid > div {
-      margin-bottom: 12px !important;
-      width: 100% !important;
-      display: block !important;
-      max-width: none !important;
-    }
-    /* Fix responsive grid classes */
-    .grid-cols-1, .grid-cols-2, .grid-cols-3, .md\\:grid-cols-2, .md\\:grid-cols-3 {
-      display: block !important;
-    }
-    .grid-cols-1 > *, .grid-cols-2 > *, .grid-cols-3 > *, 
-    .md\\:grid-cols-2 > *, .md\\:grid-cols-3 > * {
-      display: block !important;
-      width: 100% !important;
-      margin-bottom: 12px !important;
-      max-width: none !important;
-    }
-    .overflow-x-auto {
-      overflow: visible !important;
-      max-width: none !important;
-    }
-    /* Improve table responsiveness in PDF */
-    .min-w-full {
-      min-width: 100% !important;
-      max-width: none !important;
-    }
-    /* Fix width constraints */
-    .max-w-xs, .max-w-sm, .max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl, .max-w-3xl, .max-w-4xl {
-      max-width: none !important;
-    }
-    /* Ensure flex containers work properly in PDF */
-    .flex {
-      display: block !important;
-    }
-    .flex > * {
-      display: block !important;
-      width: 100% !important;
-      margin-bottom: 8px !important;
-    }
-    /* Fix specific flex utilities that might hide content */
-    .justify-between, .justify-center, .justify-start, .justify-end,
-    .items-center, .items-start, .items-end {
-      display: block !important;
-    }
-    .justify-between > *, .justify-center > *, .justify-start > *, .justify-end > *,
-    .items-center > *, .items-start > *, .items-end > * {
-      display: block !important;
-      width: 100% !important;
-      margin-bottom: 4px !important;
-    }
-    /* Fix responsive spacing classes */
-    .space-x-4 > *, .space-x-2 > *, .gap-4 > *, .gap-6 > *, .gap-8 > * {
-      margin-right: 0 !important;
-      margin-bottom: 8px !important;
-    }
-    .divide-y {
-      border-collapse: collapse !important;
-    }
-    .bg-gray-50, .bg-gray-100 {
-      background-color: #f9fafb !important;
-    }
-    .bg-white {
-      background-color: white !important;
-    }
-    .border, .border-b, .border-t {
-      border-color: #e5e7eb !important;
-    }
-    .shadow {
-      box-shadow: none !important;
-    }
-    p {
-      margin-bottom: 8px !important;
-      line-height: 1.4 !important;
-    }
-    ul, ol {
-      margin-bottom: 12px !important;
-    }
-    li {
-      margin-bottom: 4px !important;
-    }
-    .space-y-6 > * + * {
-      margin-top: 16px !important;
-    }
-    .space-y-8 > * + * {
-      margin-top: 20px !important;
-    }
-    .mb-12 {
-      margin-bottom: 16px !important;
-      page-break-after: auto !important;
-    }
-    .pb-12 {
-      padding-bottom: 12px !important;
-    }
-    /* Ensure section breaks for large content areas */
-    .bg-white.p-8 {
-      page-break-inside: auto !important;
-      padding: 16px !important;
-    }
-    .max-w-4xl > div {
-      page-break-inside: auto !important;
-      max-width: none !important;
     }
     * { 
       -webkit-print-color-adjust: exact !important; 
@@ -280,8 +99,15 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     // Ensure all async content is loaded
     if (onProgress) onProgress(10);
     
-    const reportElement = document.getElementById("report-preview");
-    if (!reportElement) throw new Error("Report content not found");
+    // Try to find the PDF preview frame first, fallback to regular preview if needed
+    let reportElement = document.getElementById("pdf-preview-frame");
+    if (!reportElement) {
+      console.warn("PDF preview frame not found, falling back to regular preview");
+      reportElement = document.getElementById("report-preview");
+      if (!reportElement) {
+        throw new Error("No report content found for PDF generation");
+      }
+    }
     
     // Wait for any remaining chart animations or async rendering
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -293,38 +119,60 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     
     // Configure PDF options with improved settings for A4 format
     const opt = {
-      margin: [10, 10, 10, 10], // Reduced margins for more content space
+      margin: [0, 0, 0, 0], // No margins since the frame is already sized for A4
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "jpeg",
         quality: 0.98
       },
       html2canvas: {
-        scale: 1.0, // Reduced scale to ensure content fits
+        scale: 1.0, // Keep 1:1 scale since frame is already A4 sized
         useCORS: true,
         logging: false,
         allowTaint: true,
-        scrollY: -window.scrollY,
-        windowWidth: 1200, // Increased width to capture more content
-        windowHeight: window.innerHeight,
-        onclone: doc => {
-          // Ensure all content is visible and properly styled
-          Array.from(doc.getElementsByTagName('*')).forEach(el => {
-            const element = el as HTMLElement;
-            element.style.overflow = 'visible';
-            element.style.boxSizing = 'border-box';
-            // Fix max-width constraints that might hide content
-            if (element.style.maxWidth) {
-              element.style.maxWidth = 'none';
+        scrollY: 0,
+        windowWidth: 794, // A4 width in pixels at 96 DPI (210mm)
+        windowHeight: 1123, // A4 height in pixels at 96 DPI (297mm)
+        onclone: (doc: any) => {
+          // Ensure the PDF frame is visible in the cloned document
+          const pdfFrame = doc.getElementById('pdf-preview-frame');
+          if (pdfFrame) {
+            const pdfFrameParent = pdfFrame.parentElement;
+            if (pdfFrameParent) {
+              pdfFrameParent.style.position = 'static';
+              pdfFrameParent.style.left = 'auto';
+              pdfFrameParent.style.top = 'auto';
+              pdfFrameParent.style.visibility = 'visible';
+              pdfFrameParent.style.overflow = 'visible';
             }
+            pdfFrame.style.position = 'static';
+            pdfFrame.style.left = 'auto';
+            pdfFrame.style.top = 'auto';
+            pdfFrame.style.visibility = 'visible';
+            pdfFrame.style.overflow = 'visible';
+            pdfFrame.style.transform = 'none';
+          }
+          
+          // Hide the regular preview content to avoid conflicts
+          const regularPreview = doc.getElementById('report-preview');
+          if (regularPreview) {
+            regularPreview.style.display = 'none';
+          }
+          
+          // Ensure all SVG and chart elements are visible
+          const svgs = doc.getElementsByTagName('svg');
+          Array.from(svgs).forEach((svg: any) => {
+            svg.style.visibility = 'visible';
+            svg.style.overflow = 'visible';
           });
           
-          // Fix container widths
-          const containers = doc.querySelectorAll('.max-w-4xl, .container');
-          containers.forEach(container => {
-            const elem = container as HTMLElement;
-            elem.style.maxWidth = 'none';
-            elem.style.width = '100%';
+          // Ensure ResponsiveContainer elements work in the clone
+          const responsiveContainers = doc.querySelectorAll('.recharts-responsive-container');
+          Array.from(responsiveContainers).forEach((container: any) => {
+            container.style.width = '100%';
+            container.style.height = 'auto';
+            container.style.position = 'relative';
+            container.style.overflow = 'visible';
           });
         }
       },
@@ -335,7 +183,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         compress: true
       },
       pagebreak: {
-        mode: ['css', 'legacy'], // Enable CSS and legacy page breaks
+        mode: ['css', 'legacy'],
         before: '.page-break-before',
         after: '.page-break-after',
         avoid: ['tr', 'td', '.avoid-break']
