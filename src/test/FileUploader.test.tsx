@@ -69,7 +69,7 @@ describe('FileUploader', () => {
     const fileInput = screen.getByDisplayValue('') as HTMLInputElement;
     
     // Mock the click method
-    const clickSpy = vi.spyOn(fileInput, 'click').mockImplementation(() => {});
+    const clickSpy = vi.spyOn(fileInput, 'click').mockImplementation(() => { /* mock implementation */ });
     
     fireEvent.click(selectButton);
     
@@ -85,7 +85,7 @@ describe('FileUploader', () => {
     const fileInput = screen.getByDisplayValue('') as HTMLInputElement;
     
     // Mock the click method
-    const clickSpy = vi.spyOn(fileInput, 'click').mockImplementation(() => {});
+    const clickSpy = vi.spyOn(fileInput, 'click').mockImplementation(() => { /* mock implementation */ });
     
     fireEvent.click(tryAgainButton);
     

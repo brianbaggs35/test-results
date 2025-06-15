@@ -17,7 +17,11 @@ export const parseTestPath = (testName: string): TestPathInfo | null => {
   }
   return null;
 };
-export const getUniqueValues = (tests: any[], field: 'module' | 'page' | 'accountType'): string[] => {
+interface TestWithName {
+  name: string;
+}
+
+export const getUniqueValues = (tests: TestWithName[], field: 'module' | 'page' | 'accountType'): string[] => {
   const values = new Set<string>();
   tests.forEach(test => {
     const pathInfo = parseTestPath(test.name);

@@ -274,7 +274,7 @@ describe('parseJUnitXML', () => {
     });
 
     it('should log console error on parse failure', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* mock implementation */ });
       
       expect(() => parseJUnitXML('invalid xml')).toThrow();
       expect(consoleSpy).toHaveBeenCalled();

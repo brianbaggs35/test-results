@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangleIcon, ClockIcon, SearchIcon, FilterIcon, CheckIcon } from 'lucide-react';
+import { AlertTriangleIcon, ClockIcon, CheckIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
 export const FailureAnalysisPage = ({

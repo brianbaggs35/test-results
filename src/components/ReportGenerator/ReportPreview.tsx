@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { ArrowLeftIcon, DownloadIcon, BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon, LoaderIcon } from 'lucide-react';
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
 import { generatePDF } from './pdfGenerator';
 import { PDFPreviewFrame } from './PDFPreviewFrame';
+import { TestData, ReportConfig } from '../../types';
+
 export const ReportPreview = ({
   testData,
   config,
   onBack
+}: {
+  testData: TestData;
+  config: ReportConfig;
+  onBack: () => void;
 }) => {
   const {
     summary
@@ -39,8 +45,7 @@ export const ReportPreview = ({
     innerRadius,
     outerRadius,
     percent,
-    value,
-    name
+    value
   }) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
@@ -505,7 +510,7 @@ export const ReportPreview = ({
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {failedTests.map((test: any, index: number) => <tr key={index}>
+                          {failedTests.map((test, index: number) => <tr key={index}>
                               <td className="px-4 py-3 text-sm font-medium text-gray-900 break-words">
                                 {test.name}
                               </td>

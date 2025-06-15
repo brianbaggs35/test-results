@@ -1,7 +1,9 @@
 import React from 'react';
 import { XIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon, XCircleIcon, FileTextIcon, CodeIcon } from 'lucide-react';
+import { TestCase } from '../../types';
+
 interface TestDetailsModalProps {
-  test: any;
+  test: TestCase;
   onClose: () => void;
 }
 export const TestDetailsModal = ({
@@ -39,7 +41,7 @@ export const TestDetailsModal = ({
       stack: stack.trim()
     };
   };
-  const formatFailureDetails = (details: any) => {
+  const formatFailureDetails = (details: NonNullable<TestCase['failureDetails']>) => {
     if (!details) return null;
     return {
       message: details.message || '',

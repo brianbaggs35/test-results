@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ClockIcon, CheckIcon, FileTextIcon, CodeIcon } from 'lucide-react';
+import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 interface FailureProgressItem {
   id: string;

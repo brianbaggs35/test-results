@@ -7,27 +7,27 @@ Object.defineProperty(window, 'matchMedia', {
     matches: false,
     media: query,
     onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => {},
+    addListener: () => { /* mock implementation */ },
+    removeListener: () => { /* mock implementation */ },
+    addEventListener: () => { /* mock implementation */ },
+    removeEventListener: () => { /* mock implementation */ },
+    dispatchEvent: () => { /* mock implementation */ },
   }),
 });
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  observe() { /* mock implementation */ }
+  unobserve() { /* mock implementation */ }
+  disconnect() { /* mock implementation */ }
 };
 
 // Mock localStorage
 const localStorageMock = {
-  getItem: (key: string) => null,
-  setItem: (key: string, value: string) => {},
-  removeItem: (key: string) => {},
-  clear: () => {},
+  getItem: (_key: string) => null,
+  setItem: (_key: string, _value: string) => { /* mock implementation */ },
+  removeItem: (_key: string) => { /* mock implementation */ },
+  clear: () => { /* mock implementation */ },
 };
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,

@@ -1,8 +1,9 @@
 import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
+import { TestData, ReportConfig, TestCase } from '../../types';
 
-export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: any }) => {
+export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; config: ReportConfig }) => {
   const { summary } = testData;
 
   const statusData = [
@@ -11,10 +12,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
     { name: 'Skipped', value: summary.skipped, color: '#F59E0B' }
   ];
 
-  const failedTests = testData.suites.flatMap((suite: any) =>
+  const failedTests = testData.suites.flatMap((suite) =>
     suite.testcases
-      .filter((test: any) => test.status === 'failed')
-      .map((test: any) => ({ ...test, suite: suite.name }))
+      .filter((test) => test.status === 'failed')
+      .map((test) => ({ ...test, suite: suite.name }))
   );
 
   const getStatusIcon = (status: string) => {
@@ -28,7 +29,15 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
     }
   };
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percent: number;
+    value: number;
+  }) => {
     if (percent < 0.02) return null;
 
     const RADIAN = Math.PI / 180;
@@ -50,7 +59,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
     );
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: {
+    active?: boolean;
+    payload?: Array<{ payload: { name: string; value: number } }>;
+  }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -213,7 +225,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                   {summary.failed} test{summary.failed > 1 ? 's' : ''} failed ({(summary.failed / summary.total * 100).toFixed(1)}% of total tests)
                 </p>
                 <ul style={{ margin: '0', paddingLeft: '18px' }}>
-                  {failedTests.slice(0, 5).map((test: any, index: number) => (
+                  {failedTests.slice(0, 5).map((test, index: number) => (
                     <li key={index} style={{ fontSize: '11px', color: '#dc2626', marginBottom: '3px' }}>
                       • {test.name} ({test.suite})
                     </li>
@@ -425,7 +437,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                 </tr>
               </thead>
               <tbody>
-                {failedTests.map((test: any, index: number) => (
+                {failedTests.map((test, index: number) => (
                   <tr key={index}>
                     <td style={{
                       padding: '8px 10px',
@@ -493,8 +505,8 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
           </h2>
           {(() => {
             // Get all test cases and limit to prevent PDF rendering issues
-            const allTests = testData.suites.flatMap((suite: any) =>
-              suite.testcases.map((test: any) => ({ ...test, suite: suite.name }))
+            const allTests = testData.suites.flatMap((suite) =>
+              suite.testcases.map((test) => ({ ...test, suite: suite.name }))
             );
 
             // Limit the number of tests displayed in PDF to prevent memory issues
@@ -754,7 +766,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       </tr>
                     </thead>
                     <tbody>
-                      {failedTests.map((test: any, index: number) => (
+                      {failedTests.map((test, index: number) => (
                         <tr key={index}>
                           <td style={{
                             padding: '8px 10px',
