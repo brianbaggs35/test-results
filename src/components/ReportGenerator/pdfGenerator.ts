@@ -59,7 +59,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
   const style = document.createElement("style");
   style.textContent = `
     @page { 
-      margin: 0; 
+      margin: 5mm; 
       size: A4 portrait;
     }
     body { 
@@ -67,10 +67,14 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       padding: 0;
       width: 100% !important;
       max-width: none !important;
+      -webkit-print-color-adjust: exact !important;
+      color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     .pdf-frame {
       box-sizing: border-box !important;
       overflow: visible !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
     .page-break-before {
       page-break-before: always !important;
@@ -80,6 +84,20 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     }
     .avoid-break {
       page-break-inside: avoid !important;
+    }
+    table {
+      page-break-inside: avoid !important;
+      border-collapse: collapse !important;
+    }
+    tr {
+      page-break-inside: avoid !important;
+    }
+    svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+    svg text {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
     * { 
       -webkit-print-color-adjust: exact !important; 
@@ -119,20 +137,21 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     
     // Configure PDF options with improved settings for A4 format
     const opt = {
-      margin: [0, 0, 0, 0], // No margins since the frame is already sized for A4
+      margin: [5, 5, 5, 5], // Small margins for better page layout
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
-        type: "jpeg",
-        quality: 0.98
+        type: "png", // PNG for better quality than JPEG
+        quality: 1.0 // Maximum quality
       },
       html2canvas: {
-        scale: 1.0, // Keep 1:1 scale since frame is already A4 sized
+        scale: 2.0, // Higher scale for better clarity (2x DPI)
         useCORS: true,
         logging: false,
         allowTaint: true,
         scrollY: 0,
-        windowWidth: 794, // A4 width in pixels at 96 DPI (210mm)
-        windowHeight: 1123, // A4 height in pixels at 96 DPI (297mm)
+        dpi: 300, // Higher DPI for print quality
+        windowWidth: 1600, // Larger canvas for better resolution (roughly 2x)
+        windowHeight: 2260, // Corresponding height
         onclone: (doc: any) => {
           // Ensure the PDF frame is visible in the cloned document
           const pdfFrame = doc.getElementById('pdf-preview-frame');
@@ -159,20 +178,46 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
             regularPreview.style.display = 'none';
           }
           
-          // Ensure all SVG and chart elements are visible
+          // Ensure all SVG and chart elements are visible and properly rendered
           const svgs = doc.getElementsByTagName('svg');
           Array.from(svgs).forEach((svg: any) => {
             svg.style.visibility = 'visible';
             svg.style.overflow = 'visible';
+            svg.style.transform = 'none';
+            svg.style.width = svg.getAttribute('width') || '100%';
+            svg.style.height = svg.getAttribute('height') || '100%';
+            
+            // Ensure text elements in SVG are visible and readable
+            const texts = svg.getElementsByTagName('text');
+            Array.from(texts).forEach((text: any) => {
+              text.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              text.style.fontSize = text.style.fontSize || '11px';
+              text.style.fill = text.style.fill || '#374151';
+            });
           });
           
           // Ensure ResponsiveContainer elements work in the clone
           const responsiveContainers = doc.querySelectorAll('.recharts-responsive-container');
           Array.from(responsiveContainers).forEach((container: any) => {
             container.style.width = '100%';
-            container.style.height = 'auto';
+            container.style.height = container.style.height || '180px';
             container.style.position = 'relative';
             container.style.overflow = 'visible';
+            container.style.display = 'block';
+          });
+
+          // Improve table rendering
+          const tables = doc.getElementsByTagName('table');
+          Array.from(tables).forEach((table: any) => {
+            table.style.borderCollapse = 'collapse';
+            table.style.width = '100%';
+            table.style.pageBreakInside = 'avoid';
+          });
+
+          // Ensure proper page breaks
+          const sections = doc.querySelectorAll('[style*="pageBreakInside"]');
+          Array.from(sections).forEach((section: any) => {
+            section.style.pageBreakInside = 'avoid';
           });
         }
       },
@@ -180,13 +225,15 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         unit: "mm",
         format: "a4",
         orientation: "portrait",
-        compress: true
+        compress: true,
+        putOnlyUsedFonts: true, // Optimize font loading
+        floatPrecision: 16 // Better precision for layout
       },
       pagebreak: {
         mode: ['css', 'legacy'],
         before: '.page-break-before',
         after: '.page-break-after',
-        avoid: ['tr', 'td', '.avoid-break']
+        avoid: ['tr', 'td', '.avoid-break', 'table', 'img', 'svg'] // Better page break handling
       }
     };
     // Generate PDF with progress tracking
