@@ -29,7 +29,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
   const style = document.createElement("style");
   style.textContent = `
     @page {
-      margin: 5mm 1mm 5mm 1mm;
+      margin: 8mm 8mm 8mm 8mm;
       size: A4 portrait;
     }
     body {
@@ -107,25 +107,25 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
 
     // Calculate appropriate scale based on content size to prevent memory issues
     const estimatedContentSize = content.innerHTML.length;
-    let scale = 2.0;
-    let windowWidth = 1600;
-    let windowHeight = 2260;
+    let scale = 2.5; // Increased base scale for better page utilization
+    let windowWidth = 1800; // Increased window width for higher quality
+    let windowHeight = 2540; // Increased window height for A4 proportions
 
     // Reduce scale and window size for very large content to prevent memory issues
     if (estimatedContentSize > 500000) { // Very large content
-      scale = 1.5;
-      windowWidth = 1200;
-      windowHeight = 1700;
-      console.warn(`Large content detected (${estimatedContentSize} chars), reducing scale for PDF generation`);
-    } else if (estimatedContentSize > 200000) { // Large content
-      scale = 1.75;
+      scale = 1.8; // Increased from 1.5 for better space usage
       windowWidth = 1400;
       windowHeight = 1980;
+      console.warn(`Large content detected (${estimatedContentSize} chars), reducing scale for PDF generation`);
+    } else if (estimatedContentSize > 200000) { // Large content
+      scale = 2.1; // Increased from 1.75 for better space usage
+      windowWidth = 1600;
+      windowHeight = 2260;
     }
 
     // Configure PDF options with improved settings for A4 format
     const opt = {
-      margin: [5, 2, 5, 2], // Further reduced left and right margins to prevent content cut-off
+      margin: [8, 8, 8, 8], // More balanced margins to optimize page space utilization
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "png", // PNG for better quality than JPEG
