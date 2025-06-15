@@ -1,4 +1,3 @@
-import React from 'react';
 import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
@@ -31,19 +30,19 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
     if (percent < 0.02) return null;
-    
+
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.8; // Moved labels slightly outward
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    
+
     return (
-      <text 
-        x={x} 
-        y={y} 
+      <text
+        x={x}
+        y={y}
         fill="#374151" // Darker color for better contrast
-        textAnchor={x > cx ? 'start' : 'end'} 
-        dominantBaseline="central" 
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
         style={{ fontSize: '11px', fontWeight: '600' }} // Increased size and weight
       >
         {value} ({(percent * 100).toFixed(0)}%)
@@ -66,8 +65,8 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
   };
 
   return (
-    <div 
-      id="pdf-preview-frame" 
+    <div
+      id="pdf-preview-frame"
       className="pdf-frame"
       style={{
         width: '210mm',
@@ -77,40 +76,40 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '15mm 15mm 15mm 3mm', // Further reduced left padding to fix content cut-off
+        padding: '15mm 60mm 15mm 15mm', // Further reduced left padding to fix content cut-off
         margin: '0',
         boxSizing: 'border-box'
       }}
     >
       {/* Title Page */}
       <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb' }}>
-        <h1 style={{ 
+        <h1 style={{
           fontSize: '24px', // Increased from 22px
-          fontWeight: 'bold', 
-          textAlign: 'center', 
-          color: '#1f2937', 
+          fontWeight: 'bold',
+          textAlign: 'center',
+          color: '#1f2937',
           marginBottom: '16px', // Increased spacing
           lineHeight: '1.2'
         }}>
           {config.title}
         </h1>
         {config.projectName && (
-          <h2 style={{ 
+          <h2 style={{
             fontSize: '20px', // Increased from 18px
-            fontWeight: '600', 
-            textAlign: 'center', 
-            color: '#6b7280', 
+            fontWeight: '600',
+            textAlign: 'center',
+            color: '#6b7280',
             marginBottom: '20px' // Increased spacing
           }}>
             {config.projectName}
           </h2>
         )}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ 
-            backgroundColor: '#dbeafe', 
-            color: '#1e40af', 
-            padding: '10px 20px', 
-            borderRadius: '20px', 
+          <div style={{
+            backgroundColor: '#dbeafe',
+            color: '#1e40af',
+            padding: '10px 20px',
+            borderRadius: '20px',
             display: 'inline-block',
             fontSize: '13px'
           }}>
@@ -170,10 +169,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
           </h2>
           <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px' }}>
             <p style={{ marginBottom: '12px', fontSize: '13px' }}>
-              This report provides an overview of the automated test results for {config.projectName || 'the project'}. 
+              This report provides an overview of the automated test results for {config.projectName || 'the project'}.
               The tests were executed on {new Date().toLocaleDateString()} with a total duration of {formatDuration(summary.time)}.
             </p>
-            
+
             {/* Test Summary Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10mm', marginBottom: '16px' }}>
               <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -200,11 +199,11 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
 
             {/* Failed Tests Summary */}
             {summary.failed > 0 && (
-              <div style={{ 
-                backgroundColor: '#fef2f2', 
-                border: '1px solid #fecaca', 
-                borderRadius: '6px', 
-                padding: '12px', 
+              <div style={{
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                padding: '12px',
                 marginBottom: '12px'
               }}>
                 <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#dc2626', marginBottom: '6px' }}>
@@ -229,7 +228,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
             )}
 
             <p style={{ marginBottom: '0', fontSize: '13px' }}>
-              {summary.failed > 0 
+              {summary.failed > 0
                 ? `There were ${summary.failed} failed tests that require attention. Key areas to focus on include reviewing the failed test cases and addressing the underlying issues.`
                 : 'All tests passed successfully. The test suite is performing as expected.'
               }
@@ -253,15 +252,15 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               <div style={{ height: '180px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie 
-                      data={statusData} 
-                      cx="50%" 
-                      cy="50%" 
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
                       innerRadius={45} // Increased from 40
                       outerRadius={80} // Increased from 70
                       paddingAngle={1} // Increased from 0 for better separation
-                      dataKey="value" 
-                      labelLine={false} 
+                      dataKey="value"
+                      labelLine={false}
                       label={renderCustomizedLabel}
                       minAngle={2}
                       stroke="#ffffff" // White stroke for better separation
@@ -272,13 +271,13 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip active={false} payload={[]} />} />
-                    <Legend 
-                      verticalAlign="bottom" 
+                    <Legend
+                      verticalAlign="bottom"
                       height={30}
                       wrapperStyle={{ fontSize: '11px' }}
                       formatter={(value, entry) => (
                         <span style={{ color: entry.color, fontWeight: '500' }}>{value}</span>
-                      )} 
+                      )}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -290,28 +289,28 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}>
                 Test Results Summary
               </h3>
-              <table style={{ 
-                width: '100%', 
-                borderCollapse: 'collapse', 
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
                 fontSize: '11px',
                 backgroundColor: 'white',
                 border: '1px solid #e5e7eb'
               }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f9fafb' }}>
-                    <th style={{ 
+                    <th style={{
                       padding: '8px 10px',
-                      textAlign: 'left', 
-                      fontWeight: '500', 
+                      textAlign: 'left',
+                      fontWeight: '500',
                       color: '#6b7280',
                       border: '1px solid #e5e7eb'
                     }}>
                       Metric
                     </th>
-                    <th style={{ 
+                    <th style={{
                       padding: '8px 10px',
-                      textAlign: 'left', 
-                      fontWeight: '500', 
+                      textAlign: 'left',
+                      fontWeight: '500',
                       color: '#6b7280',
                       border: '1px solid #e5e7eb'
                     }}>
@@ -374,49 +373,49 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
             3. Failed Tests
           </h2>
           {failedTests.length > 0 ? (
-            <table style={{ 
-              width: '100%', 
-              borderCollapse: 'collapse', 
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
               fontSize: '10px',
               backgroundColor: 'white',
               border: '1px solid #e5e7eb'
             }}>
               <thead>
                 <tr style={{ backgroundColor: '#f9fafb' }}>
-                  <th style={{ 
+                  <th style={{
                     padding: '8px 10px',
-                    textAlign: 'left', 
-                    fontWeight: '500', 
+                    textAlign: 'left',
+                    fontWeight: '500',
                     color: '#6b7280',
                     border: '1px solid #e5e7eb',
                     width: '25%'
                   }}>
                     Test Name
                   </th>
-                  <th style={{ 
+                  <th style={{
                     padding: '8px 10px',
-                    textAlign: 'left', 
-                    fontWeight: '500', 
+                    textAlign: 'left',
+                    fontWeight: '500',
                     color: '#6b7280',
                     border: '1px solid #e5e7eb',
                     width: '20%'
                   }}>
                     Suite
                   </th>
-                  <th style={{ 
+                  <th style={{
                     padding: '8px 10px',
-                    textAlign: 'left', 
-                    fontWeight: '500', 
+                    textAlign: 'left',
+                    fontWeight: '500',
                     color: '#6b7280',
                     border: '1px solid #e5e7eb',
                     width: '10%'
                   }}>
                     Duration
                   </th>
-                  <th style={{ 
+                  <th style={{
                     padding: '8px 10px',
-                    textAlign: 'left', 
-                    fontWeight: '500', 
+                    textAlign: 'left',
+                    fontWeight: '500',
                     color: '#6b7280',
                     border: '1px solid #e5e7eb',
                     width: '45%'
@@ -428,36 +427,36 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               <tbody>
                 {failedTests.map((test: any, index: number) => (
                   <tr key={index}>
-                    <td style={{ 
+                    <td style={{
                       padding: '8px 10px',
-                      fontWeight: '500', 
-                      color: '#dc2626', 
+                      fontWeight: '500',
+                      color: '#dc2626',
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
                       maxWidth: '0'
                     }}>
                       {test.name}
                     </td>
-                    <td style={{ 
+                    <td style={{
                       padding: '8px 10px',
-                      color: '#6b7280', 
+                      color: '#6b7280',
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
                       maxWidth: '0'
                     }}>
                       {test.suite}
                     </td>
-                    <td style={{ 
+                    <td style={{
                       padding: '8px 10px',
-                      color: '#6b7280', 
+                      color: '#6b7280',
                       border: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap'
                     }}>
                       {parseFloat(test.time).toFixed(2)}s
                     </td>
-                    <td style={{ 
+                    <td style={{
                       padding: '8px 10px',
-                      color: '#6b7280', 
+                      color: '#6b7280',
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
                       maxWidth: '0'
@@ -469,10 +468,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               </tbody>
             </table>
           ) : (
-            <div style={{ 
-              backgroundColor: '#f0fdf4', 
-              border: '1px solid #bbf7d0', 
-              borderRadius: '4px', 
+            <div style={{
+              backgroundColor: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '4px',
               padding: '8px',
               display: 'flex',
               alignItems: 'center'
@@ -497,19 +496,19 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
             const allTests = testData.suites.flatMap((suite: any) =>
               suite.testcases.map((test: any) => ({ ...test, suite: suite.name }))
             );
-            
+
             // Limit the number of tests displayed in PDF to prevent memory issues
             const maxTestsInPDF = 1000; // Reasonable limit for PDF generation
             const testsToShow = allTests.slice(0, maxTestsInPDF);
             const hasMoreTests = allTests.length > maxTestsInPDF;
-            
+
             return (
               <div>
                 {hasMoreTests && (
-                  <div style={{ 
-                    backgroundColor: '#fef3c7', 
-                    border: '1px solid #f59e0b', 
-                    borderRadius: '4px', 
+                  <div style={{
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    borderRadius: '4px',
                     padding: '8px',
                     marginBottom: '12px'
                   }}>
@@ -518,60 +517,60 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     </p>
                   </div>
                 )}
-                
-                <table style={{ 
-                  width: '100%', 
-                  borderCollapse: 'collapse', 
+
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
                   fontSize: '10px',
                   backgroundColor: 'white',
                   border: '1px solid #e5e7eb'
                 }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb' }}>
-                      <th style={{ 
+                      <th style={{
                         padding: '8px 10px',
-                        textAlign: 'left', 
-                        fontWeight: '500', 
+                        textAlign: 'left',
+                        fontWeight: '500',
                         color: '#6b7280',
                         border: '1px solid #e5e7eb',
                         width: '30%'
                       }}>
                         Test Name
                       </th>
-                      <th style={{ 
+                      <th style={{
                         padding: '8px 10px',
-                        textAlign: 'left', 
-                        fontWeight: '500', 
+                        textAlign: 'left',
+                        fontWeight: '500',
                         color: '#6b7280',
                         border: '1px solid #e5e7eb',
                         width: '20%'
                       }}>
                         Suite
                       </th>
-                      <th style={{ 
+                      <th style={{
                         padding: '8px 10px',
-                        textAlign: 'left', 
-                        fontWeight: '500', 
+                        textAlign: 'left',
+                        fontWeight: '500',
                         color: '#6b7280',
                         border: '1px solid #e5e7eb',
                         width: '15%'
                       }}>
                         Status
                       </th>
-                      <th style={{ 
+                      <th style={{
                         padding: '8px 10px',
-                        textAlign: 'left', 
-                        fontWeight: '500', 
+                        textAlign: 'left',
+                        fontWeight: '500',
                         color: '#6b7280',
                         border: '1px solid #e5e7eb',
                         width: '15%'
                       }}>
                         Assignee
                       </th>
-                      <th style={{ 
+                      <th style={{
                         padding: '8px 10px',
-                        textAlign: 'left', 
-                        fontWeight: '500', 
+                        textAlign: 'left',
+                        fontWeight: '500',
                         color: '#6b7280',
                         border: '1px solid #e5e7eb',
                         width: '10%'
@@ -583,34 +582,34 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                   <tbody>
                     {testsToShow.map((test: any, testIndex: number) => (
                       <tr key={`all-tests-${testIndex}`}>
-                        <td style={{ 
+                        <td style={{
                           padding: '8px 10px',
-                          fontWeight: '500', 
-                          color: '#1f2937', 
+                          fontWeight: '500',
+                          color: '#1f2937',
                           border: '1px solid #e5e7eb',
                           wordWrap: 'break-word',
                           maxWidth: '0'
                         }}>
                           {test.name}
                         </td>
-                        <td style={{ 
+                        <td style={{
                           padding: '8px 10px',
-                          color: '#6b7280', 
+                          color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           wordWrap: 'break-word',
                           maxWidth: '0'
                         }}>
                           {test.suite}
                         </td>
-                        <td style={{ 
+                        <td style={{
                           padding: '8px 10px',
                           border: '1px solid #e5e7eb',
                           whiteSpace: 'nowrap'
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             {getStatusIcon(test.status)}
-                            <span style={{ 
-                              marginLeft: '4px', 
+                            <span style={{
+                              marginLeft: '4px',
                               color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
                               fontWeight: '500',
                               fontSize: '10px'
@@ -619,18 +618,18 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                             </span>
                           </div>
                         </td>
-                        <td style={{ 
+                        <td style={{
                           padding: '8px 10px',
-                          color: '#6b7280', 
+                          color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           wordWrap: 'break-word',
                           maxWidth: '0'
                         }}>
                           {test.assignee || 'Unassigned'}
                         </td>
-                        <td style={{ 
+                        <td style={{
                           padding: '8px 10px',
-                          color: '#6b7280', 
+                          color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           whiteSpace: 'nowrap'
                         }}>
@@ -661,12 +660,12 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
             } catch (e) {
               console.warn('Could not access localStorage in PDF context:', e);
             }
-            
+
             const failedTests = Object.values(progressData);
             const totalTests = failedTests.length;
             const completedTests = failedTests.filter((test: any) => test.status === 'completed').length;
             const inProgressTests = failedTests.filter((test: any) => test.status === 'in_progress').length;
-            
+
             return (
               <div>
                 {/* Progress Summary Cards */}
@@ -693,59 +692,59 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
 
                 {/* Progress Table */}
                 {totalTests > 0 ? (
-                  <table style={{ 
-                    width: '100%', 
-                    borderCollapse: 'collapse', 
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
                     fontSize: '10px',
                     backgroundColor: 'white',
                     border: '1px solid #e5e7eb'
                   }}>
                     <thead>
                       <tr style={{ backgroundColor: '#f9fafb' }}>
-                        <th style={{ 
+                        <th style={{
                           padding: '8px 10px',
-                          textAlign: 'left', 
-                          fontWeight: '500', 
+                          textAlign: 'left',
+                          fontWeight: '500',
                           color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           width: '25%'
                         }}>
                           Test Name
                         </th>
-                        <th style={{ 
+                        <th style={{
                           padding: '8px 10px',
-                          textAlign: 'left', 
-                          fontWeight: '500', 
+                          textAlign: 'left',
+                          fontWeight: '500',
                           color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           width: '20%'
                         }}>
                           Suite
                         </th>
-                        <th style={{ 
+                        <th style={{
                           padding: '8px 10px',
-                          textAlign: 'left', 
-                          fontWeight: '500', 
+                          textAlign: 'left',
+                          fontWeight: '500',
                           color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           width: '15%'
                         }}>
                           Status
                         </th>
-                        <th style={{ 
+                        <th style={{
                           padding: '8px 10px',
-                          textAlign: 'left', 
-                          fontWeight: '500', 
+                          textAlign: 'left',
+                          fontWeight: '500',
                           color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           width: '15%'
                         }}>
                           Assignee
                         </th>
-                        <th style={{ 
+                        <th style={{
                           padding: '8px 10px',
-                          textAlign: 'left', 
-                          fontWeight: '500', 
+                          textAlign: 'left',
+                          fontWeight: '500',
                           color: '#6b7280',
                           border: '1px solid #e5e7eb',
                           width: '25%'
@@ -757,31 +756,31 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     <tbody>
                       {failedTests.map((test: any, index: number) => (
                         <tr key={index}>
-                          <td style={{ 
+                          <td style={{
                             padding: '8px 10px',
-                            fontWeight: '500', 
-                            color: '#1f2937', 
+                            fontWeight: '500',
+                            color: '#1f2937',
                             border: '1px solid #e5e7eb',
                             wordWrap: 'break-word',
                             maxWidth: '0'
                           }}>
                             {test.name}
                           </td>
-                          <td style={{ 
+                          <td style={{
                             padding: '8px 10px',
-                            color: '#6b7280', 
+                            color: '#6b7280',
                             border: '1px solid #e5e7eb',
                             wordWrap: 'break-word',
                             maxWidth: '0'
                           }}>
                             {test.suite}
                           </td>
-                          <td style={{ 
+                          <td style={{
                             padding: '8px 10px',
                             border: '1px solid #e5e7eb',
                             whiteSpace: 'nowrap'
                           }}>
-                            <span style={{ 
+                            <span style={{
                               display: 'inline-block',
                               padding: '2px 6px',
                               borderRadius: '12px',
@@ -793,18 +792,18 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                               {test.status ? test.status.replace('_', ' ').charAt(0).toUpperCase() + test.status.slice(1) : 'Not Started'}
                             </span>
                           </td>
-                          <td style={{ 
+                          <td style={{
                             padding: '8px 10px',
-                            color: '#6b7280', 
+                            color: '#6b7280',
                             border: '1px solid #e5e7eb',
                             wordWrap: 'break-word',
                             maxWidth: '0'
                           }}>
                             {test.assignee || '-'}
                           </td>
-                          <td style={{ 
+                          <td style={{
                             padding: '8px 10px',
-                            color: '#6b7280', 
+                            color: '#6b7280',
                             border: '1px solid #e5e7eb',
                             wordWrap: 'break-word',
                             maxWidth: '0'
@@ -816,10 +815,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     </tbody>
                   </table>
                 ) : (
-                  <div style={{ 
-                    backgroundColor: '#f3f4f6', 
-                    border: '1px solid #d1d5db', 
-                    borderRadius: '4px', 
+                  <div style={{
+                    backgroundColor: '#f3f4f6',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '4px',
                     padding: '12px',
                     textAlign: 'center'
                   }}>

@@ -1,33 +1,3 @@
-interface Html2PdfOptions {
-  margin: number[];
-  filename: string;
-  image: {
-    type: string;
-    quality: number;
-  };
-  html2canvas: {
-    scale: number;
-    useCORS: boolean;
-    logging: boolean;
-    allowTaint?: boolean;
-    scrollY?: number;
-    windowWidth?: number;
-    windowHeight?: number;
-    onclone?: (doc: Document) => void;
-  };
-  jsPDF: {
-    unit: string;
-    format: string;
-    orientation: string;
-    compress?: boolean;
-  };
-  pagebreak?: {
-    mode: string[];
-    before: string;
-    after: string;
-    avoid: string[];
-  };
-}
 declare global {
   interface Window {
     html2pdf: any;
@@ -47,7 +17,7 @@ const loadHtml2Pdf = async (): Promise<void> => {
 };
 const prepareContent = (element: HTMLElement): HTMLElement => {
   const content = element.cloneNode(true) as HTMLElement;
-  
+
   // Remove elements that shouldn't be in the PDF
   const elementsToRemove = [".recharts-tooltip-wrapper", "button", ".print-hide", "input", "select"];
   elementsToRemove.forEach(selector => {
@@ -58,11 +28,11 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
   // Add minimal PDF-specific styles for page breaks and print optimization
   const style = document.createElement("style");
   style.textContent = `
-    @page { 
-      margin: 5mm 2mm 5mm 2mm; 
+    @page {
+      margin: 5mm 1mm 5mm 1mm;
       size: A4 portrait;
     }
-    body { 
+    body {
       margin: 0;
       padding: 0;
       width: 100% !important;
@@ -99,24 +69,24 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     svg text {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
-    * { 
-      -webkit-print-color-adjust: exact !important; 
-      color-adjust: exact !important; 
-      print-color-adjust: exact !important; 
+    * {
+      -webkit-print-color-adjust: exact !important;
+      color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
   `;
   content.insertBefore(style, content.firstChild);
   return content;
 };
-export const generatePDF = async (testData: any, config: any, onProgress?: (progress: number) => void): Promise<void> => {
+export const generatePDF = async (_testData: any, _config: any, onProgress?: (progress: number) => void): Promise<void> => {
   try {
     await loadHtml2Pdf();
     // Wait longer for charts and content to fully render
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
+
     // Ensure all async content is loaded
     if (onProgress) onProgress(10);
-    
+
     // Try to find the PDF preview frame first, fallback to regular preview if needed
     let reportElement = document.getElementById("pdf-preview-frame");
     if (!reportElement) {
@@ -126,21 +96,21 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         throw new Error("No report content found for PDF generation");
       }
     }
-    
+
     // Wait for any remaining chart animations or async rendering
     await new Promise(resolve => setTimeout(resolve, 1000));
     if (onProgress) onProgress(20);
-    
+
     // Use the prepareContent function to properly process the content
     const content = prepareContent(reportElement);
     if (onProgress) onProgress(30);
-    
+
     // Calculate appropriate scale based on content size to prevent memory issues
     const estimatedContentSize = content.innerHTML.length;
     let scale = 2.0;
     let windowWidth = 1600;
     let windowHeight = 2260;
-    
+
     // Reduce scale and window size for very large content to prevent memory issues
     if (estimatedContentSize > 500000) { // Very large content
       scale = 1.5;
@@ -152,7 +122,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
       windowWidth = 1400;
       windowHeight = 1980;
     }
-    
+
     // Configure PDF options with improved settings for A4 format
     const opt = {
       margin: [5, 2, 5, 2], // Further reduced left and right margins to prevent content cut-off
@@ -167,7 +137,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         logging: false,
         allowTaint: true,
         scrollY: 0,
-        dpi: 300, // Higher DPI for print quality
+        dpi: 400, // Higher DPI for print quality
         windowWidth: windowWidth, // Dynamic width
         windowHeight: windowHeight, // Dynamic height
         timeout: 30000, // Increase timeout for large content
@@ -190,13 +160,13 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
             pdfFrame.style.overflow = 'visible';
             pdfFrame.style.transform = 'none';
           }
-          
+
           // Hide the regular preview content to avoid conflicts
           const regularPreview = doc.getElementById('report-preview');
           if (regularPreview) {
             regularPreview.style.display = 'none';
           }
-          
+
           // Ensure all SVG and chart elements are visible and properly rendered
           const svgs = doc.getElementsByTagName('svg');
           Array.from(svgs).forEach((svg: any) => {
@@ -205,7 +175,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
             svg.style.transform = 'none';
             svg.style.width = svg.getAttribute('width') || '100%';
             svg.style.height = svg.getAttribute('height') || '100%';
-            
+
             // Ensure text elements in SVG are visible and readable
             const texts = svg.getElementsByTagName('text');
             Array.from(texts).forEach((text: any) => {
@@ -214,7 +184,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
               text.style.fill = text.style.fill || '#374151';
             });
           });
-          
+
           // Ensure ResponsiveContainer elements work in the clone
           const responsiveContainers = doc.querySelectorAll('.recharts-responsive-container');
           Array.from(responsiveContainers).forEach((container: any) => {
@@ -231,7 +201,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
             table.style.borderCollapse = 'collapse';
             table.style.width = '100%';
             table.style.pageBreakInside = 'auto'; // Allow breaking for very large tables
-            
+
             // For very large tables, add explicit page breaks every 50 rows
             const rows = table.getElementsByTagName('tr');
             if (rows.length > 50) {
@@ -270,29 +240,34 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
       if (onProgress) onProgress(40);
       const worker = window.html2pdf().from(content).set(opt);
       if (onProgress) onProgress(60);
-      
+
       // Add timeout for PDF generation to prevent hanging
-      const pdfGenerationTimeout = new Promise((_, reject) => 
+      const pdfGenerationTimeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('PDF generation timed out')), 120000) // 2 minute timeout
       );
-      
+
       // Race between PDF generation and timeout
       await Promise.race([
         worker.save(),
         pdfGenerationTimeout
       ]);
-      
+
       if (onProgress) {
         onProgress(100);
       }
     } catch (err) {
       console.error('PDF Generation failed:', err);
-      if (err.message && err.message.includes('timeout')) {
-        throw new Error('PDF generation timed out. The report may be too large. Try reducing the content or splitting into multiple reports.');
-      } else if (err.message && err.message.includes('memory')) {
-        throw new Error('Not enough memory to generate PDF. Try reducing the content or refreshing the page.');
+      if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string') {
+        const message = (err as any).message as string;
+        if (message.includes('timeout')) {
+          throw new Error('PDF generation timed out. The report may be too large. Try reducing the content or splitting into multiple reports.');
+        } else if (message.includes('memory')) {
+          throw new Error('Not enough memory to generate PDF. Try reducing the content or refreshing the page.');
+        } else {
+          throw new Error('Failed to generate PDF. Please try again or reduce the report content.');
+        }
       } else {
-        throw new Error('Failed to generate PDF. Please try again or reduce the report content.');
+        throw new Error('Failed to generate PDF due to an unknown error.');
       }
     }
   } catch (error) {
