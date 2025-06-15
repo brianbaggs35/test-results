@@ -99,8 +99,15 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     // Ensure all async content is loaded
     if (onProgress) onProgress(10);
     
-    const reportElement = document.getElementById("pdf-preview-frame");
-    if (!reportElement) throw new Error("PDF preview frame not found");
+    // Try to find the PDF preview frame first, fallback to regular preview if needed
+    let reportElement = document.getElementById("pdf-preview-frame");
+    if (!reportElement) {
+      console.warn("PDF preview frame not found, falling back to regular preview");
+      reportElement = document.getElementById("report-preview");
+      if (!reportElement) {
+        throw new Error("No report content found for PDF generation");
+      }
+    }
     
     // Wait for any remaining chart animations or async rendering
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -136,18 +143,37 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
               pdfFrameParent.style.left = 'auto';
               pdfFrameParent.style.top = 'auto';
               pdfFrameParent.style.visibility = 'visible';
+              pdfFrameParent.style.overflow = 'visible';
             }
             pdfFrame.style.position = 'static';
             pdfFrame.style.left = 'auto';
             pdfFrame.style.top = 'auto';
             pdfFrame.style.visibility = 'visible';
+            pdfFrame.style.overflow = 'visible';
+            pdfFrame.style.transform = 'none';
           }
           
-          // Hide the regular preview content
+          // Hide the regular preview content to avoid conflicts
           const regularPreview = doc.getElementById('report-preview');
           if (regularPreview) {
             regularPreview.style.display = 'none';
           }
+          
+          // Ensure all SVG and chart elements are visible
+          const svgs = doc.getElementsByTagName('svg');
+          Array.from(svgs).forEach((svg: any) => {
+            svg.style.visibility = 'visible';
+            svg.style.overflow = 'visible';
+          });
+          
+          // Ensure ResponsiveContainer elements work in the clone
+          const responsiveContainers = doc.querySelectorAll('.recharts-responsive-container');
+          Array.from(responsiveContainers).forEach((container: any) => {
+            container.style.width = '100%';
+            container.style.height = 'auto';
+            container.style.position = 'relative';
+            container.style.overflow = 'visible';
+          });
         }
       },
       jsPDF: {

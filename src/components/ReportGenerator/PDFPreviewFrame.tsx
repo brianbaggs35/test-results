@@ -260,7 +260,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                         <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={1} />
                       ))}
                     </Pie>
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={<CustomTooltip active={false} payload={[]} />} />
                     <Legend 
                       verticalAlign="bottom" 
                       height={24} 
