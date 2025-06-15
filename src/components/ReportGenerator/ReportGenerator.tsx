@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { FileTextIcon, EyeIcon } from 'lucide-react';
 import { ReportPreview } from './ReportPreview';
+import { TestData } from '../../types';
+
 export const ReportGenerator = ({
   testData
+}: {
+  testData: TestData | null;
 }) => {
   const [reportConfig, setReportConfig] = useState({
     title: 'Automated Test Results Report',

@@ -1,21 +1,6 @@
 import React from 'react';
 import { XIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon, XCircleIcon, FileTextIcon, CodeIcon } from 'lucide-react';
-
-interface FailureDetails {
-  message?: string;
-  type?: string;
-  stackTrace?: string;
-}
-
-interface TestCase {
-  name: string;
-  status: 'passed' | 'failed' | 'skipped';
-  suite: string;
-  classname?: string;
-  time: string;
-  errorMessage?: string;
-  failureDetails?: FailureDetails;
-}
+import { TestCase } from '../../types';
 
 interface TestDetailsModalProps {
   test: TestCase;
@@ -56,7 +41,7 @@ export const TestDetailsModal = ({
       stack: stack.trim()
     };
   };
-  const formatFailureDetails = (details: FailureDetails) => {
+  const formatFailureDetails = (details: NonNullable<TestCase['failureDetails']>) => {
     if (!details) return null;
     return {
       message: details.message || '',

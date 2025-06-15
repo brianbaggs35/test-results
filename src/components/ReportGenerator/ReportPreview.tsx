@@ -4,10 +4,16 @@ import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recha
 import { formatDuration } from '../../utils/formatting';
 import { generatePDF } from './pdfGenerator';
 import { PDFPreviewFrame } from './PDFPreviewFrame';
+import { TestData, ReportConfig } from '../../types';
+
 export const ReportPreview = ({
   testData,
   config,
   onBack
+}: {
+  testData: TestData;
+  config: ReportConfig;
+  onBack: () => void;
 }) => {
   const {
     summary
@@ -504,7 +510,7 @@ export const ReportPreview = ({
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {failedTests.map((test: any, index: number) => <tr key={index}>
+                          {failedTests.map((test, index: number) => <tr key={index}>
                               <td className="px-4 py-3 text-sm font-medium text-gray-900 break-words">
                                 {test.name}
                               </td>
