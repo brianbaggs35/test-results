@@ -105,20 +105,20 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
             {config.projectName}
           </h2>
         )}
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}> // Increased spacing
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ 
             backgroundColor: '#dbeafe', 
             color: '#1e40af', 
-            padding: '10px 20px', // Increased padding
+            padding: '10px 20px', 
             borderRadius: '20px', 
             display: 'inline-block',
-            fontSize: '13px' // Increased font size
+            fontSize: '13px'
           }}>
             Generated on {new Date().toLocaleDateString()}
           </div>
         </div>
         {config.author && (
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '13px' }}> // Increased font size
+          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
             Prepared by: {config.author}
           </p>
         )}
@@ -128,13 +128,13 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
       <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
           <BookOpenIcon style={{ width: '16px', height: '16px', color: '#2563eb', marginRight: '8px' }} />
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', margin: '0' }}> // Increased from 18px
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', margin: '0' }}>
             Table of Contents
           </h2>
         </div>
         <div style={{ paddingLeft: '24px' }}>
-          <div style={{ marginBottom: '8px' }}> // Increased spacing
-            <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>1.</span> // Increased font
+          <div style={{ marginBottom: '8px' }}>
+            <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>1.</span>
             <span style={{ color: '#2563eb', fontSize: '13px' }}>Executive Summary</span>
           </div>
           <div style={{ marginBottom: '8px' }}>
@@ -157,21 +157,21 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
       {/* Executive Summary */}
       {config.includeExecutiveSummary && (
         <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}> // Increased from 18px
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
             1. Executive Summary
           </h2>
-          <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px' }}> // Increased padding and border radius
-            <p style={{ marginBottom: '12px', fontSize: '13px' }}> // Increased font size and spacing
+          <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px' }}>
+            <p style={{ marginBottom: '12px', fontSize: '13px' }}>
               This report provides an overview of the automated test results for {config.projectName || 'the project'}. 
               The tests were executed on {new Date().toLocaleDateString()} with a total duration of {formatDuration(summary.time)}.
             </p>
             
             {/* Test Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10mm', marginBottom: '16px' }}> // Increased gap and margin
-              <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}> // Increased padding
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10mm', marginBottom: '16px' }}>
+              <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#6b7280', margin: '0' }}>Total Tests</h4> // Increased font
-                  <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>{summary.total}</span> // Increased font
+                  <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#6b7280', margin: '0' }}>Total Tests</h4>
+                  <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>{summary.total}</span>
                 </div>
               </div>
               <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -185,7 +185,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#6b7280', margin: '0' }}>Duration</h4>
-                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#8b5cf6' }}>{formatDuration(summary.time)}</span> // Increased font
+                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#8b5cf6' }}>{formatDuration(summary.time)}</span>
                 </div>
               </div>
             </div>
@@ -195,24 +195,24 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               <div style={{ 
                 backgroundColor: '#fef2f2', 
                 border: '1px solid #fecaca', 
-                borderRadius: '6px', // Increased from 4px
-                padding: '12px', // Increased from 8px
-                marginBottom: '12px' // Increased from 8px
+                borderRadius: '6px', 
+                padding: '12px', 
+                marginBottom: '12px'
               }}>
-                <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#dc2626', marginBottom: '6px' }}> // Increased font and spacing
+                <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#dc2626', marginBottom: '6px' }}>
                   Failed Tests Summary
                 </h4>
-                <p style={{ color: '#dc2626', fontSize: '12px', marginBottom: '6px' }}> // Increased font and spacing
+                <p style={{ color: '#dc2626', fontSize: '12px', marginBottom: '6px' }}>
                   {summary.failed} test{summary.failed > 1 ? 's' : ''} failed ({(summary.failed / summary.total * 100).toFixed(1)}% of total tests)
                 </p>
-                <ul style={{ margin: '0', paddingLeft: '18px' }}> // Increased padding
+                <ul style={{ margin: '0', paddingLeft: '18px' }}>
                   {failedTests.slice(0, 5).map((test: any, index: number) => (
-                    <li key={index} style={{ fontSize: '11px', color: '#dc2626', marginBottom: '3px' }}> // Increased font and spacing
+                    <li key={index} style={{ fontSize: '11px', color: '#dc2626', marginBottom: '3px' }}>
                       • {test.name} ({test.suite})
                     </li>
                   ))}
                   {failedTests.length > 5 && (
-                    <li style={{ fontSize: '11px', color: '#dc2626', fontStyle: 'italic' }}> // Increased font
+                    <li style={{ fontSize: '11px', color: '#dc2626', fontStyle: 'italic' }}>
                       ... and {failedTests.length - 5} more
                     </li>
                   )}
@@ -220,7 +220,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
               </div>
             )}
 
-            <p style={{ marginBottom: '0', fontSize: '13px' }}> // Increased font size
+            <p style={{ marginBottom: '0', fontSize: '13px' }}>
               {summary.failed > 0 
                 ? `There were ${summary.failed} failed tests that require attention. Key areas to focus on include reviewing the failed test cases and addressing the underlying issues.`
                 : 'All tests passed successfully. The test suite is performing as expected.'
@@ -233,16 +233,16 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
       {/* Test Metrics */}
       {config.includeTestMetrics && (
         <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}> // Increased from 18px
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
             2. Test Metrics
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20mm' }}> // Increased gap
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20mm' }}>
             {/* Chart */}
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}> // Increased font and spacing
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}>
                 Test Results Distribution
               </h3>
-              <div style={{ height: '180px', width: '100%' }}> // Increased height
+              <div style={{ height: '180px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie 
@@ -266,8 +266,8 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     <Tooltip content={<CustomTooltip active={false} payload={[]} />} />
                     <Legend 
                       verticalAlign="bottom" 
-                      height={30} // Increased from 24
-                      wrapperStyle={{ fontSize: '11px' }} // Increased from 10px
+                      height={30}
+                      wrapperStyle={{ fontSize: '11px' }}
                       formatter={(value, entry) => (
                         <span style={{ color: entry.color, fontWeight: '500' }}>{value}</span>
                       )} 
@@ -279,20 +279,20 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
 
             {/* Summary Table */}
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}> // Increased font and spacing
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}>
                 Test Results Summary
               </h3>
               <table style={{ 
                 width: '100%', 
                 borderCollapse: 'collapse', 
-                fontSize: '11px', // Increased from 10px
+                fontSize: '11px',
                 backgroundColor: 'white',
                 border: '1px solid #e5e7eb'
               }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f9fafb' }}>
                     <th style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       textAlign: 'left', 
                       fontWeight: '500', 
                       color: '#6b7280',
@@ -301,7 +301,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       Metric
                     </th>
                     <th style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       textAlign: 'left', 
                       fontWeight: '500', 
                       color: '#6b7280',
@@ -313,7 +313,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                 </thead>
                 <tbody>
                   <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}> // Increased padding
+                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}>
                       Total Tests
                     </td>
                     <td style={{ padding: '8px 10px', color: '#6b7280', border: '1px solid #e5e7eb' }}>
@@ -362,21 +362,21 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
       {/* Failed Tests */}
       {config.includeFailedTests && (
         <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}> // Increased from 18px
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
             3. Failed Tests
           </h2>
           {failedTests.length > 0 ? (
             <table style={{ 
               width: '100%', 
               borderCollapse: 'collapse', 
-              fontSize: '10px', // Increased from 9px
+              fontSize: '10px',
               backgroundColor: 'white',
               border: '1px solid #e5e7eb'
             }}>
               <thead>
                 <tr style={{ backgroundColor: '#f9fafb' }}>
                   <th style={{ 
-                    padding: '8px 10px', // Increased padding
+                    padding: '8px 10px',
                     textAlign: 'left', 
                     fontWeight: '500', 
                     color: '#6b7280',
@@ -386,7 +386,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     Test Name
                   </th>
                   <th style={{ 
-                    padding: '8px 10px', // Increased padding
+                    padding: '8px 10px',
                     textAlign: 'left', 
                     fontWeight: '500', 
                     color: '#6b7280',
@@ -396,7 +396,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     Suite
                   </th>
                   <th style={{ 
-                    padding: '8px 10px', // Increased padding
+                    padding: '8px 10px',
                     textAlign: 'left', 
                     fontWeight: '500', 
                     color: '#6b7280',
@@ -406,7 +406,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                     Duration
                   </th>
                   <th style={{ 
-                    padding: '8px 10px', // Increased padding
+                    padding: '8px 10px',
                     textAlign: 'left', 
                     fontWeight: '500', 
                     color: '#6b7280',
@@ -421,7 +421,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                 {failedTests.map((test: any, index: number) => (
                   <tr key={index}>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       fontWeight: '500', 
                       color: '#dc2626', 
                       border: '1px solid #e5e7eb',
@@ -431,7 +431,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       {test.name}
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       color: '#6b7280', 
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
@@ -440,7 +440,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       {test.suite}
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       color: '#6b7280', 
                       border: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap'
@@ -448,7 +448,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       {parseFloat(test.time).toFixed(2)}s
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       color: '#6b7280', 
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
@@ -480,21 +480,21 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
 
       {/* All Tests */}
       {config.includeAllTests && (
-        <div style={{ marginBottom: '20mm', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}> // Increased from 18px
+        <div style={{ marginBottom: '20mm', pageBreakInside: 'avoid' }} className="page-break-before">
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
             {config.includeFailedTests ? '4. All Test Cases' : '3. All Test Cases'}
           </h2>
           <table style={{ 
             width: '100%', 
             borderCollapse: 'collapse', 
-            fontSize: '10px', // Increased from 9px
+            fontSize: '10px',
             backgroundColor: 'white',
             border: '1px solid #e5e7eb'
           }}>
             <thead>
               <tr style={{ backgroundColor: '#f9fafb' }}>
                 <th style={{ 
-                  padding: '8px 10px', // Increased padding
+                  padding: '8px 10px',
                   textAlign: 'left', 
                   fontWeight: '500', 
                   color: '#6b7280',
@@ -504,7 +504,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                   Test Name
                 </th>
                 <th style={{ 
-                  padding: '8px 10px', // Increased padding
+                  padding: '8px 10px',
                   textAlign: 'left', 
                   fontWeight: '500', 
                   color: '#6b7280',
@@ -514,7 +514,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                   Suite
                 </th>
                 <th style={{ 
-                  padding: '8px 10px', // Increased padding
+                  padding: '8px 10px',
                   textAlign: 'left', 
                   fontWeight: '500', 
                   color: '#6b7280',
@@ -524,7 +524,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                   Status
                 </th>
                 <th style={{ 
-                  padding: '8px 10px', // Increased padding
+                  padding: '8px 10px',
                   textAlign: 'left', 
                   fontWeight: '500', 
                   color: '#6b7280',
@@ -534,7 +534,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                   Assignee
                 </th>
                 <th style={{ 
-                  padding: '8px 10px', // Increased padding
+                  padding: '8px 10px',
                   textAlign: 'left', 
                   fontWeight: '500', 
                   color: '#6b7280',
@@ -550,7 +550,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                 suite.testcases.map((test: any, testIndex: number) => (
                   <tr key={`${suite.name}-${testIndex}`}>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       fontWeight: '500', 
                       color: '#1f2937', 
                       border: '1px solid #e5e7eb',
@@ -560,7 +560,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       {test.name}
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       color: '#6b7280', 
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
@@ -569,7 +569,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       {suite.name}
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       border: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap'
                     }}>
@@ -579,14 +579,14 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                           marginLeft: '4px', 
                           color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
                           fontWeight: '500',
-                          fontSize: '10px' // Increased from 9px
+                          fontSize: '10px'
                         }}>
                           {test.status === 'passed' ? 'Passed' : test.status === 'failed' ? 'Failed' : 'Skipped'}
                         </span>
                       </div>
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       color: '#6b7280', 
                       border: '1px solid #e5e7eb',
                       wordWrap: 'break-word',
@@ -595,7 +595,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
                       {test.assignee || 'Unassigned'}
                     </td>
                     <td style={{ 
-                      padding: '8px 10px', // Increased padding
+                      padding: '8px 10px',
                       color: '#6b7280', 
                       border: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap'
