@@ -149,8 +149,6 @@ describe('Dashboard', () => {
   it('should show loading state during file upload', async () => {
     render(<Dashboard onDataUpload={mockOnDataUpload} testData={null} />);
     
-    const uploadButton = screen.getByTestId('upload-trigger');
-    
     // Mock a slower async operation
     const mockFile = new File(['content'], 'test.xml');
     Object.defineProperty(mockFile, 'text', {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeftIcon, DownloadIcon, BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon, LoaderIcon } from 'lucide-react';
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
 import { generatePDF } from './pdfGenerator';
 import { PDFPreviewFrame } from './PDFPreviewFrame';
@@ -39,8 +39,7 @@ export const ReportPreview = ({
     innerRadius,
     outerRadius,
     percent,
-    value,
-    name
+    value
   }) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;

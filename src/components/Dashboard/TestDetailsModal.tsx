@@ -1,7 +1,24 @@
 import React from 'react';
 import { XIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon, XCircleIcon, FileTextIcon, CodeIcon } from 'lucide-react';
+
+interface FailureDetails {
+  message?: string;
+  type?: string;
+  stackTrace?: string;
+}
+
+interface TestCase {
+  name: string;
+  status: 'passed' | 'failed' | 'skipped';
+  suite: string;
+  classname?: string;
+  time: string;
+  errorMessage?: string;
+  failureDetails?: FailureDetails;
+}
+
 interface TestDetailsModalProps {
-  test: any;
+  test: TestCase;
   onClose: () => void;
 }
 export const TestDetailsModal = ({
@@ -39,7 +56,7 @@ export const TestDetailsModal = ({
       stack: stack.trim()
     };
   };
-  const formatFailureDetails = (details: any) => {
+  const formatFailureDetails = (details: FailureDetails) => {
     if (!details) return null;
     return {
       message: details.message || '',

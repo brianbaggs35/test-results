@@ -1,7 +1,6 @@
 import React from 'react';
-import { PieChart, Pie, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
-import { parseTestPath, getUniqueValues } from '../../utils/parseTestPath';
 import { formatDuration } from '../../utils/formatting';
 export const TestMetrics = ({
   testData
@@ -12,23 +11,6 @@ export const TestMetrics = ({
   } = testData;
   // Prepare test distribution data
   const allTests = suites.flatMap(suite => suite.testcases);
-  const modules = getUniqueValues(allTests, 'module');
-  const moduleData = modules.map(module => {
-    const moduleTests = allTests.filter(test => {
-      const pathInfo = parseTestPath(test.name);
-      return pathInfo?.module === module;
-    });
-    const passed = moduleTests.filter(test => test.status === 'passed').length;
-    const failed = moduleTests.filter(test => test.status === 'failed').length;
-    const skipped = moduleTests.filter(test => test.status === 'skipped').length;
-    return {
-      name: module,
-      total: moduleTests.length,
-      passed,
-      failed,
-      skipped
-    };
-  }).sort((a, b) => b.total - a.total);
   const statusData = [{
     name: 'Passed',
     value: summary.passed,
@@ -69,8 +51,7 @@ export const TestMetrics = ({
     innerRadius,
     outerRadius,
     percent,
-    value,
-    name
+    value
   }) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
@@ -84,12 +65,6 @@ export const TestMetrics = ({
         {value} ({(percent * 100).toFixed(0)}%)
       </text>;
   };
-  // Calculate execution time per suite
-  const suiteTimeData = suites.map(suite => ({
-    name: suite.name.length > 20 ? suite.name.substring(0, 20) + '...' : suite.name,
-    time: parseFloat(suite.time),
-    tests: suite.tests
-  })).sort((a, b) => b.time - a.time).slice(0, 5);
   return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="bg-white p-6 rounded-lg shadow col-span-1">
         <h3 className="text-lg font-semibold text-gray-800 mb-6">

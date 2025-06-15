@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { SearchIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon, XIcon, AlertCircleIcon, LayersIcon, FileIcon, UserIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronUpIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { TestDetailsModal } from './TestDetailsModal';
-import { parseTestPath, getUniqueValues } from '../../utils/parseTestPath';
 import { FilterControls } from './FilterControls';
 export const TestResultsList = ({
   testData
@@ -78,9 +77,6 @@ export const TestResultsList = ({
       default:
         return <AlertCircleIcon className="w-5 h-5 text-yellow-500" />;
     }
-  };
-  const handleRowClick = test => {
-    setSelectedTest(test);
   };
   const resetFilters = () => {
     setSearchTerm('');

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { FileTextIcon, DownloadIcon, EyeIcon } from 'lucide-react';
+import { FileTextIcon, EyeIcon } from 'lucide-react';
 import { ReportPreview } from './ReportPreview';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 export const ReportGenerator = ({
   testData
 }) => {
