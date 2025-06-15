@@ -1,0 +1,104 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run linter
+      run: npm run lint
+
+    - name: Run tests with coverage
+      run: npm run test:coverage
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage/coverage-final.json
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+
+    - name: Coverage Summary
+      run: |
+        echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+        echo "The test suite has been executed with coverage reporting." >> $GITHUB_STEP_SUMMARY
+        echo "Check the detailed coverage report in the build artifacts." >> $GITHUB_STEP_SUMMARY
+
+    - name: Check coverage threshold
+      run: |
+        coverage=$(node -e "
+          const coverage = require('./coverage/coverage-final.json');
+          const summary = Object.values(coverage).reduce((acc, file) => {
+            acc.lines.total += file.s ? Object.keys(file.s).length : 0;
+            acc.lines.covered += file.s ? Object.values(file.s).filter(v => v > 0).length : 0;
+            acc.branches.total += file.b ? Object.keys(file.b).length : 0;
+            acc.branches.covered += file.b ? Object.values(file.b).filter(branch => branch.some(v => v > 0)).length : 0;
+            acc.functions.total += file.f ? Object.keys(file.f).length : 0;
+            acc.functions.covered += file.f ? Object.values(file.f).filter(v => v > 0).length : 0;
+            return acc;
+          }, { lines: { total: 0, covered: 0 }, branches: { total: 0, covered: 0 }, functions: { total: 0, covered: 0 } });
+          
+          const linesCoverage = (summary.lines.covered / summary.lines.total) * 100;
+          const branchesCoverage = (summary.branches.covered / summary.branches.total) * 100;
+          const functionsCoverage = (summary.functions.covered / summary.functions.total) * 100;
+          
+          console.log('Lines:', linesCoverage.toFixed(2) + '%');
+          console.log('Branches:', branchesCoverage.toFixed(2) + '%');
+          console.log('Functions:', functionsCoverage.toFixed(2) + '%');
+          
+          if (linesCoverage < 90 || branchesCoverage < 90 || functionsCoverage < 90) {
+            console.log('❌ Coverage threshold not met. Minimum required: 90%');
+            process.exit(1);
+          } else {
+            console.log('✅ Coverage threshold met!');
+          }
+        ")
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files
+        path: dist/
