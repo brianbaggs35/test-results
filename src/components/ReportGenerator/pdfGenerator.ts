@@ -135,6 +135,24 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     const content = prepareContent(reportElement);
     if (onProgress) onProgress(30);
     
+    // Calculate appropriate scale based on content size to prevent memory issues
+    const estimatedContentSize = content.innerHTML.length;
+    let scale = 2.0;
+    let windowWidth = 1600;
+    let windowHeight = 2260;
+    
+    // Reduce scale and window size for very large content to prevent memory issues
+    if (estimatedContentSize > 500000) { // Very large content
+      scale = 1.5;
+      windowWidth = 1200;
+      windowHeight = 1700;
+      console.warn(`Large content detected (${estimatedContentSize} chars), reducing scale for PDF generation`);
+    } else if (estimatedContentSize > 200000) { // Large content
+      scale = 1.75;
+      windowWidth = 1400;
+      windowHeight = 1980;
+    }
+    
     // Configure PDF options with improved settings for A4 format
     const opt = {
       margin: [5, 3, 5, 5], // Reduced right margin to give more content space
@@ -144,14 +162,15 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         quality: 1.0 // Maximum quality
       },
       html2canvas: {
-        scale: 2.0, // Higher scale for better clarity (2x DPI)
+        scale: scale, // Dynamic scale based on content size
         useCORS: true,
         logging: false,
         allowTaint: true,
         scrollY: 0,
         dpi: 300, // Higher DPI for print quality
-        windowWidth: 1600, // Larger canvas for better resolution (roughly 2x)
-        windowHeight: 2260, // Corresponding height
+        windowWidth: windowWidth, // Dynamic width
+        windowHeight: windowHeight, // Dynamic height
+        timeout: 30000, // Increase timeout for large content
         onclone: (doc: any) => {
           // Ensure the PDF frame is visible in the cloned document
           const pdfFrame = doc.getElementById('pdf-preview-frame');
@@ -206,12 +225,22 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
             container.style.display = 'block';
           });
 
-          // Improve table rendering
+          // Improve table rendering for large datasets
           const tables = doc.getElementsByTagName('table');
           Array.from(tables).forEach((table: any) => {
             table.style.borderCollapse = 'collapse';
             table.style.width = '100%';
-            table.style.pageBreakInside = 'avoid';
+            table.style.pageBreakInside = 'auto'; // Allow breaking for very large tables
+            
+            // For very large tables, add explicit page breaks every 50 rows
+            const rows = table.getElementsByTagName('tr');
+            if (rows.length > 50) {
+              Array.from(rows).forEach((row: any, index: number) => {
+                if (index > 0 && index % 50 === 0) {
+                  row.style.pageBreakBefore = 'always';
+                }
+              });
+            }
           });
 
           // Ensure proper page breaks
@@ -233,22 +262,38 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
         mode: ['css', 'legacy'],
         before: '.page-break-before',
         after: '.page-break-after',
-        avoid: ['tr', 'td', '.avoid-break', 'table', 'img', 'svg'] // Better page break handling
+        avoid: ['tr', 'td', '.avoid-break', 'img', 'svg'] // Allow table breaks for large datasets
       }
     };
-    // Generate PDF with progress tracking
+    // Generate PDF with progress tracking and better error handling
     try {
       if (onProgress) onProgress(40);
       const worker = window.html2pdf().from(content).set(opt);
       if (onProgress) onProgress(60);
-      // Await the PDF generation to properly handle completion
-      await worker.save();
+      
+      // Add timeout for PDF generation to prevent hanging
+      const pdfGenerationTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('PDF generation timed out')), 120000) // 2 minute timeout
+      );
+      
+      // Race between PDF generation and timeout
+      await Promise.race([
+        worker.save(),
+        pdfGenerationTimeout
+      ]);
+      
       if (onProgress) {
         onProgress(100);
       }
     } catch (err) {
       console.error('PDF Generation failed:', err);
-      throw new Error('Failed to generate PDF. Please try again.');
+      if (err.message && err.message.includes('timeout')) {
+        throw new Error('PDF generation timed out. The report may be too large. Try reducing the content or splitting into multiple reports.');
+      } else if (err.message && err.message.includes('memory')) {
+        throw new Error('Not enough memory to generate PDF. Try reducing the content or refreshing the page.');
+      } else {
+        throw new Error('Failed to generate PDF. Please try again or reduce the report content.');
+      }
     }
   } catch (error) {
     console.error("Error in PDF generation:", error);
