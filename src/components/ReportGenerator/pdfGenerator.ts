@@ -59,7 +59,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
   const style = document.createElement("style");
   style.textContent = `
     @page { 
-      margin: 5mm 3mm 5mm 5mm; 
+      margin: 5mm 2mm 5mm 2mm; 
       size: A4 portrait;
     }
     body { 
@@ -155,7 +155,7 @@ export const generatePDF = async (testData: any, config: any, onProgress?: (prog
     
     // Configure PDF options with improved settings for A4 format
     const opt = {
-      margin: [5, 3, 5, 5], // Reduced right margin to give more content space
+      margin: [5, 2, 5, 2], // Further reduced left and right margins to prevent content cut-off
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "png", // PNG for better quality than JPEG

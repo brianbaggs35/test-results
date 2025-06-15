@@ -77,7 +77,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '15mm 15mm 15mm 7mm', // Reduced left padding more to shift content further left
+        padding: '15mm 15mm 15mm 3mm', // Further reduced left padding to fix content cut-off
         margin: '0',
         boxSizing: 'border-box'
       }}
