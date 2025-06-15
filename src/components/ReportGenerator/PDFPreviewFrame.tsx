@@ -77,7 +77,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '15mm 15mm 15mm 10mm', // Further reduced left padding to shift content left
+        padding: '15mm 15mm 15mm 7mm', // Reduced left padding more to shift content further left
         margin: '0',
         boxSizing: 'border-box'
       }}
@@ -149,6 +149,14 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
             <div style={{ marginBottom: '8px' }}>
               <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>4.</span>
               <span style={{ color: '#2563eb', fontSize: '13px' }}>All Test Cases</span>
+            </div>
+          )}
+          {config.includeResolutionProgress && (
+            <div style={{ marginBottom: '8px' }}>
+              <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>
+                {config.includeAllTests ? '5.' : config.includeFailedTests ? '4.' : '3.'}
+              </span>
+              <span style={{ color: '#2563eb', fontSize: '13px' }}>Failure Resolution Progress</span>
             </div>
           )}
         </div>
@@ -484,129 +492,345 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: any; config: a
           <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
             {config.includeFailedTests ? '4. All Test Cases' : '3. All Test Cases'}
           </h2>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse', 
-            fontSize: '10px',
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb'
-          }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f9fafb' }}>
-                <th style={{ 
-                  padding: '8px 10px',
-                  textAlign: 'left', 
-                  fontWeight: '500', 
-                  color: '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  width: '30%'
+          {(() => {
+            // Get all test cases and limit to prevent PDF rendering issues
+            const allTests = testData.suites.flatMap((suite: any) =>
+              suite.testcases.map((test: any) => ({ ...test, suite: suite.name }))
+            );
+            
+            // Limit the number of tests displayed in PDF to prevent memory issues
+            const maxTestsInPDF = 1000; // Reasonable limit for PDF generation
+            const testsToShow = allTests.slice(0, maxTestsInPDF);
+            const hasMoreTests = allTests.length > maxTestsInPDF;
+            
+            return (
+              <div>
+                {hasMoreTests && (
+                  <div style={{ 
+                    backgroundColor: '#fef3c7', 
+                    border: '1px solid #f59e0b', 
+                    borderRadius: '4px', 
+                    padding: '8px',
+                    marginBottom: '12px'
+                  }}>
+                    <p style={{ color: '#92400e', margin: '0', fontSize: '11px' }}>
+                      Note: Showing first {maxTestsInPDF} of {allTests.length} total test cases to optimize PDF performance.
+                    </p>
+                  </div>
+                )}
+                
+                <table style={{ 
+                  width: '100%', 
+                  borderCollapse: 'collapse', 
+                  fontSize: '10px',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb'
                 }}>
-                  Test Name
-                </th>
-                <th style={{ 
-                  padding: '8px 10px',
-                  textAlign: 'left', 
-                  fontWeight: '500', 
-                  color: '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  width: '20%'
-                }}>
-                  Suite
-                </th>
-                <th style={{ 
-                  padding: '8px 10px',
-                  textAlign: 'left', 
-                  fontWeight: '500', 
-                  color: '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  width: '15%'
-                }}>
-                  Status
-                </th>
-                <th style={{ 
-                  padding: '8px 10px',
-                  textAlign: 'left', 
-                  fontWeight: '500', 
-                  color: '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  width: '15%'
-                }}>
-                  Assignee
-                </th>
-                <th style={{ 
-                  padding: '8px 10px',
-                  textAlign: 'left', 
-                  fontWeight: '500', 
-                  color: '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  width: '10%'
-                }}>
-                  Duration
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {testData.suites.flatMap((suite: any) =>
-                suite.testcases.map((test: any, testIndex: number) => (
-                  <tr key={`${suite.name}-${testIndex}`}>
-                    <td style={{ 
-                      padding: '8px 10px',
-                      fontWeight: '500', 
-                      color: '#1f2937', 
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                      {test.name}
-                    </td>
-                    <td style={{ 
-                      padding: '8px 10px',
-                      color: '#6b7280', 
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                      {suite.name}
-                    </td>
-                    <td style={{ 
-                      padding: '8px 10px',
-                      border: '1px solid #e5e7eb',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        {getStatusIcon(test.status)}
-                        <span style={{ 
-                          marginLeft: '4px', 
-                          color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
-                          fontWeight: '500',
-                          fontSize: '10px'
+                  <thead>
+                    <tr style={{ backgroundColor: '#f9fafb' }}>
+                      <th style={{ 
+                        padding: '8px 10px',
+                        textAlign: 'left', 
+                        fontWeight: '500', 
+                        color: '#6b7280',
+                        border: '1px solid #e5e7eb',
+                        width: '30%'
+                      }}>
+                        Test Name
+                      </th>
+                      <th style={{ 
+                        padding: '8px 10px',
+                        textAlign: 'left', 
+                        fontWeight: '500', 
+                        color: '#6b7280',
+                        border: '1px solid #e5e7eb',
+                        width: '20%'
+                      }}>
+                        Suite
+                      </th>
+                      <th style={{ 
+                        padding: '8px 10px',
+                        textAlign: 'left', 
+                        fontWeight: '500', 
+                        color: '#6b7280',
+                        border: '1px solid #e5e7eb',
+                        width: '15%'
+                      }}>
+                        Status
+                      </th>
+                      <th style={{ 
+                        padding: '8px 10px',
+                        textAlign: 'left', 
+                        fontWeight: '500', 
+                        color: '#6b7280',
+                        border: '1px solid #e5e7eb',
+                        width: '15%'
+                      }}>
+                        Assignee
+                      </th>
+                      <th style={{ 
+                        padding: '8px 10px',
+                        textAlign: 'left', 
+                        fontWeight: '500', 
+                        color: '#6b7280',
+                        border: '1px solid #e5e7eb',
+                        width: '10%'
+                      }}>
+                        Duration
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {testsToShow.map((test: any, testIndex: number) => (
+                      <tr key={`all-tests-${testIndex}`}>
+                        <td style={{ 
+                          padding: '8px 10px',
+                          fontWeight: '500', 
+                          color: '#1f2937', 
+                          border: '1px solid #e5e7eb',
+                          wordWrap: 'break-word',
+                          maxWidth: '0'
                         }}>
-                          {test.status === 'passed' ? 'Passed' : test.status === 'failed' ? 'Failed' : 'Skipped'}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ 
-                      padding: '8px 10px',
-                      color: '#6b7280', 
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                      {test.assignee || 'Unassigned'}
-                    </td>
-                    <td style={{ 
-                      padding: '8px 10px',
-                      color: '#6b7280', 
-                      border: '1px solid #e5e7eb',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {parseFloat(test.time).toFixed(2)}s
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                          {test.name}
+                        </td>
+                        <td style={{ 
+                          padding: '8px 10px',
+                          color: '#6b7280', 
+                          border: '1px solid #e5e7eb',
+                          wordWrap: 'break-word',
+                          maxWidth: '0'
+                        }}>
+                          {test.suite}
+                        </td>
+                        <td style={{ 
+                          padding: '8px 10px',
+                          border: '1px solid #e5e7eb',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {getStatusIcon(test.status)}
+                            <span style={{ 
+                              marginLeft: '4px', 
+                              color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
+                              fontWeight: '500',
+                              fontSize: '10px'
+                            }}>
+                              {test.status === 'passed' ? 'Passed' : test.status === 'failed' ? 'Failed' : 'Skipped'}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ 
+                          padding: '8px 10px',
+                          color: '#6b7280', 
+                          border: '1px solid #e5e7eb',
+                          wordWrap: 'break-word',
+                          maxWidth: '0'
+                        }}>
+                          {test.assignee || 'Unassigned'}
+                        </td>
+                        <td style={{ 
+                          padding: '8px 10px',
+                          color: '#6b7280', 
+                          border: '1px solid #e5e7eb',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {parseFloat(test.time).toFixed(2)}s
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Failure Resolution Progress */}
+      {config.includeResolutionProgress && (
+        <div style={{ marginBottom: '20mm', pageBreakInside: 'avoid' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
+            {config.includeAllTests ? '5. Failure Resolution Progress' : config.includeFailedTests ? '4. Failure Resolution Progress' : '3. Failure Resolution Progress'}
+          </h2>
+          {(() => {
+            // Access localStorage safely for PDF generation
+            let progressData = {};
+            try {
+              const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
+              progressData = savedProgress ? JSON.parse(savedProgress) : {};
+            } catch (e) {
+              console.warn('Could not access localStorage in PDF context:', e);
+            }
+            
+            const failedTests = Object.values(progressData);
+            const totalTests = failedTests.length;
+            const completedTests = failedTests.filter((test: any) => test.status === 'completed').length;
+            const inProgressTests = failedTests.filter((test: any) => test.status === 'in_progress').length;
+            
+            return (
+              <div>
+                {/* Progress Summary Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10mm', marginBottom: '16px' }}>
+                  <div style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Total Failed Tests</span>
+                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937' }}>{totalTests}</span>
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#059669' }}>Completed</span>
+                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#047857' }}>{completedTests}</span>
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#2563eb' }}>In Progress</span>
+                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1d4ed8' }}>{inProgressTests}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Table */}
+                {totalTests > 0 ? (
+                  <table style={{ 
+                    width: '100%', 
+                    borderCollapse: 'collapse', 
+                    fontSize: '10px',
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f9fafb' }}>
+                        <th style={{ 
+                          padding: '8px 10px',
+                          textAlign: 'left', 
+                          fontWeight: '500', 
+                          color: '#6b7280',
+                          border: '1px solid #e5e7eb',
+                          width: '25%'
+                        }}>
+                          Test Name
+                        </th>
+                        <th style={{ 
+                          padding: '8px 10px',
+                          textAlign: 'left', 
+                          fontWeight: '500', 
+                          color: '#6b7280',
+                          border: '1px solid #e5e7eb',
+                          width: '20%'
+                        }}>
+                          Suite
+                        </th>
+                        <th style={{ 
+                          padding: '8px 10px',
+                          textAlign: 'left', 
+                          fontWeight: '500', 
+                          color: '#6b7280',
+                          border: '1px solid #e5e7eb',
+                          width: '15%'
+                        }}>
+                          Status
+                        </th>
+                        <th style={{ 
+                          padding: '8px 10px',
+                          textAlign: 'left', 
+                          fontWeight: '500', 
+                          color: '#6b7280',
+                          border: '1px solid #e5e7eb',
+                          width: '15%'
+                        }}>
+                          Assignee
+                        </th>
+                        <th style={{ 
+                          padding: '8px 10px',
+                          textAlign: 'left', 
+                          fontWeight: '500', 
+                          color: '#6b7280',
+                          border: '1px solid #e5e7eb',
+                          width: '25%'
+                        }}>
+                          Notes
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {failedTests.map((test: any, index: number) => (
+                        <tr key={index}>
+                          <td style={{ 
+                            padding: '8px 10px',
+                            fontWeight: '500', 
+                            color: '#1f2937', 
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0'
+                          }}>
+                            {test.name}
+                          </td>
+                          <td style={{ 
+                            padding: '8px 10px',
+                            color: '#6b7280', 
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0'
+                          }}>
+                            {test.suite}
+                          </td>
+                          <td style={{ 
+                            padding: '8px 10px',
+                            border: '1px solid #e5e7eb',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            <span style={{ 
+                              display: 'inline-block',
+                              padding: '2px 6px',
+                              borderRadius: '12px',
+                              fontSize: '9px',
+                              fontWeight: '500',
+                              backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : '#fee2e2',
+                              color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : '#991b1b'
+                            }}>
+                              {test.status ? test.status.replace('_', ' ').charAt(0).toUpperCase() + test.status.slice(1) : 'Not Started'}
+                            </span>
+                          </td>
+                          <td style={{ 
+                            padding: '8px 10px',
+                            color: '#6b7280', 
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0'
+                          }}>
+                            {test.assignee || '-'}
+                          </td>
+                          <td style={{ 
+                            padding: '8px 10px',
+                            color: '#6b7280', 
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0'
+                          }}>
+                            {test.notes || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ 
+                    backgroundColor: '#f3f4f6', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '4px', 
+                    padding: '12px',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ color: '#6b7280', margin: '0', fontSize: '12px' }}>
+                      No failure resolution progress data available.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
