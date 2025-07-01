@@ -125,8 +125,8 @@ describe('FailureAnalysisProgress', () => {
       // Check that custom status options are available
       expect(screen.getByText('All Statuses')).toBeInTheDocument();
       expect(screen.getByText('Pending')).toBeInTheDocument();
-      expect(screen.getByText('In Progress')).toBeInTheDocument();
-      expect(screen.getByText('Completed')).toBeInTheDocument();
+      expect(screen.getAllByText('In Progress')).toHaveLength(2); // One in overview, one in filter
+      expect(screen.getAllByText('Completed')).toHaveLength(2); // One in overview, one in filter
     });
   });
 
