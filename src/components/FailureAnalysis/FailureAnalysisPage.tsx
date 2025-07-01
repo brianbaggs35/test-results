@@ -11,6 +11,8 @@ export const FailureAnalysisPage = ({
   const [suiteFilter, setSuiteFilter] = useState('all');
   const [classNameFilter, setClassNameFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const testsPerPage = 50;
   if (!testData) {
     return <div className="bg-white p-8 rounded-lg shadow text-center">
         <AlertTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -30,6 +32,7 @@ export const FailureAnalysisPage = ({
     setStatusFilter('failed');
     setSuiteFilter('all');
     setClassNameFilter('all');
+    setCurrentPage(1);
   };
   const filteredTests = testData.suites.flatMap(suite => suite.testcases.filter(test => test.status === 'failed').map(test => ({
     ...test,
@@ -40,6 +43,18 @@ export const FailureAnalysisPage = ({
     if (searchTerm && !test.name.toLowerCase().includes(searchTerm.toLowerCase()) && !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   });
+
+  // Reset to page 1 when filters change
+  const totalPages = Math.ceil(filteredTests.length / testsPerPage);
+  const validCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
+  if (validCurrentPage !== currentPage) {
+    setCurrentPage(validCurrentPage);
+  }
+
+  // Paginate the filtered tests
+  const startIndex = (validCurrentPage - 1) * testsPerPage;
+  const endIndex = startIndex + testsPerPage;
+  const paginatedTests = filteredTests.slice(startIndex, endIndex);
   if (filteredTests.length === 0) {
     return <div className="bg-green-50 border border-green-200 rounded-lg p-6">
         <div className="flex items-center">
@@ -64,11 +79,16 @@ export const FailureAnalysisPage = ({
           <p className="text-sm text-gray-500 mt-1">
             {filteredTests.length} failed test
             {filteredTests.length > 1 ? 's' : ''} detected
+            {filteredTests.length > testsPerPage && (
+              <span className="ml-2">
+                (Showing {startIndex + 1}-{Math.min(endIndex, filteredTests.length)} of {filteredTests.length})
+              </span>
+            )}
           </p>
         </div>
         <FilterControls searchTerm={searchTerm} setSearchTerm={setSearchTerm} statusFilter={statusFilter} setStatusFilter={setStatusFilter} suiteFilter={suiteFilter} setSuiteFilter={setSuiteFilter} classNameFilter={classNameFilter} setClassNameFilter={setClassNameFilter} showFilters={showFilters} setShowFilters={setShowFilters} suites={suites} classNames={classNames} resetFilters={resetFilters} />
         <div className="grid gap-4">
-          {filteredTests.map((test, index) => <button key={index} className="w-full text-left bg-white border border-red-200 rounded-lg overflow-hidden hover:bg-red-50 transition-colors" onClick={() => setSelectedTest(test)}>
+          {paginatedTests.map((test, index) => <button key={index} className="w-full text-left bg-white border border-red-200 rounded-lg overflow-hidden hover:bg-red-50 transition-colors" onClick={() => setSelectedTest(test)}>
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -90,6 +110,62 @@ export const FailureAnalysisPage = ({
               </div>
             </button>)}
         </div>
+        
+        {/* Pagination Controls */}
+        {filteredTests.length > testsPerPage && (
+          <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
+            <div className="flex items-center text-sm text-gray-500">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredTests.length)} of {filteredTests.length} results
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center space-x-1">
+                {/* Show page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       {selectedTest && <TestDetailsModal test={selectedTest} onClose={() => setSelectedTest(null)} />}
     </div>;

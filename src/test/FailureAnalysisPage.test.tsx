@@ -2,6 +2,41 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FailureAnalysisPage } from '../components/FailureAnalysis/FailureAnalysisPage';
 
+// Helper function to create large test datasets
+function createLargeTestData(numFailedTests: number) {
+  const suites = [];
+  const testsPerSuite = Math.min(100, Math.max(10, Math.floor(numFailedTests / 10))); // 10-100 tests per suite
+  const numSuites = Math.ceil(numFailedTests / testsPerSuite);
+  
+  for (let suiteIndex = 0; suiteIndex < numSuites; suiteIndex++) {
+    const suite = {
+      name: `TestSuite${suiteIndex + 1}`,
+      testcases: [] as any[]
+    };
+    
+    const testsInThisSuite = Math.min(testsPerSuite, numFailedTests - (suiteIndex * testsPerSuite));
+    
+    for (let testIndex = 0; testIndex < testsInThisSuite; testIndex++) {
+      suite.testcases.push({
+        name: `test${suiteIndex}_${testIndex}`,
+        classname: `Class${suiteIndex}_${testIndex}`,
+        status: 'failed',
+        time: (Math.random() * 5).toFixed(2),
+        errorMessage: `Test failure ${suiteIndex}_${testIndex}`,
+        failureDetails: {
+          message: `Assertion error in test ${suiteIndex}_${testIndex}`,
+          type: 'AssertionError',
+          stackTrace: `Stack trace for test ${suiteIndex}_${testIndex}\n    at line 1\n    at line 2`
+        }
+      });
+    }
+    
+    suites.push(suite);
+  }
+  
+  return { suites };
+}
+
 // Mock child components
 vi.mock('../components/Dashboard/TestDetailsModal', () => ({
   TestDetailsModal: ({ test, onClose }: any) => (
@@ -248,5 +283,131 @@ describe('FailureAnalysisPage', () => {
     render(<FailureAnalysisPage testData={singleFailureData} />);
 
     expect(screen.getByText('1 failed test detected')).toBeInTheDocument();
+  });
+
+  describe('Large dataset handling', () => {
+    it('should handle 100 failed tests efficiently', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      expect(screen.getByText('100 failed tests detected')).toBeInTheDocument();
+    });
+
+    it('should handle 500 failed tests', () => {
+      const largeTestData = createLargeTestData(500);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      expect(screen.getByText('500 failed tests detected')).toBeInTheDocument();
+    });
+
+    it('should handle 1000 failed tests', () => {
+      const largeTestData = createLargeTestData(1000);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      expect(screen.getByText('1000 failed tests detected')).toBeInTheDocument();
+    });
+  });
+
+  describe('Pagination', () => {
+    it('should show pagination controls when there are more than 50 tests', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      expect(screen.getByText('(Showing 1-50 of 100)')).toBeInTheDocument();
+      expect(screen.getByText('Showing 1 to 50 of 100 results')).toBeInTheDocument();
+      expect(screen.getByText('Next')).toBeInTheDocument();
+      expect(screen.getByText('Previous')).toBeInTheDocument();
+    });
+
+    it('should not show pagination controls when there are 50 or fewer tests', () => {
+      const smallTestData = createLargeTestData(25);
+      
+      render(<FailureAnalysisPage testData={smallTestData} />);
+      
+      expect(screen.queryByText('Next')).not.toBeInTheDocument();
+      expect(screen.queryByText('Previous')).not.toBeInTheDocument();
+    });
+
+    it('should navigate to next page when Next button is clicked', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      const nextButton = screen.getByText('Next');
+      fireEvent.click(nextButton);
+      
+      expect(screen.getByText('Showing 51 to 100 of 100 results')).toBeInTheDocument();
+      expect(screen.getByText('(Showing 51-100 of 100)')).toBeInTheDocument();
+    });
+
+    it('should navigate to previous page when Previous button is clicked', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      // Go to page 2 first
+      const nextButton = screen.getByText('Next');
+      fireEvent.click(nextButton);
+      
+      // Then go back to page 1
+      const previousButton = screen.getByText('Previous');
+      fireEvent.click(previousButton);
+      
+      expect(screen.getByText('Showing 1 to 50 of 100 results')).toBeInTheDocument();
+      expect(screen.getByText('(Showing 1-50 of 100)')).toBeInTheDocument();
+    });
+
+    it('should disable Previous button on first page', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      const previousButton = screen.getByText('Previous');
+      expect(previousButton).toBeDisabled();
+    });
+
+    it('should disable Next button on last page', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      // Go to page 2 (last page for 100 tests)
+      const nextButton = screen.getByText('Next');
+      fireEvent.click(nextButton);
+      
+      expect(nextButton).toBeDisabled();
+    });
+
+    it('should reset to page 1 when filters are reset', () => {
+      const largeTestData = createLargeTestData(100);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      // Go to page 2
+      const nextButton = screen.getByText('Next');
+      fireEvent.click(nextButton);
+      
+      // Reset filters
+      const resetButton = screen.getByTestId('reset-filters');
+      fireEvent.click(resetButton);
+      
+      expect(screen.getByText('Showing 1 to 50 of 100 results')).toBeInTheDocument();
+    });
+
+    it('should navigate using page number buttons', () => {
+      const largeTestData = createLargeTestData(200);
+      
+      render(<FailureAnalysisPage testData={largeTestData} />);
+      
+      // Click on page 2 button
+      const page2Button = screen.getByRole('button', { name: '2' });
+      fireEvent.click(page2Button);
+      
+      expect(screen.getByText('Showing 51 to 100 of 200 results')).toBeInTheDocument();
+    });
   });
 });
