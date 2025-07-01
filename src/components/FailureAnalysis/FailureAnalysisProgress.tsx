@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
+import { FilterControls } from '../Dashboard/FilterControls';
 interface FailureProgressItem {
   id: string;
   name: string;
@@ -21,6 +22,15 @@ export const FailureAnalysisProgress = ({
   const [notes, setNotes] = useState('');
   const [assignee, setAssignee] = useState('');
   const [showStackTrace, setShowStackTrace] = useState<string | null>(null);
+  
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [suiteFilter, setSuiteFilter] = useState('all');
+  const [classNameFilter, setClassNameFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const testsPerPage = 50;
   useEffect(() => {
     // Load progress data from localStorage
     const savedProgress = localStorage.getItem('testFixProgress');
@@ -88,6 +98,64 @@ export const FailureAnalysisProgress = ({
   const totalTests = failedTests.length;
   const completedTests = failedTests.filter(test => test.status === 'completed').length;
   const inProgressTests = failedTests.filter(test => test.status === 'in_progress').length;
+  
+  // Get unique values for filters
+  const suites = ['all', ...new Set(failedTests.map(test => test.suite))];
+  const classNames = ['all']; // Progress doesn't track classnames, so just show 'all'
+  
+  // Custom status options for progress tracking
+  const statusOptions = [
+    { value: 'all', label: 'All Statuses' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' }
+  ];
+  
+  // Reset filters function
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setSuiteFilter('all');
+    setClassNameFilter('all');
+    setCurrentPage(1);
+  };
+  
+  // Filter tests based on search and filter criteria
+  const filteredTests = failedTests.filter(test => {
+    // Status filter
+    if (statusFilter !== 'all' && test.status !== statusFilter) return false;
+    
+    // Suite filter
+    if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
+    
+    // Search term (search in name, suite, error message, notes, and assignee)
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesName = test.name.toLowerCase().includes(searchLower);
+      const matchesSuite = test.suite.toLowerCase().includes(searchLower);
+      const matchesError = test.errorMessage?.toLowerCase().includes(searchLower);
+      const matchesNotes = test.notes?.toLowerCase().includes(searchLower);
+      const matchesAssignee = test.assignee?.toLowerCase().includes(searchLower);
+      
+      if (!matchesName && !matchesSuite && !matchesError && !matchesNotes && !matchesAssignee) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  // Reset to page 1 when filters change
+  const totalPages = Math.ceil(filteredTests.length / testsPerPage);
+  const validCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
+  if (validCurrentPage !== currentPage) {
+    setCurrentPage(validCurrentPage);
+  }
+  
+  // Paginate the filtered tests
+  const startIndex = (validCurrentPage - 1) * testsPerPage;
+  const endIndex = startIndex + testsPerPage;
+  const paginatedTests = filteredTests.slice(startIndex, endIndex);
   const handleShowStackTrace = (test: FailureProgressItem) => {
     // Find the original test data to get all details
     const suite = testData.suites.find(s => s.name === test.suite);
@@ -112,6 +180,16 @@ export const FailureAnalysisProgress = ({
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
           Failure Resolution Progress
         </h2>
+        <div className="mb-4">
+          <p className="text-sm text-gray-500">
+            {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''} tracked
+            {filteredTests.length > testsPerPage && (
+              <span className="ml-2">
+                (Showing {startIndex + 1}-{Math.min(endIndex, filteredTests.length)} of {filteredTests.length})
+              </span>
+            )}
+          </p>
+        </div>
         {/* Progress Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-gray-50 p-4 rounded-lg">
@@ -142,12 +220,31 @@ export const FailureAnalysisProgress = ({
         {/* Progress Bar */}
         <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
           <div className="bg-green-600 h-2 rounded-full transition-all duration-300" style={{
-          width: `${completedTests / totalTests * 100}%`
+          width: `${totalTests > 0 ? (completedTests / totalTests * 100) : 0}%`
         }} />
         </div>
+        
+        {/* Filter Controls */}
+        <FilterControls 
+          searchTerm={searchTerm} 
+          setSearchTerm={setSearchTerm} 
+          statusFilter={statusFilter} 
+          setStatusFilter={setStatusFilter} 
+          suiteFilter={suiteFilter} 
+          setSuiteFilter={setSuiteFilter} 
+          classNameFilter={classNameFilter} 
+          setClassNameFilter={setClassNameFilter} 
+          showFilters={showFilters} 
+          setShowFilters={setShowFilters} 
+          suites={suites} 
+          classNames={classNames} 
+          resetFilters={resetFilters}
+          statusOptions={statusOptions}
+        />
+        
         {/* Failed Tests List */}
         <div className="space-y-4">
-          {failedTests.map(test => <div key={test.id} className={`border rounded-lg overflow-hidden ${getStatusColor(test.status)}`}>
+          {paginatedTests.map(test => <div key={test.id} className={`border rounded-lg overflow-hidden ${getStatusColor(test.status)}`}>
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -210,6 +307,62 @@ export const FailureAnalysisProgress = ({
               </div>
             </div>)}
         </div>
+        
+        {/* Pagination Controls */}
+        {filteredTests.length > testsPerPage && (
+          <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
+            <div className="flex items-center text-sm text-gray-500">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredTests.length)} of {filteredTests.length} results
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center space-x-1">
+                {/* Show page numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       {/* Stack Trace Modal */}
       {showStackTrace && <TestDetailsModal test={showStackTrace} onClose={() => setShowStackTrace(null)} />}

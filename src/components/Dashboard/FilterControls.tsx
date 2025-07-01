@@ -14,6 +14,7 @@ interface FilterControlsProps {
   suites: string[];
   classNames: string[];
   resetFilters: () => void;
+  statusOptions?: Array<{ value: string; label: string }>;
 }
 export const FilterControls = ({
   searchTerm,
@@ -28,7 +29,8 @@ export const FilterControls = ({
   setShowFilters,
   suites,
   classNames,
-  resetFilters
+  resetFilters,
+  statusOptions
 }: FilterControlsProps) => {
   const hasActiveFilters = statusFilter !== 'all' || suiteFilter !== 'all' || classNameFilter !== 'all' || searchTerm !== '';
   return <>
@@ -58,10 +60,20 @@ export const FilterControls = ({
                 Status
               </label>
               <select className="w-full border border-gray-300 rounded-md px-3 py-2" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="all">All Statuses</option>
-                <option value="passed">Passed</option>
-                <option value="failed">Failed</option>
-                <option value="skipped">Skipped</option>
+                {statusOptions ? (
+                  statusOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="all">All Statuses</option>
+                    <option value="passed">Passed</option>
+                    <option value="failed">Failed</option>
+                    <option value="skipped">Skipped</option>
+                  </>
+                )}
               </select>
             </div>
             <div>
