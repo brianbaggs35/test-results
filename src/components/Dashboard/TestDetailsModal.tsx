@@ -1,4 +1,3 @@
-import React from 'react';
 import { XIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon, XCircleIcon, FileTextIcon, CodeIcon } from 'lucide-react';
 import { TestCase } from '../../types';
 

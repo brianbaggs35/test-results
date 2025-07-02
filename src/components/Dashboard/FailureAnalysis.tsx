@@ -1,12 +1,21 @@
-import React from 'react';
 import { AlertTriangleIcon, ClockIcon, CheckIcon } from 'lucide-react';
-export const FailureAnalysis = ({
+import type { ParsedTestData } from '../../utils/xmlParser';
+
+interface FailureAnalysisProps {
+  testData: ParsedTestData;
+}
+
+export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({
   testData
 }) => {
-  const failedTests = testData.suites.flatMap(suite => suite.testcases.filter(test => test.status === 'failed').map(test => ({
-    ...test,
-    suite: suite.name
-  })));
+  const failedTests = testData.suites.flatMap(suite => 
+    suite.testcases
+      .filter(test => test.status === 'failed')
+      .map(test => ({
+        ...test,
+        suite: suite.name
+      }))
+  );
   if (failedTests.length === 0) {
     return <div className="bg-green-50 border border-green-200 rounded-lg p-6">
         <div className="flex items-center">
@@ -37,7 +46,8 @@ export const FailureAnalysis = ({
         </div>
       </div>
       <div className="grid gap-6">
-        {failedTests.map((test, index) => <div key={index} className="bg-white border border-red-200 rounded-lg overflow-hidden">
+        {failedTests.map((test, index) => (
+          <div key={index} className="bg-white border border-red-200 rounded-lg overflow-hidden">
             <div className="bg-red-50 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -69,7 +79,8 @@ export const FailureAnalysis = ({
                   <p className="text-sm text-gray-900">{test.classname}</p>
                 </div>}
             </div>
-          </div>)}
+          </div>
+        ))}
       </div>
     </div>;
 };
