@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
+
 interface FailureProgressItem {
   id: string;
   name: string;
@@ -12,7 +13,28 @@ interface FailureProgressItem {
   updatedAt?: string;
   assignee?: string;
 }
-export const FailureAnalysisProgress = ({
+
+interface TestData {
+  suites: Array<{
+    name: string;
+    testcases: Array<{
+      name: string;
+      status: string;
+      errorMessage?: string;
+      failureDetails?: {
+        message: string;
+        type: string;
+        stackTrace: string;
+      };
+    }>;
+  }>;
+}
+
+interface FailureAnalysisProgressProps {
+  testData: TestData;
+}
+
+export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = ({
   testData
 }) => {
   const [progressData, setProgressData] = useState<{
@@ -138,30 +160,32 @@ export const FailureAnalysisProgress = ({
     setCurrentPage(1);
   };
   
-  // Filter tests based on search and filter criteria
-  const filteredTests = failedTests.filter(test => {
-    // Status filter
-    if (statusFilter !== 'all' && test.status !== statusFilter) return false;
-    
-    // Suite filter
-    if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
-    
-    // Search term (search in name, suite, error message, notes, and assignee)
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesName = test.name.toLowerCase().includes(searchLower);
-      const matchesSuite = test.suite.toLowerCase().includes(searchLower);
-      const matchesError = test.errorMessage?.toLowerCase().includes(searchLower);
-      const matchesNotes = test.notes?.toLowerCase().includes(searchLower);
-      const matchesAssignee = test.assignee?.toLowerCase().includes(searchLower);
+  // Filter tests based on search and filter criteria (memoized to prevent infinite re-renders)
+  const filteredTests = useMemo(() => {
+    return failedTests.filter(test => {
+      // Status filter
+      if (statusFilter !== 'all' && test.status !== statusFilter) return false;
       
-      if (!matchesName && !matchesSuite && !matchesError && !matchesNotes && !matchesAssignee) {
-        return false;
+      // Suite filter
+      if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
+      
+      // Search term (search in name, suite, error message, notes, and assignee)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesName = test.name.toLowerCase().includes(searchLower);
+        const matchesSuite = test.suite.toLowerCase().includes(searchLower);
+        const matchesError = test.errorMessage?.toLowerCase().includes(searchLower);
+        const matchesNotes = test.notes?.toLowerCase().includes(searchLower);
+        const matchesAssignee = test.assignee?.toLowerCase().includes(searchLower);
+        
+        if (!matchesName && !matchesSuite && !matchesError && !matchesNotes && !matchesAssignee) {
+          return false;
+        }
       }
-    }
-    
-    return true;
-  });
+      
+      return true;
+    });
+  }, [failedTests, statusFilter, suiteFilter, searchTerm]);
   
   // Reset to page 1 when filters change
   const totalPages = Math.ceil(filteredTests.length / testsPerPage);
@@ -170,15 +194,20 @@ export const FailureAnalysisProgress = ({
     setCurrentPage(validCurrentPage);
   }
   
-  // Paginate the filtered tests
-  const startIndex = (validCurrentPage - 1) * testsPerPage;
-  const endIndex = startIndex + testsPerPage;
-  const paginatedTests = filteredTests.slice(startIndex, endIndex);
+  // Paginate the filtered tests (memoized to prevent infinite re-renders)
+  const paginationData = useMemo(() => {
+    const startIndex = (validCurrentPage - 1) * testsPerPage;
+    const endIndex = startIndex + testsPerPage;
+    const paginatedTests = filteredTests.slice(startIndex, endIndex);
+    return { startIndex, endIndex, paginatedTests };
+  }, [filteredTests, validCurrentPage, testsPerPage]);
 
-  // Reset selectedTests when paginatedTests changes
+  const { startIndex, endIndex, paginatedTests } = paginationData;
+
+  // Reset selectedTests when page changes (not when paginatedTests changes)
   useEffect(() => {
     setSelectedTests(new Set());
-  }, [validCurrentPage, filteredTests]);
+  }, [validCurrentPage]);
   // Selection functions (after paginatedTests is defined)
   const toggleTestSelection = (testId: string) => {
     const newSelection = new Set(selectedTests);
