@@ -187,7 +187,7 @@ export const FailureAnalysisProgress = ({
   };
 
   const toggleSelectAll = () => {
-    if (selectedTests.size === paginatedTests.length) {
+    if (paginatedTests.every(test => selectedTests.has(test.id))) {
       // If all visible tests are selected, deselect all
       setSelectedTests(new Set());
     } else {
