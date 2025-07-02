@@ -46,8 +46,8 @@ export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({
         </div>
       </div>
       <div className="grid gap-6">
-        {failedTests.map((test, index) => (
-          <div key={index} className="bg-white border border-red-200 rounded-lg overflow-hidden">
+        {failedTests.map((test) => (
+          <div key={test.id} className="bg-white border border-red-200 rounded-lg overflow-hidden">
             <div className="bg-red-50 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
