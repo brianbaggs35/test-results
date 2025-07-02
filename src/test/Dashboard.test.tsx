@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { Dashboard } from '../components/Dashboard/Dashboard';
 
 // Mock child components
@@ -119,7 +119,10 @@ describe('Dashboard', () => {
     
     // Trigger file upload
     const uploadButton = screen.getByTestId('upload-trigger');
-    uploadButton.click();
+    
+    await act(async () => {
+      uploadButton.click();
+    });
     
     // Wait for async operation to complete
     await waitFor(() => {
@@ -135,7 +138,10 @@ describe('Dashboard', () => {
     
     // Trigger invalid file upload
     const uploadInvalidButton = screen.getByTestId('upload-invalid');
-    uploadInvalidButton.click();
+    
+    await act(async () => {
+      uploadInvalidButton.click();
+    });
     
     // Wait for error to appear
     await waitFor(() => {
@@ -164,15 +170,21 @@ describe('Dashboard', () => {
     
     // First upload with error
     const uploadInvalidButton = screen.getByTestId('upload-invalid');
-    uploadInvalidButton.click();
     
+    await act(async () => {
+      uploadInvalidButton.click();
+    });
+
     await waitFor(() => {
       expect(screen.getByTestId('error')).toBeInTheDocument();
     });
     
     // Second upload should clear error
     const uploadButton = screen.getByTestId('upload-trigger');
-    uploadButton.click();
+    
+    await act(async () => {
+      uploadButton.click();
+    });
     
     await waitFor(() => {
       expect(mockOnDataUpload).toHaveBeenCalled();

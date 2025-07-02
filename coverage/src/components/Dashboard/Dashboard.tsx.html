@@ -100,55 +100,76 @@
 <a name='L35'></a><a href='#L35'>35</a>
 <a name='L36'></a><a href='#L36'>36</a>
 <a name='L37'></a><a href='#L37'>37</a>
-<a name='L38'></a><a href='#L38'>38</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">19x</span>
-<span class="cline-any cline-yes">19x</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useState } from 'react';
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">14x</span></td><td class="text"><pre class="prettyprint lang-js">import { useState } from 'react';
 import { FileUploader } from './FileUploader';
 import { TestMetrics } from './TestMetrics';
 import { TestResultsList } from './TestResultsList';
-import { parseJUnitXML } from '../../utils/xmlParser';
-export const Dashboard = ({
+import { parseJUnitXML, type ParsedTestData } from '../../utils/xmlParser';
+&nbsp;
+interface DashboardProps {
+  onDataUpload: (data: ParsedTestData) =&gt; void;
+  testData: ParsedTestData | null;
+}
+&nbsp;
+export const Dashboard: React.FC&lt;DashboardProps&gt; = ({
   onDataUpload,
   testData
 }) =&gt; {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const handleFileUpload = async file =&gt; {
+  const [error, setError] = useState&lt;string | null&gt;(null);
+  
+  const handleFileUpload = async (file: File) =&gt; {
     setIsLoading(true);
     setError(null);
     try {
@@ -181,7 +202,7 @@ export const Dashboard = ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-15T22:50:33.924Z
+                at 2025-07-02T20:17:49.576Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

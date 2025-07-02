@@ -23,24 +23,21 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const testsPerPage = 50;
-  if (!testData) {
-    return <div className="bg-white p-8 rounded-lg shadow text-center">
-        <AlertTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          No Test Data Available
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Please upload a JUnit XML file from the Dashboard to view failure
-          analysis.
-        </p>
-      </div>;
-  }
-  const suites = ['all', ...new Set(testData.suites.map(suite => suite.name))];
-  const classNames = ['all', ...new Set(
-    testData.suites
-      .flatMap(suite => suite.testcases.map(test => test.classname))
-      .filter(Boolean)
-  )];
+
+  // Memoized computations that need to be before early returns
+  const suites = useMemo(() => {
+    if (!testData) return ['all'];
+    return ['all', ...new Set(testData.suites.map(suite => suite.name))];
+  }, [testData]);
+  
+  const classNames = useMemo(() => {
+    if (!testData) return ['all'];
+    return ['all', ...new Set(
+      testData.suites
+        .flatMap(suite => suite.testcases.map(test => test.classname))
+        .filter(Boolean)
+    )];
+  }, [testData]);
   
   const resetFilters = () => {
     setSearchTerm('');
@@ -51,6 +48,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
   };
   
   const filteredTests = useMemo(() => {
+    if (!testData) return [];
     return testData.suites
       .flatMap(suite => 
         suite.testcases
@@ -69,6 +67,19 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
         return true;
       });
   }, [testData, suiteFilter, classNameFilter, searchTerm]);
+
+  if (!testData) {
+    return <div className="bg-white p-8 rounded-lg shadow text-center">
+        <AlertTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          No Test Data Available
+        </h2>
+        <p className="text-gray-600 mb-6">
+          Please upload a JUnit XML file from the Dashboard to view failure
+          analysis.
+        </p>
+      </div>;
+  }
 
   // Reset to page 1 when filters change
   const totalPages = Math.ceil(filteredTests.length / testsPerPage);
