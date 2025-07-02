@@ -37,29 +37,3 @@ jobs:
         echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
         echo "The test suite has been executed with coverage reporting." >> $GITHUB_STEP_SUMMARY
         echo "Check the detailed coverage report in the build artifacts." >> $GITHUB_STEP_SUMMARY
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.x
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Build application
-      run: npm run build
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-files
-        path: dist/
