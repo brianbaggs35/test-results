@@ -4,13 +4,13 @@ import { Dashboard } from './components/Dashboard/Dashboard';
 import { ReportGenerator } from './components/ReportGenerator/ReportGenerator';
 import { FailureAnalysisPage } from './components/FailureAnalysis/FailureAnalysisPage';
 import { FailureAnalysisProgress } from './components/FailureAnalysis/FailureAnalysisProgress';
-import type { ParsedTestData } from './utils/xmlParser';
+import type { TestData } from './types';
 
 export function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [testData, setTestData] = useState<ParsedTestData | null>(null);
+  const [testData, setTestData] = useState<TestData | null>(null);
   
-  const handleDataUpload = (data: ParsedTestData) => {
+  const handleDataUpload = (data: TestData) => {
     setTestData(data);
   };
   const getActiveComponent = () => {

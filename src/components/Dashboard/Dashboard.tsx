@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { FileUploader } from './FileUploader';
 import { TestMetrics } from './TestMetrics';
 import { TestResultsList } from './TestResultsList';
-import { parseJUnitXML, type ParsedTestData } from '../../utils/xmlParser';
+import { parseJUnitXML } from '../../utils/xmlParser';
+import type { TestData } from '../../types';
 
 interface DashboardProps {
-  onDataUpload: (data: ParsedTestData) => void;
-  testData: ParsedTestData | null;
+  onDataUpload: (data: TestData) => void;
+  testData: TestData | null;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({

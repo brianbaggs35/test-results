@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import { AlertTriangleIcon, ClockIcon, CheckIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
-import type { ParsedTestData, TestCase } from '../../utils/xmlParser';
+import type { TestData, TestCase } from '../../types';
 
 interface TestWithSuite extends TestCase {
   suite: string;
 }
 
 interface FailureAnalysisPageProps {
-  testData: ParsedTestData | null;
+  testData: TestData | null;
 }
 
 export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({

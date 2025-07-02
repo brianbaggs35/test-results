@@ -1,10 +1,10 @@
 import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { formatDuration } from '../../utils/formatting';
-import type { ParsedTestData } from '../../utils/xmlParser';
+import type { TestData } from '../../types';
 
 interface TestMetricsProps {
-  testData: ParsedTestData;
+  testData: TestData;
 }
 
 export const TestMetrics: React.FC<TestMetricsProps> = ({

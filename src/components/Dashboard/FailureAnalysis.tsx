@@ -1,8 +1,8 @@
 import { AlertTriangleIcon, ClockIcon, CheckIcon } from 'lucide-react';
-import type { ParsedTestData } from '../../utils/xmlParser';
+import type { TestData } from '../../types';
 
 interface FailureAnalysisProps {
-  testData: ParsedTestData;
+  testData: TestData;
 }
 
 export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({

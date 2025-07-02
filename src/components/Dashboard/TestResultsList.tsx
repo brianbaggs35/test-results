@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { TestDetailsModal } from './TestDetailsModal';
 import { FilterControls } from './FilterControls';
-import type { ParsedTestData, TestCase } from '../../utils/xmlParser';
+import type { TestData, TestCase } from '../../types';
 
 interface TestWithSuite extends TestCase {
   suite: string;
 }
 
 interface TestResultsListProps {
-  testData: ParsedTestData;
+  testData: TestData;
 }
 
 export const TestResultsList: React.FC<TestResultsListProps> = ({

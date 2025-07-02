@@ -9,15 +9,15 @@ export interface TestSummary {
 export interface TestCase {
   name: string;
   status: 'passed' | 'failed' | 'skipped';
-  suite: string;
+  suite?: string;
   classname?: string;
-  time: string;
-  errorMessage?: string;
+  time: number;
+  errorMessage?: string | null;
   failureDetails?: {
-    message?: string;
-    type?: string;
-    stackTrace?: string;
-  };
+    message: string;
+    type: string;
+    stackTrace: string;
+  } | null;
 }
 
 export interface TestSuite {
@@ -26,7 +26,7 @@ export interface TestSuite {
   failures: number;
   errors: number;
   skipped: number;
-  time: string;
+  time: number;
   timestamp: string;
   testcases: TestCase[];
 }

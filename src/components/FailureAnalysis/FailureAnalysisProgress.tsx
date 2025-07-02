@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
+import type { TestData } from '../../types';
 
 interface FailureProgressItem {
   id: string;
@@ -12,22 +13,6 @@ interface FailureProgressItem {
   notes?: string;
   updatedAt?: string;
   assignee?: string;
-}
-
-interface TestData {
-  suites: Array<{
-    name: string;
-    testcases: Array<{
-      name: string;
-      status: string;
-      errorMessage?: string;
-      failureDetails?: {
-        message: string;
-        type: string;
-        stackTrace: string;
-      };
-    }>;
-  }>;
 }
 
 interface FailureAnalysisProgressProps {
