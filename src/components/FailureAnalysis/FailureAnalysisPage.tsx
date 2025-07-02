@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AlertTriangleIcon, ClockIcon, CheckIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
-export const FailureAnalysisPage = ({
+import type { ParsedTestData, TestCase } from '../../utils/xmlParser';
+
+interface TestWithSuite extends TestCase {
+  suite: string;
+}
+
+interface FailureAnalysisPageProps {
+  testData: ParsedTestData | null;
+}
+
+export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
   testData
 }) => {
-  const [selectedTest, setSelectedTest] = useState(null);
+  const [selectedTest, setSelectedTest] = useState<TestWithSuite | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('failed');
   const [suiteFilter, setSuiteFilter] = useState('all');
@@ -26,7 +36,12 @@ export const FailureAnalysisPage = ({
       </div>;
   }
   const suites = ['all', ...new Set(testData.suites.map(suite => suite.name))];
-  const classNames = ['all', ...new Set(testData.suites.flatMap(suite => suite.testcases.map(test => test.classname)).filter(Boolean))];
+  const classNames = ['all', ...new Set(
+    testData.suites
+      .flatMap(suite => suite.testcases.map(test => test.classname))
+      .filter(Boolean)
+  )];
+  
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('failed');
@@ -34,15 +49,26 @@ export const FailureAnalysisPage = ({
     setClassNameFilter('all');
     setCurrentPage(1);
   };
-  const filteredTests = testData.suites.flatMap(suite => suite.testcases.filter(test => test.status === 'failed').map(test => ({
-    ...test,
-    suite: suite.name
-  }))).filter(test => {
-    if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
-    if (classNameFilter !== 'all' && test.classname !== classNameFilter) return false;
-    if (searchTerm && !test.name.toLowerCase().includes(searchTerm.toLowerCase()) && !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    return true;
-  });
+  
+  const filteredTests = useMemo(() => {
+    return testData.suites
+      .flatMap(suite => 
+        suite.testcases
+          .filter(test => test.status === 'failed')
+          .map(test => ({
+            ...test,
+            suite: suite.name
+          } as TestWithSuite))
+      )
+      .filter(test => {
+        if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
+        if (classNameFilter !== 'all' && test.classname !== classNameFilter) return false;
+        if (searchTerm && 
+            !test.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
+            !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        return true;
+      });
+  }, [testData, suiteFilter, classNameFilter, searchTerm]);
 
   // Reset to page 1 when filters change
   const totalPages = Math.ceil(filteredTests.length / testsPerPage);
