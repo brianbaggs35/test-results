@@ -31,6 +31,9 @@ export const FailureAnalysisProgress = ({
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const testsPerPage = 50;
+  
+  // Bulk actions state
+  const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set());
   useEffect(() => {
     // Load progress data from localStorage
     const savedProgress = localStorage.getItem('testFixProgress');
@@ -73,6 +76,21 @@ export const FailureAnalysisProgress = ({
     setSelectedTest(null);
     setNotes('');
     setAssignee('');
+  };
+
+  // Bulk update function
+  const updateBulkTestStatus = (testIds: string[], status: 'pending' | 'in_progress' | 'completed') => {
+    const updatedProgress = { ...progressData };
+    testIds.forEach(testId => {
+      updatedProgress[testId] = {
+        ...updatedProgress[testId],
+        status,
+        updatedAt: new Date().toISOString()
+      };
+    });
+    setProgressData(updatedProgress);
+    localStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
+    setSelectedTests(new Set()); // Clear selection after bulk update
   };
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -156,6 +174,32 @@ export const FailureAnalysisProgress = ({
   const startIndex = (validCurrentPage - 1) * testsPerPage;
   const endIndex = startIndex + testsPerPage;
   const paginatedTests = filteredTests.slice(startIndex, endIndex);
+
+  // Reset selectedTests when paginatedTests changes
+  useEffect(() => {
+    setSelectedTests(new Set());
+  }, [validCurrentPage, filteredTests]);
+  // Selection functions (after paginatedTests is defined)
+  const toggleTestSelection = (testId: string) => {
+    const newSelection = new Set(selectedTests);
+    if (newSelection.has(testId)) {
+      newSelection.delete(testId);
+    } else {
+      newSelection.add(testId);
+    }
+    setSelectedTests(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    if (paginatedTests.every(test => selectedTests.has(test.id))) {
+      // If all visible tests are selected, deselect all
+      setSelectedTests(new Set());
+    } else {
+      // Select all visible tests
+      setSelectedTests(new Set(paginatedTests.map(test => test.id)));
+    }
+  };
+
   const handleShowStackTrace = (test: FailureProgressItem) => {
     // Find the original test data to get all details
     const suite = testData.suites.find(s => s.name === test.suite);
@@ -242,12 +286,63 @@ export const FailureAnalysisProgress = ({
           statusOptions={statusOptions}
         />
         
+        {/* Bulk Actions Bar */}
+        {paginatedTests.length > 0 && (
+          <div className="bg-gray-50 border rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedTests.size === paginatedTests.length && paginatedTests.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Select All ({selectedTests.size} selected)
+                  </span>
+                </label>
+              </div>
+              
+              {selectedTests.size > 0 && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Bulk Actions:</span>
+                  <button
+                    onClick={() => updateBulkTestStatus(Array.from(selectedTests), 'pending')}
+                    className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
+                  >
+                    Mark as Pending
+                  </button>
+                  <button
+                    onClick={() => updateBulkTestStatus(Array.from(selectedTests), 'in_progress')}
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-sm"
+                  >
+                    Mark as In Progress
+                  </button>
+                  <button
+                    onClick={() => updateBulkTestStatus(Array.from(selectedTests), 'completed')}
+                    className="px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-sm"
+                  >
+                    Mark as Complete
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
         {/* Failed Tests List */}
         <div className="space-y-4">
           {paginatedTests.map(test => <div key={test.id} className={`border rounded-lg overflow-hidden ${getStatusColor(test.status)}`}>
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedTests.has(test.id)}
+                      onChange={() => toggleTestSelection(test.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
                     {getStatusIcon(test.status)}
                     <div>
                       <h4 className="text-lg font-medium text-gray-900">

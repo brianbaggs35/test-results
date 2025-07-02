@@ -205,4 +205,120 @@ describe('FailureAnalysisProgress', () => {
       expect(screen.getByText('10 tests tracked')).toBeInTheDocument();
     });
   });
+
+  describe('Bulk Actions', () => {
+    it('should show bulk action controls', () => {
+      const testData = createTestDataWithFailures(5);
+      
+      render(<FailureAnalysisProgress testData={testData} />);
+      
+      // Should show Select All checkbox
+      expect(screen.getByText('Select All (0 selected)')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /select all/i })).toBeInTheDocument();
+    });
+
+    it('should select and deselect individual tests', () => {
+      const testData = createTestDataWithFailures(3);
+      
+      render(<FailureAnalysisProgress testData={testData} />);
+      
+      // Get all individual checkboxes (excluding the "Select All" checkbox)
+      const checkboxes = screen.getAllByRole('checkbox');
+      const testCheckboxes = checkboxes.slice(1); // Skip the "Select All" checkbox
+      
+      expect(testCheckboxes).toHaveLength(3);
+      
+      // Select first test
+      fireEvent.click(testCheckboxes[0]);
+      expect(screen.getByText('Select All (1 selected)')).toBeInTheDocument();
+      
+      // Select second test
+      fireEvent.click(testCheckboxes[1]);
+      expect(screen.getByText('Select All (2 selected)')).toBeInTheDocument();
+      
+      // Deselect first test
+      fireEvent.click(testCheckboxes[0]);
+      expect(screen.getByText('Select All (1 selected)')).toBeInTheDocument();
+    });
+
+    it('should select and deselect all tests', () => {
+      const testData = createTestDataWithFailures(3);
+      
+      render(<FailureAnalysisProgress testData={testData} />);
+      
+      const selectAllCheckbox = screen.getByRole('checkbox', { name: /select all/i });
+      
+      // Select all tests
+      fireEvent.click(selectAllCheckbox);
+      expect(screen.getByText('Select All (3 selected)')).toBeInTheDocument();
+      expect(selectAllCheckbox).toBeChecked();
+      
+      // Deselect all tests
+      fireEvent.click(selectAllCheckbox);
+      expect(screen.getByText('Select All (0 selected)')).toBeInTheDocument();
+      expect(selectAllCheckbox).not.toBeChecked();
+    });
+
+    it('should show bulk action buttons when tests are selected', () => {
+      const testData = createTestDataWithFailures(3);
+      
+      render(<FailureAnalysisProgress testData={testData} />);
+      
+      // Initially should not show bulk action buttons
+      expect(screen.queryByText('Bulk Actions:')).not.toBeInTheDocument();
+      
+      // Select a test
+      const checkboxes = screen.getAllByRole('checkbox');
+      const testCheckbox = checkboxes[1]; // First test checkbox (skip Select All)
+      fireEvent.click(testCheckbox);
+      
+      // Should now show bulk action buttons
+      expect(screen.getByText('Bulk Actions:')).toBeInTheDocument();
+      expect(screen.getByText('Mark as Pending')).toBeInTheDocument();
+      expect(screen.getByText('Mark as In Progress')).toBeInTheDocument();
+      expect(screen.getByText('Mark as Complete')).toBeInTheDocument();
+    });
+
+    it('should perform bulk status updates', () => {
+      const testData = createTestDataWithFailures(3);
+      
+      render(<FailureAnalysisProgress testData={testData} />);
+      
+      // Select all tests
+      const selectAllCheckbox = screen.getByRole('checkbox', { name: /select all/i });
+      fireEvent.click(selectAllCheckbox);
+      
+      // Verify tests are selected
+      expect(screen.getByText('Select All (3 selected)')).toBeInTheDocument();
+      
+      // Click "Mark as In Progress"
+      const inProgressButton = screen.getByText('Mark as In Progress');
+      fireEvent.click(inProgressButton);
+      
+      // Should clear selection after bulk update
+      expect(screen.getByText('Select All (0 selected)')).toBeInTheDocument();
+      
+      // Bulk actions should be hidden since no tests are selected
+      expect(screen.queryByText('Bulk Actions:')).not.toBeInTheDocument();
+    });
+
+    it('should clear selection after bulk update', () => {
+      const testData = createTestDataWithFailures(2);
+      
+      render(<FailureAnalysisProgress testData={testData} />);
+      
+      // Select all tests
+      const selectAllCheckbox = screen.getByRole('checkbox', { name: /select all/i });
+      fireEvent.click(selectAllCheckbox);
+      expect(screen.getByText('Select All (2 selected)')).toBeInTheDocument();
+      
+      // Perform bulk update
+      const completeButton = screen.getByText('Mark as Complete');
+      fireEvent.click(completeButton);
+      
+      // Selection should be cleared
+      expect(screen.getByText('Select All (0 selected)')).toBeInTheDocument();
+      expect(screen.queryByText('Bulk Actions:')).not.toBeInTheDocument();
+    });
+  });
 });
