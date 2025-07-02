@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AlertTriangleIcon, ClockIcon, CheckIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
-export const FailureAnalysisPage = ({
+import type { TestData, TestCase } from '../../types';
+
+interface TestWithSuite extends TestCase {
+  suite: string;
+}
+
+interface FailureAnalysisPageProps {
+  testData: TestData | null;
+}
+
+export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
   testData
 }) => {
-  const [selectedTest, setSelectedTest] = useState(null);
+  const [selectedTest, setSelectedTest] = useState<TestWithSuite | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('failed');
   const [suiteFilter, setSuiteFilter] = useState('all');
@@ -13,6 +23,51 @@ export const FailureAnalysisPage = ({
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const testsPerPage = 50;
+
+  // Memoized computations that need to be before early returns
+  const suites = useMemo(() => {
+    if (!testData) return ['all'];
+    return ['all', ...new Set(testData.suites.map(suite => suite.name))];
+  }, [testData]);
+  
+  const classNames = useMemo(() => {
+    if (!testData) return ['all'];
+    return ['all', ...new Set(
+      testData.suites
+        .flatMap(suite => suite.testcases.map(test => test.classname))
+        .filter(Boolean)
+    )];
+  }, [testData]);
+  
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('failed');
+    setSuiteFilter('all');
+    setClassNameFilter('all');
+    setCurrentPage(1);
+  };
+  
+  const filteredTests = useMemo(() => {
+    if (!testData) return [];
+    return testData.suites
+      .flatMap(suite => 
+        suite.testcases
+          .filter(test => test.status === 'failed')
+          .map(test => ({
+            ...test,
+            suite: suite.name
+          } as TestWithSuite))
+      )
+      .filter(test => {
+        if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
+        if (classNameFilter !== 'all' && test.classname !== classNameFilter) return false;
+        if (searchTerm && 
+            !test.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
+            !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        return true;
+      });
+  }, [testData, suiteFilter, classNameFilter, searchTerm]);
+
   if (!testData) {
     return <div className="bg-white p-8 rounded-lg shadow text-center">
         <AlertTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -25,24 +80,6 @@ export const FailureAnalysisPage = ({
         </p>
       </div>;
   }
-  const suites = ['all', ...new Set(testData.suites.map(suite => suite.name))];
-  const classNames = ['all', ...new Set(testData.suites.flatMap(suite => suite.testcases.map(test => test.classname)).filter(Boolean))];
-  const resetFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('failed');
-    setSuiteFilter('all');
-    setClassNameFilter('all');
-    setCurrentPage(1);
-  };
-  const filteredTests = testData.suites.flatMap(suite => suite.testcases.filter(test => test.status === 'failed').map(test => ({
-    ...test,
-    suite: suite.name
-  }))).filter(test => {
-    if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
-    if (classNameFilter !== 'all' && test.classname !== classNameFilter) return false;
-    if (searchTerm && !test.name.toLowerCase().includes(searchTerm.toLowerCase()) && !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    return true;
-  });
 
   // Reset to page 1 when filters change
   const totalPages = Math.ceil(filteredTests.length / testsPerPage);

@@ -1,4 +1,3 @@
-import React from 'react';
 import { SearchIcon, FilterIcon, ChevronDownIcon, ChevronUpIcon, XCircleIcon } from 'lucide-react';
 interface FilterControlsProps {
   searchTerm: string;

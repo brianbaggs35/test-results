@@ -1,6 +1,11 @@
-import React from 'react';
 import { BarChartIcon, FileTextIcon, AlertTriangleIcon, ListChecksIcon } from 'lucide-react';
-export const Navbar = ({
+
+interface NavbarProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab
 }) => {

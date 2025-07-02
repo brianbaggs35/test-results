@@ -1,22 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { TestDetailsModal } from './TestDetailsModal';
 import { FilterControls } from './FilterControls';
-export const TestResultsList = ({
+import type { TestData, TestCase } from '../../types';
+
+interface TestWithSuite extends TestCase {
+  suite: string;
+}
+
+interface TestResultsListProps {
+  testData: TestData;
+}
+
+export const TestResultsList: React.FC<TestResultsListProps> = ({
   testData
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortField, setSortField] = useState('name');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [filteredTests, setFilteredTests] = useState([]);
+  const [sortField, setSortField] = useState<keyof TestWithSuite>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [filteredTests, setFilteredTests] = useState<TestWithSuite[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedTest, setSelectedTest] = useState(null);
+  const [selectedTest, setSelectedTest] = useState<TestWithSuite | null>(null);
   const [suiteFilter, setSuiteFilter] = useState('all');
   const [classNameFilter, setClassNameFilter] = useState('all');
+  
   // Get unique values for filters
   const suites = ['all', ...new Set(testData.suites.map(suite => suite.name))];
-  const classNames = ['all', ...new Set(testData.suites.flatMap(suite => suite.testcases.map(test => test.classname)).filter(Boolean))];
+  const classNames = ['all', ...new Set(
+    testData.suites
+      .flatMap(suite => suite.testcases.map(test => test.classname))
+      .filter(Boolean)
+  )];
   // Flatten test cases from all suites
   useEffect(() => {
     const flattenedTests = testData.suites.flatMap(suite => suite.testcases.map(test => ({
@@ -52,7 +67,7 @@ export const TestResultsList = ({
       } else if (sortField === 'status') {
         comparison = a.status.localeCompare(b.status);
       } else if (sortField === 'time') {
-        comparison = parseFloat(a.time) - parseFloat(b.time);
+        comparison = a.time - b.time;
       } else if (sortField === 'classname') {
         comparison = (a.classname || '').localeCompare(b.classname || '');
       }
@@ -60,7 +75,8 @@ export const TestResultsList = ({
     });
     setFilteredTests(filtered);
   }, [testData, searchTerm, statusFilter, suiteFilter, classNameFilter, sortField, sortDirection]);
-  const handleSort = field => {
+  
+  const handleSort = (field: keyof TestWithSuite) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {

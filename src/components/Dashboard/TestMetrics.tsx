@@ -1,16 +1,18 @@
-import React from 'react';
 import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { formatDuration } from '../../utils/formatting';
-export const TestMetrics = ({
+import type { TestData } from '../../types';
+
+interface TestMetricsProps {
+  testData: TestData;
+}
+
+export const TestMetrics: React.FC<TestMetricsProps> = ({
   testData
 }) => {
-  const {
-    summary,
-    suites
-  } = testData;
+  const { summary } = testData;
+  
   // Prepare test distribution data
-  const allTests = suites.flatMap(suite => suite.testcases);
   const statusData = [{
     name: 'Passed',
     value: summary.passed,
@@ -30,6 +32,15 @@ export const TestMetrics = ({
   const CustomTooltip = ({
     active,
     payload
+  }: {
+    active?: boolean;
+    payload?: Array<{
+      payload: {
+        name: string;
+        value: number;
+        description: string;
+      };
+    }>;
   }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;

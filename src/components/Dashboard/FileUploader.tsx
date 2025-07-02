@@ -1,13 +1,21 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { UploadIcon, FileIcon, AlertCircleIcon, LoaderIcon } from 'lucide-react';
-export const FileUploader = ({
+
+interface FileUploaderProps {
+  onFileUpload: (file: File) => void;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export const FileUploader: React.FC<FileUploaderProps> = ({
   onFileUpload,
   isLoading,
   error
 }) => {
-  const fileInputRef = useRef(null);
-  const handleFileChange = e => {
-    const file = e.target.files[0];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
       onFileUpload(file);
     }
@@ -20,7 +28,7 @@ export const FileUploader = ({
         </div> : error ? <div className="flex flex-col items-center text-red-500">
           <AlertCircleIcon className="w-12 h-12 mb-4" />
           <p className="mb-4 text-center">{error}</p>
-          <button onClick={() => fileInputRef.current.click()} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+          <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
             Try Again
           </button>
         </div> : <>
@@ -31,7 +39,7 @@ export const FileUploader = ({
           <p className="mb-4 text-sm text-gray-500">
             Drag and drop or click to upload
           </p>
-          <button onClick={() => fileInputRef.current.click()} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+          <button onClick={() => fileInputRef.current?.click()} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
             <UploadIcon className="w-5 h-5 mr-2" />
             Select File
           </button>

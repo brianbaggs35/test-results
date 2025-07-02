@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FileUploader } from './FileUploader';
 import { TestMetrics } from './TestMetrics';
 import { TestResultsList } from './TestResultsList';
 import { parseJUnitXML } from '../../utils/xmlParser';
-export const Dashboard = ({
+import type { TestData } from '../../types';
+
+interface DashboardProps {
+  onDataUpload: (data: TestData) => void;
+  testData: TestData | null;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({
   onDataUpload,
   testData
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const handleFileUpload = async file => {
+  const [error, setError] = useState<string | null>(null);
+  
+  const handleFileUpload = async (file: File) => {
     setIsLoading(true);
     setError(null);
     try {

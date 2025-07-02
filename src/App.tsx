@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Navbar } from './components/Layout/Navbar';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ReportGenerator } from './components/ReportGenerator/ReportGenerator';
 import { FailureAnalysisPage } from './components/FailureAnalysis/FailureAnalysisPage';
 import { FailureAnalysisProgress } from './components/FailureAnalysis/FailureAnalysisProgress';
+import type { TestData } from './types';
+
 export function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [testData, setTestData] = useState(null);
-  const handleDataUpload = data => {
+  const [testData, setTestData] = useState<TestData | null>(null);
+  
+  const handleDataUpload = (data: TestData) => {
     setTestData(data);
   };
   const getActiveComponent = () => {
