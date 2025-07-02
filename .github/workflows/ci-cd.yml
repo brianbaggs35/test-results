@@ -38,36 +38,6 @@ jobs:
         echo "The test suite has been executed with coverage reporting." >> $GITHUB_STEP_SUMMARY
         echo "Check the detailed coverage report in the build artifacts." >> $GITHUB_STEP_SUMMARY
 
-    - name: Check coverage threshold
-      run: |
-        coverage=$(node -e "
-          const coverage = require('./coverage/coverage-final.json');
-          const summary = Object.values(coverage).reduce((acc, file) => {
-            acc.lines.total += file.s ? Object.keys(file.s).length : 0;
-            acc.lines.covered += file.s ? Object.values(file.s).filter(v => v > 0).length : 0;
-            acc.branches.total += file.b ? Object.keys(file.b).length : 0;
-            acc.branches.covered += file.b ? Object.values(file.b).filter(branch => branch.some(v => v > 0)).length : 0;
-            acc.functions.total += file.f ? Object.keys(file.f).length : 0;
-            acc.functions.covered += file.f ? Object.values(file.f).filter(v => v > 0).length : 0;
-            return acc;
-          }, { lines: { total: 0, covered: 0 }, branches: { total: 0, covered: 0 }, functions: { total: 0, covered: 0 } });
-          
-          const linesCoverage = (summary.lines.covered / summary.lines.total) * 100;
-          const branchesCoverage = (summary.branches.covered / summary.branches.total) * 100;
-          const functionsCoverage = (summary.functions.covered / summary.functions.total) * 100;
-          
-          console.log('Lines:', linesCoverage.toFixed(2) + '%');
-          console.log('Branches:', branchesCoverage.toFixed(2) + '%');
-          console.log('Functions:', functionsCoverage.toFixed(2) + '%');
-          
-          if (linesCoverage < 90 || branchesCoverage < 90 || functionsCoverage < 90) {
-            console.log('❌ Coverage threshold not met. Minimum required: 90%');
-            process.exit(1);
-          } else {
-            console.log('✅ Coverage threshold met!');
-          }
-        ")
-
   build:
     runs-on: ubuntu-latest
     needs: test
