@@ -175,6 +175,10 @@ export const FailureAnalysisProgress = ({
   const endIndex = startIndex + testsPerPage;
   const paginatedTests = filteredTests.slice(startIndex, endIndex);
 
+  // Reset selectedTests when paginatedTests changes
+  useEffect(() => {
+    setSelectedTests(new Set());
+  }, [validCurrentPage, filteredTests]);
   // Selection functions (after paginatedTests is defined)
   const toggleTestSelection = (testId: string) => {
     const newSelection = new Set(selectedTests);
