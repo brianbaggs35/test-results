@@ -128,7 +128,7 @@ describe('PDFPreviewFrame', () => {
   it('should display test summary statistics correctly', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
 
-    expect(screen.getByText('100')).toBeInTheDocument(); // Total tests
+    expect(screen.getAllByText('100')).toHaveLength(2); // Total tests appears in multiple places
     expect(screen.getByText('75')).toBeInTheDocument(); // Passed tests
     expect(screen.getByText('20')).toBeInTheDocument(); // Failed tests
     expect(screen.getByText('5')).toBeInTheDocument(); // Skipped tests
