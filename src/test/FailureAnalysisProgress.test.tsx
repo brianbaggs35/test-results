@@ -11,17 +11,24 @@ function createTestDataWithFailures(numFailedTests: number) {
   for (let suiteIndex = 0; suiteIndex < numSuites; suiteIndex++) {
     const suite = {
       name: `TestSuite${suiteIndex + 1}`,
+      tests: 0,
+      failures: 0,
+      errors: 0,
+      skipped: 0,
+      time: 0,
+      timestamp: `2024-01-01T12:0${suiteIndex}:00Z`,
       testcases: [] as any[]
     };
     
     const testsInThisSuite = Math.min(testsPerSuite, numFailedTests - (suiteIndex * testsPerSuite));
     
     for (let testIndex = 0; testIndex < testsInThisSuite; testIndex++) {
+      const testTime = Math.random() * 5;
       suite.testcases.push({
         name: `test${suiteIndex}_${testIndex}`,
         classname: `Class${suiteIndex}_${testIndex}`,
-        status: 'failed',
-        time: (Math.random() * 5).toFixed(2),
+        status: 'failed' as const,
+        time: testTime,
         errorMessage: `Test failure ${suiteIndex}_${testIndex}`,
         failureDetails: {
           message: `Assertion error in test ${suiteIndex}_${testIndex}`,
@@ -29,12 +36,24 @@ function createTestDataWithFailures(numFailedTests: number) {
           stackTrace: `Stack trace for test ${suiteIndex}_${testIndex}\n    at line 1\n    at line 2`
         }
       });
+      suite.time += testTime;
+      suite.failures++;
     }
     
+    suite.tests = testsInThisSuite;
     suites.push(suite);
   }
   
-  return { suites };
+  return { 
+    summary: {
+      total: numFailedTests,
+      passed: 0,
+      failed: numFailedTests,
+      skipped: 0,
+      time: suites.reduce((total, suite) => total + suite.time, 0)
+    },
+    suites 
+  };
 }
 
 // Mock child components

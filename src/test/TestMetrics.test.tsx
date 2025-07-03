@@ -46,21 +46,29 @@ describe('TestMetrics', () => {
       {
         name: 'Suite 1',
         tests: 50,
+        failures: 5,
+        errors: 2,
+        skipped: 3,
         time: 60.0,
+        timestamp: '2024-01-01T12:00:00Z',
         testcases: [
-          { name: 'e2e/user_management/login/admin', status: 'passed' },
-          { name: 'e2e/user_management/profile/admin', status: 'failed' },
-          { name: 'e2e/billing/invoice/standard', status: 'passed' },
-          { name: 'unit/test1', status: 'skipped' },
+          { name: 'e2e/user_management/login/admin', status: 'passed' as const, time: 1.2 },
+          { name: 'e2e/user_management/profile/admin', status: 'failed' as const, time: 2.5 },
+          { name: 'e2e/billing/invoice/standard', status: 'passed' as const, time: 1.8 },
+          { name: 'unit/test1', status: 'skipped' as const, time: 0 },
         ]
       },
       {
         name: 'Suite 2',
         tests: 50,
+        failures: 5,
+        errors: 0,
+        skipped: 2,
         time: 60.5,
+        timestamp: '2024-01-01T12:01:00Z',
         testcases: [
-          { name: 'e2e/order_management/checkout/premium', status: 'passed' },
-          { name: 'e2e/billing/payment/admin', status: 'failed' },
+          { name: 'e2e/order_management/checkout/premium', status: 'passed' as const, time: 1.5 },
+          { name: 'e2e/billing/payment/admin', status: 'failed' as const, time: 3.2 },
         ]
       }
     ]
@@ -157,7 +165,11 @@ describe('TestMetrics', () => {
         {
           name: 'Empty Suite',
           tests: 0,
+          failures: 0,
+          errors: 0,
+          skipped: 0,
           time: 0,
+          timestamp: '2024-01-01T12:00:00Z',
           testcases: []
         }
       ]

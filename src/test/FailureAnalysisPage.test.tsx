@@ -11,17 +11,24 @@ function createLargeTestData(numFailedTests: number) {
   for (let suiteIndex = 0; suiteIndex < numSuites; suiteIndex++) {
     const suite = {
       name: `TestSuite${suiteIndex + 1}`,
+      tests: 0,
+      failures: 0,
+      errors: 0,
+      skipped: 0,
+      time: 0,
+      timestamp: `2024-01-01T12:0${suiteIndex}:00Z`,
       testcases: [] as any[]
     };
     
     const testsInThisSuite = Math.min(testsPerSuite, numFailedTests - (suiteIndex * testsPerSuite));
     
     for (let testIndex = 0; testIndex < testsInThisSuite; testIndex++) {
+      const testTime = Math.random() * 5;
       suite.testcases.push({
         name: `test${suiteIndex}_${testIndex}`,
         classname: `Class${suiteIndex}_${testIndex}`,
-        status: 'failed',
-        time: (Math.random() * 5).toFixed(2),
+        status: 'failed' as const,
+        time: testTime,
         errorMessage: `Test failure ${suiteIndex}_${testIndex}`,
         failureDetails: {
           message: `Assertion error in test ${suiteIndex}_${testIndex}`,
@@ -29,12 +36,24 @@ function createLargeTestData(numFailedTests: number) {
           stackTrace: `Stack trace for test ${suiteIndex}_${testIndex}\n    at line 1\n    at line 2`
         }
       });
+      suite.time += testTime;
+      suite.failures++;
     }
     
+    suite.tests = testsInThisSuite;
     suites.push(suite);
   }
   
-  return { suites };
+  return { 
+    summary: {
+      total: numFailedTests,
+      passed: 0,
+      failed: numFailedTests,
+      skipped: 0,
+      time: suites.reduce((total, suite) => total + suite.time, 0)
+    },
+    suites 
+  };
 }
 
 // Mock child components
@@ -75,15 +94,28 @@ vi.mock('lucide-react', () => ({
 
 describe('FailureAnalysisPage', () => {
   const mockTestData = {
+    summary: {
+      total: 3,
+      passed: 1,
+      failed: 2,
+      skipped: 0,
+      time: 4.4
+    },
     suites: [
       {
         name: 'Suite 1',
+        tests: 2,
+        failures: 1,
+        errors: 0,
+        skipped: 0,
+        time: 2.3,
+        timestamp: '2024-01-01T12:00:00Z',
         testcases: [
           {
             name: 'test1',
             classname: 'Class1',
-            status: 'failed',
-            time: '1.5',
+            status: 'failed' as const,
+            time: 1.5,
             errorMessage: 'Test failed',
             failureDetails: {
               message: 'Assertion error',
@@ -94,19 +126,25 @@ describe('FailureAnalysisPage', () => {
           {
             name: 'test2',
             classname: 'Class2',
-            status: 'passed',
-            time: '0.8',
+            status: 'passed' as const,
+            time: 0.8,
           }
         ]
       },
       {
         name: 'Suite 2',
+        tests: 1,
+        failures: 1,
+        errors: 0,
+        skipped: 0,
+        time: 2.1,
+        timestamp: '2024-01-01T12:01:00Z',
         testcases: [
           {
             name: 'test3',
             classname: 'Class3',
-            status: 'failed',
-            time: '2.1',
+            status: 'failed' as const,
+            time: 2.1,
             errorMessage: 'Another failure'
           }
         ]
@@ -215,15 +253,28 @@ describe('FailureAnalysisPage', () => {
 
   it('should show "All Tests Passed" when no failed tests', () => {
     const passedTestData = {
+      summary: {
+        total: 1,
+        passed: 1,
+        failed: 0,
+        skipped: 0,
+        time: 0.5
+      },
       suites: [
         {
           name: 'Suite 1',
+          tests: 1,
+          failures: 0,
+          errors: 0,
+          skipped: 0,
+          time: 0.5,
+          timestamp: '2024-01-01T12:00:00Z',
           testcases: [
             {
               name: 'test1',
               classname: 'Class1',
-              status: 'passed',
-              time: '0.5',
+              status: 'passed' as const,
+              time: 0.5,
             }
           ]
         }
@@ -239,6 +290,13 @@ describe('FailureAnalysisPage', () => {
 
   it('should handle empty test suites', () => {
     const emptyTestData = {
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        time: 0
+      },
       suites: []
     };
 
@@ -249,9 +307,22 @@ describe('FailureAnalysisPage', () => {
 
   it('should handle test data with no testcases', () => {
     const noTestCasesData = {
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        time: 0
+      },
       suites: [
         {
           name: 'Empty Suite',
+          tests: 0,
+          failures: 0,
+          errors: 0,
+          skipped: 0,
+          time: 0,
+          timestamp: '2024-01-01T12:00:00Z',
           testcases: []
         }
       ]
@@ -264,15 +335,28 @@ describe('FailureAnalysisPage', () => {
 
   it('should display correct count for single failed test', () => {
     const singleFailureData = {
+      summary: {
+        total: 1,
+        passed: 0,
+        failed: 1,
+        skipped: 0,
+        time: 1.0
+      },
       suites: [
         {
           name: 'Suite 1',
+          tests: 1,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 1.0,
+          timestamp: '2024-01-01T12:00:00Z',
           testcases: [
             {
               name: 'test1',
               classname: 'Class1',
-              status: 'failed',
-              time: '1.0',
+              status: 'failed' as const,
+              time: 1.0,
               errorMessage: 'Test failed'
             }
           ]
