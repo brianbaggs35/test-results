@@ -1,5 +1,5 @@
 // Simple test to verify chart-render-complete functionality
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
