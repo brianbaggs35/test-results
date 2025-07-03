@@ -106,7 +106,7 @@ describe('ReportPreview', () => {
       <ReportPreview 
         testData={mockTestData} 
         config={mockConfig} 
-        onBack={() => {}} 
+        onBack={() => { /* noop */ }} 
       />
     );
 
@@ -130,7 +130,7 @@ describe('ReportPreview', () => {
       <ReportPreview 
         testData={mockTestData} 
         config={mockConfig} 
-        onBack={() => {}} 
+        onBack={() => { /* noop */ }} 
       />
     );
 
@@ -139,7 +139,7 @@ describe('ReportPreview', () => {
     expect(allTestRows).toHaveLength(9); // Total of 9 tests (4 + 3 + 2)
 
     // Check that the keys are unique by ensuring all rows render correctly
-    allTestRows.forEach((row, index) => {
+    allTestRows.forEach((row) => {
       expect(row).toBeInTheDocument();
       expect(row.querySelector('td')).toBeInTheDocument(); // Each row should have at least one cell
     });
@@ -150,7 +150,7 @@ describe('ReportPreview', () => {
       <ReportPreview 
         testData={mockTestData} 
         config={mockConfig} 
-        onBack={() => {}} 
+        onBack={() => { /* noop */ }} 
       />
     );
 
@@ -159,7 +159,7 @@ describe('ReportPreview', () => {
     expect(failedTestRows).toHaveLength(4); // 4 failed tests
 
     // Check that each row is properly rendered without key conflicts
-    failedTestRows.forEach((row, index) => {
+    failedTestRows.forEach((row) => {
       expect(row).toBeInTheDocument();
       expect(row.querySelector('td')).toBeInTheDocument();
     });
@@ -167,14 +167,14 @@ describe('ReportPreview', () => {
 
   it('should not show duplicate key warnings in console', () => {
     // This test verifies that no React duplicate key warnings are generated
-    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* noop */ });
 
     render(
       <ReportPreview 
         testData={mockTestData} 
         config={mockConfig} 
-        onBack={() => {}} 
+        onBack={() => { /* noop */ }} 
       />
     );
 
