@@ -9,18 +9,30 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
   // Add chart-render-complete class after component mounts for PDF generation
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // Add the class to indicate charts have rendered
-      const chartContainer = document.querySelector('.recharts-responsive-container');
-      if (chartContainer && !document.querySelector('.chart-render-complete')) {
-        const indicator = document.createElement('div');
-        indicator.className = 'chart-render-complete';
-        indicator.style.display = 'none';
-        document.body.appendChild(indicator);
-      }
-    }, 100); // Small delay to ensure chart has rendered
+    const chartContainer = document.querySelector('.recharts-responsive-container');
+    if (chartContainer) {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' || mutation.type === 'attributes') {
+            if (!document.querySelector('.chart-render-complete')) {
+              const indicator = document.createElement('div');
+              indicator.className = 'chart-render-complete';
+              indicator.style.display = 'none';
+              document.body.appendChild(indicator);
+              observer.disconnect(); // Stop observing once the class is added
+            }
+          }
+        });
+      });
+      observer.observe(chartContainer, { childList: true, attributes: true, subtree: true });
+    }
     
-    return () => clearTimeout(timer);
+    return () => {
+      if (chartContainer) {
+        const observer = new MutationObserver(() => {});
+        observer.disconnect();
+      }
+    };
   }, [testData]);
 
   const statusData = [
