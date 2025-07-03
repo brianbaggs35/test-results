@@ -383,9 +383,6 @@ export const ReportPreview = ({
                           <td className="px-4 py-3 text-sm text-gray-500 break-words">
                             {test.suite}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {parseFloat(test.time).toFixed(2)}s
-                          </td>
                           <td className="px-4 py-3 text-sm text-gray-500 break-words max-w-xs">
                             {test.errorMessage || 'No error message provided'}
                           </td>
@@ -441,7 +438,7 @@ export const ReportPreview = ({
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {parseFloat(test.time).toFixed(2)}s
+                            {test.time.toFixed(2)}s
                           </td>
                         </tr>))}
                   </tbody>

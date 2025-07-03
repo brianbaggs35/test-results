@@ -35,7 +35,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
     return ['all', ...new Set(
       testData.suites
         .flatMap(suite => suite.testcases.map(test => test.classname))
-        .filter(Boolean)
+        .filter((className): className is string => Boolean(className))
     )];
   }, [testData]);
   
@@ -141,7 +141,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
                   </div>
                   <div className="flex items-center text-sm text-gray-500">
                     <ClockIcon className="w-4 h-4 mr-1" />
-                    {parseFloat(test.time).toFixed(2)}s
+                    {test.time.toFixed(2)}s
                   </div>
                 </div>
               </div>

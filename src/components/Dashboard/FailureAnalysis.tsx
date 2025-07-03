@@ -46,8 +46,8 @@ export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({
         </div>
       </div>
       <div className="grid gap-6">
-        {failedTests.map((test) => (
-          <div key={test.id} className="bg-white border border-red-200 rounded-lg overflow-hidden">
+        {failedTests.map((test, index) => (
+          <div key={`${test.suite}-${test.name}-${index}`} className="bg-white border border-red-200 rounded-lg overflow-hidden">
             <div className="bg-red-50 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -58,7 +58,7 @@ export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({
                 </div>
                 <div className="flex items-center text-sm text-gray-500">
                   <ClockIcon className="w-4 h-4 mr-1" />
-                  {parseFloat(test.time).toFixed(2)}s
+                  {test.time.toFixed(2)}s
                 </div>
               </div>
               <p className="mt-1 text-sm text-gray-500">Suite: {test.suite}</p>

@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
+import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
-import type { TestData } from '../../types';
+import type { TestData, TestCase } from '../../types';
 
 interface FailureProgressItem {
   id: string;
@@ -16,7 +16,7 @@ interface FailureProgressItem {
 }
 
 interface FailureAnalysisProgressProps {
-  testData: TestData;
+  testData: TestData | null;
 }
 
 export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = ({
@@ -28,7 +28,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   const [selectedTest, setSelectedTest] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [assignee, setAssignee] = useState('');
-  const [showStackTrace, setShowStackTrace] = useState<string | null>(null);
+  const [showStackTrace, setShowStackTrace] = useState<TestCase | null>(null);
   
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,13 +42,15 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   // Bulk actions state
   const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set());
   useEffect(() => {
+    if (!testData) return;
+    
     // Load progress data from localStorage
     const savedProgress = localStorage.getItem('testFixProgress');
     if (savedProgress) {
       setProgressData(JSON.parse(savedProgress));
     } else {
       // Initialize progress data for failed tests
-      const initialProgress = {};
+      const initialProgress: { [key: string]: FailureProgressItem } = {};
       testData.suites.forEach(suite => {
         suite.testcases.filter(test => test.status === 'failed').forEach(test => {
           const id = `${suite.name}-${test.name}`;
@@ -56,7 +58,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
             id,
             name: test.name,
             suite: suite.name,
-            errorMessage: test.errorMessage,
+            errorMessage: test.errorMessage || undefined,
             status: 'pending',
             notes: '',
             updatedAt: new Date().toISOString()
@@ -215,24 +217,40 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   };
 
   const handleShowStackTrace = (test: FailureProgressItem) => {
+    if (!testData) return;
+    
     // Find the original test data to get all details
     const suite = testData.suites.find(s => s.name === test.suite);
     const testDetails = suite?.testcases.find(t => t.name === test.name);
     if (!testDetails) return;
     // Create a complete test object with all necessary fields
-    const modalTest = {
+    const modalTest: TestCase = {
       ...testDetails,
       suite: test.suite,
-      status: 'failed',
+      status: 'failed' as const,
       errorMessage: testDetails.errorMessage || test.errorMessage,
       failureDetails: testDetails.failureDetails || {
-        message: testDetails.errorMessage || test.errorMessage,
+        message: testDetails.errorMessage || test.errorMessage || 'Unknown error',
         type: 'Error',
-        stackTrace: testDetails.errorMessage || test.errorMessage
+        stackTrace: testDetails.errorMessage || test.errorMessage || 'No stack trace available'
       }
     };
     setShowStackTrace(modalTest);
   };
+
+  if (!testData) {
+    return <div className="bg-white p-8 rounded-lg shadow text-center">
+        <AlertTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          No Test Data Available
+        </h2>
+        <p className="text-gray-600 mb-6">
+          Please upload a JUnit XML file from the Dashboard to view failure
+          resolution progress.
+        </p>
+      </div>;
+  }
+
   return <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -410,7 +428,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                       </p>}
                     <p>
                       <strong>Last Updated:</strong>{' '}
-                      {new Date(test.updatedAt).toLocaleString()}
+                      {new Date(test.updatedAt || new Date()).toLocaleString()}
                     </p>
                   </div>}
               </div>

@@ -464,7 +464,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                       border: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap'
                     }}>
-                      {parseFloat(test.time).toFixed(2)}s
+                      {test.time.toFixed(2)}s
                     </td>
                     <td style={{
                       padding: '8px 10px',
@@ -669,7 +669,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                             whiteSpace: 'nowrap',
                             fontSize: '10px'
                           }}>
-                            {parseFloat(test.time.toString()).toFixed(2)}s
+                            {test.time.toFixed(2)}s
                           </td>
                         </tr>
                       );

@@ -63,6 +63,14 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
     outerRadius,
     percent,
     value
+  }: {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percent: number;
+    value: number;
   }) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
