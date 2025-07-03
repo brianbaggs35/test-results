@@ -238,14 +238,14 @@ describe('PDFPreviewFrame', () => {
   it('should render resolution progress section when enabled', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
 
-    expect(screen.getByText(/Failure Resolution Progress/)).toBeInTheDocument();
+    expect(screen.getByText('5. Failure Resolution Progress')).toBeInTheDocument();
   });
 
   it('should not render resolution progress when disabled', () => {
     const configWithoutProgress = { ...mockConfig, includeResolutionProgress: false };
     render(<PDFPreviewFrame testData={mockTestData} config={configWithoutProgress} />);
 
-    expect(screen.queryByText(/Failure Resolution Progress/)).not.toBeInTheDocument();
+    expect(screen.queryByText('5. Failure Resolution Progress')).not.toBeInTheDocument();
   });
 
   it('should handle localStorage errors gracefully', () => {
@@ -279,23 +279,22 @@ describe('PDFPreviewFrame', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
 
     expect(screen.getByText('1. Executive Summary')).toBeInTheDocument();
-    expect(screen.getByText(/3. Failed Test Cases/)).toBeInTheDocument();
+    expect(screen.getByText('3. Failed Tests')).toBeInTheDocument();
     expect(screen.getByText(/4. All Test Cases/)).toBeInTheDocument();
     expect(screen.getByText(/5. Failure Resolution Progress/)).toBeInTheDocument();
   });
 
-  it('should adjust section numbering when some sections are disabled', () => {
+  it('should adjust section numbering when failed tests section is disabled', () => {
     const configPartial = {
       ...mockConfig,
-      includeExecutiveSummary: false,
-      includeTestMetrics: false
+      includeFailedTests: false
     };
 
     render(<PDFPreviewFrame testData={mockTestData} config={configPartial} />);
 
-    expect(screen.getByText(/1. Failed Test Cases/)).toBeInTheDocument();
-    expect(screen.getByText(/2. All Test Cases/)).toBeInTheDocument();
-    expect(screen.getByText(/3. Failure Resolution Progress/)).toBeInTheDocument();
+    expect(screen.getByText('1. Executive Summary')).toBeInTheDocument();
+    // When failed tests is disabled, All Test Cases should be section 3
+    expect(screen.getByText(/3. All Test Cases/)).toBeInTheDocument();
   });
 
   it('should handle tests without assignee properly', () => {

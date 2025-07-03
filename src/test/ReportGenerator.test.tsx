@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReportGenerator } from '../components/ReportGenerator/ReportGenerator';
-import { TestData } from '../types';
+import { TestData, ReportConfig } from '../types';
 
 // Mock components to avoid complex dependencies in unit tests
 vi.mock('../components/ReportGenerator/ReportPreview', () => ({
-  ReportPreview: ({ testData, config }: { testData: TestData; config: any }) => (
+  ReportPreview: ({ testData, config }: { testData: TestData; config: ReportConfig }) => (
     <div data-testid="report-preview">
       <span data-testid="preview-title">{config.title}</span>
       <span data-testid="preview-author">{config.author}</span>
@@ -99,10 +99,10 @@ describe('ReportGenerator', () => {
 
     expect(screen.getByDisplayValue('Automated Test Results Report')).toBeInTheDocument();
     expect(screen.getByLabelText('Include Executive Summary')).toBeChecked();
-    expect(screen.getByLabelText('Include Test Metrics')).toBeChecked();
-    expect(screen.getByLabelText('Include Failed Tests')).toBeChecked();
-    expect(screen.getByLabelText('Include All Tests')).not.toBeChecked();
-    expect(screen.getByLabelText('Include Resolution Progress')).not.toBeChecked();
+    expect(screen.getByLabelText('Include Test Metrics and Charts')).toBeChecked();
+    expect(screen.getByLabelText('Include Failed Tests Details')).toBeChecked();
+    expect(screen.getByLabelText('Include All Test Cases')).not.toBeChecked();
+    expect(screen.getByLabelText('Include Failure Resolution Progress')).not.toBeChecked();
   });
 
   it('should update text input fields', async () => {
@@ -129,7 +129,7 @@ describe('ReportGenerator', () => {
     render(<ReportGenerator testData={mockTestData} />);
 
     const execSummaryCheckbox = screen.getByLabelText('Include Executive Summary');
-    const allTestsCheckbox = screen.getByLabelText('Include All Tests');
+    const allTestsCheckbox = screen.getByLabelText('Include All Test Cases');
 
     expect(execSummaryCheckbox).toBeChecked();
     expect(allTestsCheckbox).not.toBeChecked();
@@ -145,7 +145,7 @@ describe('ReportGenerator', () => {
     const user = userEvent.setup();
     render(<ReportGenerator testData={mockTestData} />);
 
-    const generateButton = screen.getByText('Generate Report');
+    const generateButton = screen.getByText('Preview Report');
     await user.click(generateButton);
 
     expect(screen.getByTestId('report-preview')).toBeInTheDocument();
@@ -160,10 +160,10 @@ describe('ReportGenerator', () => {
     await user.type(screen.getByLabelText('Report Title'), 'Custom Title');
     await user.type(screen.getByLabelText('Author'), 'Test Author');
     await user.type(screen.getByLabelText('Project Name'), 'Test Project');
-    await user.click(screen.getByLabelText('Include All Tests'));
+    await user.click(screen.getByLabelText('Include All Test Cases'));
 
     // Generate report
-    await user.click(screen.getByText('Generate Report'));
+    await user.click(screen.getByText('Preview Report'));
 
     // Check preview receives correct config
     expect(screen.getByTestId('preview-title')).toHaveTextContent('Custom Title');
@@ -176,7 +176,7 @@ describe('ReportGenerator', () => {
     const user = userEvent.setup();
     render(<ReportGenerator testData={mockTestData} />);
 
-    await user.click(screen.getByText('Generate Report'));
+    await user.click(screen.getByText('Preview Report'));
 
     expect(screen.getByTestId('preview-total')).toHaveTextContent('100');
   });
@@ -187,9 +187,9 @@ describe('ReportGenerator', () => {
 
     // Uncheck some options
     await user.click(screen.getByLabelText('Include Executive Summary'));
-    await user.click(screen.getByLabelText('Include Test Metrics'));
+    await user.click(screen.getByLabelText('Include Test Metrics and Charts'));
 
-    await user.click(screen.getByText('Generate Report'));
+    await user.click(screen.getByText('Preview Report'));
 
     expect(screen.queryByTestId('preview-exec-summary')).not.toBeInTheDocument();
     expect(screen.queryByTestId('preview-metrics')).not.toBeInTheDocument();
@@ -213,10 +213,10 @@ describe('ReportGenerator', () => {
     expect(screen.getByLabelText('Author')).toBeInTheDocument();
     expect(screen.getByLabelText('Project Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Include Executive Summary')).toBeInTheDocument();
-    expect(screen.getByLabelText('Include Test Metrics')).toBeInTheDocument();
-    expect(screen.getByLabelText('Include Failed Tests')).toBeInTheDocument();
-    expect(screen.getByLabelText('Include All Tests')).toBeInTheDocument();
-    expect(screen.getByLabelText('Include Resolution Progress')).toBeInTheDocument();
+    expect(screen.getByLabelText('Include Test Metrics and Charts')).toBeInTheDocument();
+    expect(screen.getByLabelText('Include Failed Tests Details')).toBeInTheDocument();
+    expect(screen.getByLabelText('Include All Test Cases')).toBeInTheDocument();
+    expect(screen.getByLabelText('Include Failure Resolution Progress')).toBeInTheDocument();
   });
 
   it('should handle empty string values properly', async () => {
@@ -230,7 +230,7 @@ describe('ReportGenerator', () => {
     expect(authorInput).toHaveValue('');
     expect(projectInput).toHaveValue('');
 
-    await user.click(screen.getByText('Generate Report'));
+    await user.click(screen.getByText('Preview Report'));
 
     // Should still work with empty values
     expect(screen.getByTestId('preview-author')).toHaveTextContent('');
@@ -243,10 +243,10 @@ describe('ReportGenerator', () => {
 
     // Make changes to form
     await user.type(screen.getByLabelText('Author'), 'Test Author');
-    await user.click(screen.getByLabelText('Include All Tests'));
+    await user.click(screen.getByLabelText('Include All Test Cases'));
 
     // Generate preview
-    await user.click(screen.getByText('Generate Report'));
+    await user.click(screen.getByText('Preview Report'));
     expect(screen.getByTestId('report-preview')).toBeInTheDocument();
 
     // Note: In a real implementation, there would likely be a way to go back

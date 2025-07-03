@@ -660,7 +660,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                             maxWidth: '0',
                             fontSize: '10px'
                           }}>
-                            {(test as any).assignee || 'Unassigned'}
+                            {(test as TestCase & { assignee?: string }).assignee || 'Unassigned'}
                           </td>
                           <td style={{
                             padding: '6px 8px',
@@ -690,7 +690,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           </h2>
           {(() => {
             // Access localStorage safely for PDF generation
-            let progressData: Record<string, any> = {};
+            let progressData: Record<string, { status?: string; assignee?: string }> = {};
             try {
               const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
               progressData = savedProgress ? JSON.parse(savedProgress) : {};
@@ -700,8 +700,8 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
             const failedTests = Object.values(progressData);
             const totalTests = failedTests.length;
-            const completedTests = failedTests.filter((test: any) => test.status === 'completed').length;
-            const inProgressTests = failedTests.filter((test: any) => test.status === 'in_progress').length;
+            const completedTests = failedTests.filter(test => test.status === 'completed').length;
+            const inProgressTests = failedTests.filter(test => test.status === 'in_progress').length;
 
             return (
               <div>
