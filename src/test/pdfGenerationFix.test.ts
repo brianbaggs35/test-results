@@ -41,10 +41,15 @@ const mockConfig = {
 };
 
 describe('PDF Generation Chart Render Complete Fix', () => {
+  let originalHtml2pdf: unknown;
+
   beforeEach(() => {
     // Clean up any existing chart-render-complete elements
     const existingElements = document.querySelectorAll('.chart-render-complete');
     existingElements.forEach(el => el.remove());
+    
+    // Save the original window.html2pdf value
+    originalHtml2pdf = (window as Record<string, unknown>).html2pdf;
   });
 
   afterEach(() => {
