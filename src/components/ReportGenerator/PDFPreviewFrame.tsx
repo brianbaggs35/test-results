@@ -464,7 +464,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                       border: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap'
                     }}>
-                      {parseFloat(test.time).toFixed(2)}s
+                      {test.time.toFixed(2)}s
                     </td>
                     <td style={{
                       padding: '8px 10px',
@@ -669,7 +669,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                             whiteSpace: 'nowrap',
                             fontSize: '10px'
                           }}>
-                            {parseFloat(test.time.toString()).toFixed(2)}s
+                            {test.time.toFixed(2)}s
                           </td>
                         </tr>
                       );
@@ -690,7 +690,13 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           </h2>
           {(() => {
             // Access localStorage safely for PDF generation
-            let progressData: Record<string, { status?: string; assignee?: string }> = {};
+            let progressData: Record<string, { 
+              status?: string; 
+              assignee?: string; 
+              name?: string; 
+              suite?: string; 
+              notes?: string; 
+            }> = {};
             try {
               const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
               progressData = savedProgress ? JSON.parse(savedProgress) : {};

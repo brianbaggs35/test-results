@@ -4,7 +4,7 @@ import { App } from '../App';
 
 // Mock the child components to isolate App testing
 vi.mock('../components/Layout/Navbar', () => ({
-  Navbar: ({ activeTab, setActiveTab }: any) => (
+  Navbar: ({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) => (
     <div data-testid="navbar">
       <button data-testid="dashboard-tab" onClick={() => setActiveTab('dashboard')}>
         Dashboard {activeTab === 'dashboard' && '(active)'}
@@ -23,40 +23,40 @@ vi.mock('../components/Layout/Navbar', () => ({
 }));
 
 vi.mock('../components/Dashboard/Dashboard', () => ({
-  Dashboard: ({ onDataUpload, testData }: any) => (
+  Dashboard: ({ onDataUpload, testData }: { onDataUpload: (data: unknown) => void; testData: unknown }) => (
     <div data-testid="dashboard">
       Dashboard Component
       <button data-testid="upload-data" onClick={() => onDataUpload({ test: 'data' })}>
         Upload Data
       </button>
-      {testData && <div data-testid="test-data">Test data loaded</div>}
+      {testData ? <div data-testid="test-data">Test data loaded</div> : null}
     </div>
   ),
 }));
 
 vi.mock('../components/FailureAnalysis/FailureAnalysisPage', () => ({
-  FailureAnalysisPage: ({ testData }: any) => (
+  FailureAnalysisPage: ({ testData }: { testData: unknown }) => (
     <div data-testid="failure-analysis">
       Failure Analysis
-      {testData && <div data-testid="failure-test-data">Data available</div>}
+      {testData ? <div data-testid="failure-test-data">Data available</div> : null}
     </div>
   ),
 }));
 
 vi.mock('../components/FailureAnalysis/FailureAnalysisProgress', () => ({
-  FailureAnalysisProgress: ({ testData }: any) => (
+  FailureAnalysisProgress: ({ testData }: { testData: unknown }) => (
     <div data-testid="failure-progress">
       Progress Component
-      {testData && <div data-testid="progress-test-data">Data available</div>}
+      {testData ? <div data-testid="progress-test-data">Data available</div> : null}
     </div>
   ),
 }));
 
 vi.mock('../components/ReportGenerator/ReportGenerator', () => ({
-  ReportGenerator: ({ testData }: any) => (
+  ReportGenerator: ({ testData }: { testData: unknown }) => (
     <div data-testid="report-generator">
       Report Generator
-      {testData && <div data-testid="report-test-data">Data available</div>}
+      {testData ? <div data-testid="report-test-data">Data available</div> : null}
     </div>
   ),
 }));

@@ -103,7 +103,7 @@ export const TestDetailsModal = ({
               </h4>
               <div className="flex items-center text-gray-900">
                 <ClockIcon className="w-4 h-4 text-blue-500 mr-2" />
-                <span>{parseFloat(test.time).toFixed(2)} seconds</span>
+                <span>{test.time.toFixed(2)} seconds</span>
               </div>
             </div>
             {/* Error Details */}

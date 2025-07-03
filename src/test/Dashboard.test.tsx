@@ -4,7 +4,11 @@ import { Dashboard } from '../components/Dashboard/Dashboard';
 
 // Mock child components
 vi.mock('../components/Dashboard/FileUploader', () => ({
-  FileUploader: ({ onFileUpload, isLoading, error }: any) => (
+  FileUploader: ({ onFileUpload, isLoading, error }: { 
+    onFileUpload: (file: File) => void; 
+    isLoading: boolean; 
+    error: string | null; 
+  }) => (
     <div data-testid="file-uploader">
       <div>File Uploader</div>
       {isLoading && <div data-testid="loading">Loading...</div>}
@@ -38,19 +42,19 @@ vi.mock('../components/Dashboard/FileUploader', () => ({
 }));
 
 vi.mock('../components/Dashboard/TestMetrics', () => ({
-  TestMetrics: ({ testData }: any) => (
+  TestMetrics: ({ testData }: { testData: unknown }) => (
     <div data-testid="test-metrics">
       Test Metrics Component
-      {testData && <div data-testid="metrics-data">Metrics with data</div>}
+      {testData ? <div data-testid="metrics-data">Metrics with data</div> : null}
     </div>
   ),
 }));
 
 vi.mock('../components/Dashboard/TestResultsList', () => ({
-  TestResultsList: ({ testData }: any) => (
+  TestResultsList: ({ testData }: { testData: unknown }) => (
     <div data-testid="test-results-list">
       Test Results List Component  
-      {testData && <div data-testid="results-data">Results with data</div>}
+      {testData ? <div data-testid="results-data">Results with data</div> : null}
     </div>
   ),
 }));
@@ -63,7 +67,16 @@ vi.mock('../utils/xmlParser', () => ({
     }
     return {
       summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
-      suites: [{ name: 'Test', testcases: [{ name: 'test1', status: 'passed' }] }]
+      suites: [{ 
+        name: 'Test', 
+        tests: 1,
+        failures: 0,
+        errors: 0,
+        skipped: 0,
+        time: 1.0,
+        timestamp: '2024-01-01T12:00:00Z',
+        testcases: [{ name: 'test1', status: 'passed' as const, time: 1.0 }] 
+      }]
     };
   })
 }));
@@ -91,7 +104,7 @@ describe('Dashboard', () => {
 
   it('should not show file uploader when test data is available', () => {
     const testData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
       suites: []
     };
     
@@ -102,7 +115,7 @@ describe('Dashboard', () => {
 
   it('should show test metrics and results list when test data is available', () => {
     const testData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
       suites: []
     };
     
@@ -128,7 +141,16 @@ describe('Dashboard', () => {
     await waitFor(() => {
       expect(mockOnDataUpload).toHaveBeenCalledWith({
         summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
-        suites: [{ name: 'Test', testcases: [{ name: 'test1', status: 'passed' }] }]
+        suites: [{ 
+          name: 'Test', 
+          tests: 1,
+          failures: 0,
+          errors: 0,
+          skipped: 0,
+          time: 1.0,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [{ name: 'test1', status: 'passed' as const, time: 1.0 }] 
+        }]
       });
     });
   });
@@ -192,7 +214,7 @@ describe('Dashboard', () => {
   });
 
   it('should handle undefined testData', () => {
-    render(<Dashboard onDataUpload={mockOnDataUpload} testData={undefined} />);
+    render(<Dashboard onDataUpload={mockOnDataUpload} testData={null} />);
     
     expect(screen.getByTestId('file-uploader')).toBeInTheDocument();
     expect(screen.queryByTestId('test-metrics')).not.toBeInTheDocument();
@@ -200,10 +222,28 @@ describe('Dashboard', () => {
 
   it('should pass testData correctly to child components', () => {
     const testData = {
-      summary: { total: 5, passed: 3, failed: 2, skipped: 0 },
+      summary: { total: 5, passed: 3, failed: 2, skipped: 0, time: 10.0 },
       suites: [
-        { name: 'Suite1', testcases: [] },
-        { name: 'Suite2', testcases: [] }
+        { 
+          name: 'Suite1', 
+          tests: 3,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 5.0,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [] 
+        },
+        { 
+          name: 'Suite2', 
+          tests: 2,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 5.0,
+          timestamp: '2024-01-01T12:01:00Z',
+          testcases: [] 
+        }
       ]
     };
     

@@ -24,7 +24,7 @@ global.ResizeObserver = class ResizeObserver {
 
 // Mock localStorage
 const localStorageMock = {
-  getItem: (_key: string) => null,
+  getItem: () => null,
   setItem: () => { /* mock implementation */ },
   removeItem: () => { /* mock implementation */ },
   clear: () => { /* mock implementation */ },

@@ -11,35 +11,64 @@ function createTestDataWithFailures(numFailedTests: number) {
   for (let suiteIndex = 0; suiteIndex < numSuites; suiteIndex++) {
     const suite = {
       name: `TestSuite${suiteIndex + 1}`,
-      testcases: [] as any[]
+      tests: 0,
+      failures: 0,
+      errors: 0,
+      skipped: 0,
+      time: 0,
+      timestamp: `2024-01-01T12:0${suiteIndex}:00Z`,
+      testcases: [] as Array<{
+        name: string;
+        status: 'passed' | 'failed' | 'skipped';
+        suite: string;
+        classname?: string;
+        time: number;
+        failureDetails?: { message: string; type: string; stackTrace: string };
+      }>
     };
     
     const testsInThisSuite = Math.min(testsPerSuite, numFailedTests - (suiteIndex * testsPerSuite));
     
     for (let testIndex = 0; testIndex < testsInThisSuite; testIndex++) {
+      const testTime = Math.random() * 5;
       suite.testcases.push({
         name: `test${suiteIndex}_${testIndex}`,
         classname: `Class${suiteIndex}_${testIndex}`,
-        status: 'failed',
-        time: (Math.random() * 5).toFixed(2),
-        errorMessage: `Test failure ${suiteIndex}_${testIndex}`,
+        suite: suite.name,
+        status: 'failed' as const,
+        time: testTime,
         failureDetails: {
           message: `Assertion error in test ${suiteIndex}_${testIndex}`,
           type: 'AssertionError',
           stackTrace: `Stack trace for test ${suiteIndex}_${testIndex}\n    at line 1\n    at line 2`
         }
       });
+      suite.time += testTime;
+      suite.failures++;
     }
     
+    suite.tests = testsInThisSuite;
     suites.push(suite);
   }
   
-  return { suites };
+  return { 
+    summary: {
+      total: numFailedTests,
+      passed: 0,
+      failed: numFailedTests,
+      skipped: 0,
+      time: suites.reduce((total, suite) => total + suite.time, 0)
+    },
+    suites 
+  };
 }
 
 // Mock child components
 vi.mock('../components/Dashboard/TestDetailsModal', () => ({
-  TestDetailsModal: ({ test, onClose }: any) => (
+  TestDetailsModal: ({ test, onClose }: { 
+    test: { name: string } | null; 
+    onClose: () => void; 
+  }) => (
     <div data-testid="test-details-modal">
       <div>Test: {test?.name}</div>
       <button onClick={onClose}>Close</button>
@@ -57,7 +86,16 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
     setShowFilters,
     resetFilters,
     statusOptions 
-  }: any) => (
+  }: { 
+    searchTerm: string; 
+    setSearchTerm: (term: string) => void; 
+    statusFilter: string; 
+    setStatusFilter: (filter: string) => void;
+    showFilters: boolean;
+    setShowFilters: (show: boolean) => void;
+    resetFilters: () => void;
+    statusOptions: Array<{ value: string; label: string }>;
+  }) => (
     <div data-testid="filter-controls">
       <input 
         data-testid="search-input" 
@@ -70,7 +108,7 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
         value={statusFilter} 
         onChange={(e) => setStatusFilter(e.target.value)}
       >
-        {statusOptions?.map((option: any) => (
+        {statusOptions?.map((option: { value: string; label: string }) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

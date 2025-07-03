@@ -30,7 +30,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
   const classNames = ['all', ...new Set(
     testData.suites
       .flatMap(suite => suite.testcases.map(test => test.classname))
-      .filter(Boolean)
+      .filter((className): className is string => Boolean(className))
   )];
   // Flatten test cases from all suites
   useEffect(() => {
@@ -84,7 +84,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
       setSortDirection('asc');
     }
   };
-  const getStatusIcon = status => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'passed':
         return <CheckIcon className="w-5 h-5 text-green-500" />;
@@ -159,7 +159,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {parseFloat(test.time).toFixed(2)}s
+                    {test.time.toFixed(2)}s
                   </td>
                 </tr>) : <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
