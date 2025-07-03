@@ -1,7 +1,60 @@
+import { TestData, ReportConfig } from '../../types';
+
 declare global {
   interface Window {
-    html2pdf: any;
+    html2pdf: HTMLToPDFApi;
   }
+}
+
+interface HTMLToPDFApi {
+  (): HTMLToPDFWorker;
+}
+
+interface HTMLToPDFWorker {
+  from(element: HTMLElement): HTMLToPDFWorker;
+  set(options: PDFOptions): HTMLToPDFWorker;
+  save(): Promise<void>;
+}
+
+interface PDFOptions {
+  margin: number[];
+  filename: string;
+  image: {
+    type: string;
+    quality: number;
+  };
+  html2canvas: HTML2CanvasOptions;
+  jsPDF: JSPDFOptions;
+  pagebreak: PageBreakOptions;
+}
+
+interface HTML2CanvasOptions {
+  scale: number;
+  useCORS: boolean;
+  logging: boolean;
+  allowTaint: boolean;
+  scrollY: number;
+  dpi: number;
+  windowWidth: number;
+  windowHeight: number;
+  timeout: number;
+  onclone: (doc: Document) => void;
+}
+
+interface JSPDFOptions {
+  unit: string;
+  format: string;
+  orientation: string;
+  compress: boolean;
+  putOnlyUsedFonts: boolean;
+  floatPrecision: number;
+}
+
+interface PageBreakOptions {
+  mode: string[];
+  before: string;
+  after: string;
+  avoid: string[];
 }
 const loadHtml2Pdf = async (): Promise<void> => {
   if (typeof window !== "undefined" && !window.html2pdf) {
@@ -25,11 +78,28 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     elements.forEach(el => el.remove());
   });
 
+  // Optimize large tables for better PDF rendering
+  const tables = content.querySelectorAll('table');
+  tables.forEach(table => {
+    const tbody = table.querySelector('tbody');
+    if (tbody) {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      // Add page break hints for very large tables
+      if (rows.length > 30) {
+        rows.forEach((row, index) => {
+          if (index > 0 && index % 25 === 0) {
+            (row as HTMLElement).style.pageBreakBefore = 'auto';
+          }
+        });
+      }
+    }
+  });
+
   // Add minimal PDF-specific styles for page breaks and print optimization
   const style = document.createElement("style");
   style.textContent = `
     @page {
-      margin: 8mm 8mm 8mm 8mm;
+      margin: 10mm;
       size: A4 portrait;
     }
     body {
@@ -45,6 +115,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       box-sizing: border-box !important;
       overflow: visible !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      padding: 5mm 8mm !important;
     }
     .page-break-before {
       page-break-before: always !important;
@@ -56,11 +127,17 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       page-break-inside: avoid !important;
     }
     table {
-      page-break-inside: avoid !important;
+      width: 100% !important;
       border-collapse: collapse !important;
+      page-break-inside: auto !important;
+      margin-bottom: 5mm !important;
     }
     tr {
       page-break-inside: avoid !important;
+    }
+    td, th {
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
     }
     svg {
       max-width: 100% !important;
@@ -74,17 +151,22 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
+    h1, h2, h3 {
+      page-break-after: avoid !important;
+    }
+    .recharts-responsive-container {
+      overflow: visible !important;
+    }
   `;
   content.insertBefore(style, content.firstChild);
   return content;
 };
-export const generatePDF = async (_testData: any, _config: any, onProgress?: (progress: number) => void): Promise<void> => {
+export const generatePDF = async (testData: TestData, config: ReportConfig, onProgress?: (progress: number) => void): Promise<void> => {
   try {
     await loadHtml2Pdf();
-    // Wait longer for charts and content to fully render
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Wait for charts and content to fully render
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Ensure all async content is loaded
     if (onProgress) onProgress(10);
 
     // Try to find the PDF preview frame first, fallback to regular preview if needed
@@ -98,50 +180,73 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
     }
 
     // Wait for any remaining chart animations or async rendering
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve, reject) => {
+      const maxWaitTime = 5000; // Maximum wait time in milliseconds
+      const interval = 100; // Polling interval in milliseconds
+      let elapsedTime = 0;
+
+      const checkRenderComplete = () => {
+        const isRenderComplete = document.querySelector(".chart-render-complete") !== null;
+        if (isRenderComplete) {
+          resolve();
+        } else if (elapsedTime >= maxWaitTime) {
+          reject(new Error("Rendering did not complete within the maximum wait time"));
+        } else {
+          elapsedTime += interval;
+          setTimeout(checkRenderComplete, interval);
+        }
+      };
+
+      checkRenderComplete();
+    });
     if (onProgress) onProgress(20);
 
     // Use the prepareContent function to properly process the content
     const content = prepareContent(reportElement);
     if (onProgress) onProgress(30);
 
-    // Calculate appropriate scale based on content size to prevent memory issues
+    // Calculate appropriate scale based on content size and test count
     const estimatedContentSize = content.innerHTML.length;
-    let scale = 2.5; // Increased base scale for better page utilization
-    let windowWidth = 1800; // Increased window width for higher quality
-    let windowHeight = 2540; // Increased window height for A4 proportions
-
-    // Reduce scale and window size for very large content to prevent memory issues
-    if (estimatedContentSize > 500000) { // Very large content
-      scale = 1.8; // Increased from 1.5 for better space usage
-      windowWidth = 1400;
-      windowHeight = 1980;
-      console.warn(`Large content detected (${estimatedContentSize} chars), reducing scale for PDF generation`);
-    } else if (estimatedContentSize > 200000) { // Large content
-      scale = 2.1; // Increased from 1.75 for better space usage
-      windowWidth = 1600;
-      windowHeight = 2260;
+    const totalTests = testData.summary.total;
+    
+    // More intelligent scaling based on both content size and test count
+    let scale = 2.0;
+    let windowWidth = 1400;
+    let windowHeight = 1980;
+    
+    if (totalTests > 2000 || estimatedContentSize > 1000000) {
+      // Very large datasets
+      scale = 1.2;
+      windowWidth = 1000;
+      windowHeight = 1414;
+      console.warn(`Very large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), using conservative settings`);
+    } else if (totalTests > 500 || estimatedContentSize > 300000) {
+      // Large datasets
+      scale = 1.5;
+      windowWidth = 1200;
+      windowHeight = 1697;
+      console.warn(`Large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), reducing scale`);
     }
 
-    // Configure PDF options with improved settings for A4 format
-    const opt = {
-      margin: [8, 8, 8, 8], // More balanced margins to optimize page space utilization
+    // Configure PDF options with improved settings for memory efficiency
+    const opt: PDFOptions = {
+      margin: [10, 10, 10, 10],
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
-        type: "png", // PNG for better quality than JPEG
-        quality: 1.0 // Maximum quality
+        type: "jpeg", // Use JPEG for better compression
+        quality: 0.9 // High quality but compressed
       },
       html2canvas: {
-        scale: scale, // Dynamic scale based on content size
+        scale: scale,
         useCORS: true,
         logging: false,
         allowTaint: true,
         scrollY: 0,
-        dpi: 400, // Higher DPI for print quality
-        windowWidth: windowWidth, // Dynamic width
-        windowHeight: windowHeight, // Dynamic height
-        timeout: 30000, // Increase timeout for large content
-        onclone: (doc: any) => {
+        dpi: 192, // Reduced DPI for better memory usage
+        windowWidth: windowWidth,
+        windowHeight: windowHeight,
+        timeout: 60000, // Reduced timeout to fail faster
+        onclone: (doc: Document) => {
           // Ensure the PDF frame is visible in the cloned document
           const pdfFrame = doc.getElementById('pdf-preview-frame');
           if (pdfFrame) {
@@ -169,7 +274,7 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
 
           // Ensure all SVG and chart elements are visible and properly rendered
           const svgs = doc.getElementsByTagName('svg');
-          Array.from(svgs).forEach((svg: any) => {
+          Array.from(svgs).forEach(svg => {
             svg.style.visibility = 'visible';
             svg.style.overflow = 'visible';
             svg.style.transform = 'none';
@@ -178,7 +283,7 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
 
             // Ensure text elements in SVG are visible and readable
             const texts = svg.getElementsByTagName('text');
-            Array.from(texts).forEach((text: any) => {
+            Array.from(texts).forEach(text => {
               text.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
               text.style.fontSize = text.style.fontSize || '11px';
               text.style.fill = text.style.fill || '#374151';
@@ -187,36 +292,43 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
 
           // Ensure ResponsiveContainer elements work in the clone
           const responsiveContainers = doc.querySelectorAll('.recharts-responsive-container');
-          Array.from(responsiveContainers).forEach((container: any) => {
-            container.style.width = '100%';
-            container.style.height = container.style.height || '180px';
-            container.style.position = 'relative';
-            container.style.overflow = 'visible';
-            container.style.display = 'block';
+          Array.from(responsiveContainers).forEach(container => {
+            const htmlContainer = container as HTMLElement;
+            htmlContainer.style.width = '100%';
+            htmlContainer.style.height = htmlContainer.style.height || '200px';
+            htmlContainer.style.position = 'relative';
+            htmlContainer.style.overflow = 'visible';
+            htmlContainer.style.display = 'block';
           });
 
-          // Improve table rendering for large datasets
+          // Optimize table rendering for large datasets with better page breaks
           const tables = doc.getElementsByTagName('table');
-          Array.from(tables).forEach((table: any) => {
+          Array.from(tables).forEach(table => {
             table.style.borderCollapse = 'collapse';
             table.style.width = '100%';
-            table.style.pageBreakInside = 'auto'; // Allow breaking for very large tables
+            table.style.pageBreakInside = 'auto';
+            table.style.marginBottom = '5mm';
 
-            // For very large tables, add explicit page breaks every 50 rows
+            // For large tables, ensure proper page breaking
             const rows = table.getElementsByTagName('tr');
-            if (rows.length > 50) {
-              Array.from(rows).forEach((row: any, index: number) => {
-                if (index > 0 && index % 50 === 0) {
-                  row.style.pageBreakBefore = 'always';
+            if (rows.length > 25) {
+              Array.from(rows).forEach((row, index) => {
+                if (index > 0 && index % 20 === 0) {
+                  row.style.pageBreakBefore = 'auto';
+                }
+                // Prevent orphaned rows
+                if (index < rows.length - 2) {
+                  row.style.pageBreakAfter = 'avoid';
                 }
               });
             }
           });
 
-          // Ensure proper page breaks
-          const sections = doc.querySelectorAll('[style*="pageBreakInside"]');
-          Array.from(sections).forEach((section: any) => {
-            section.style.pageBreakInside = 'avoid';
+          // Ensure proper section page breaks
+          const sections = doc.querySelectorAll('[style*="marginBottom"]');
+          Array.from(sections).forEach(section => {
+            const htmlSection = section as HTMLElement;
+            htmlSection.style.pageBreakInside = 'avoid';
           });
         }
       },
@@ -225,25 +337,26 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
         format: "a4",
         orientation: "portrait",
         compress: true,
-        putOnlyUsedFonts: true, // Optimize font loading
-        floatPrecision: 16 // Better precision for layout
+        putOnlyUsedFonts: true,
+        floatPrecision: 8 // Reduced precision for smaller file size
       },
       pagebreak: {
         mode: ['css', 'legacy'],
         before: '.page-break-before',
         after: '.page-break-after',
-        avoid: ['tr', 'td', '.avoid-break', 'img', 'svg'] // Allow table breaks for large datasets
+        avoid: ['.avoid-break', 'h1', 'h2', 'h3']
       }
     };
+
     // Generate PDF with progress tracking and better error handling
     try {
       if (onProgress) onProgress(40);
       const worker = window.html2pdf().from(content).set(opt);
       if (onProgress) onProgress(60);
 
-      // Add timeout for PDF generation to prevent hanging
-      const pdfGenerationTimeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('PDF generation timed out')), 120000) // 2 minute timeout
+      // Add timeout for PDF generation with better error messages
+      const pdfGenerationTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('PDF generation timed out')), 90000) // 1.5 minute timeout
       );
 
       // Race between PDF generation and timeout
@@ -257,17 +370,17 @@ export const generatePDF = async (_testData: any, _config: any, onProgress?: (pr
       }
     } catch (err) {
       console.error('PDF Generation failed:', err);
-      if (typeof err === 'object' && err !== null && 'message' in err && typeof (err as any).message === 'string') {
-        const message = (err as any).message as string;
+      if (err instanceof Error) {
+        const message = err.message;
         if (message.includes('timeout')) {
-          throw new Error('PDF generation timed out. The report may be too large. Try reducing the content or splitting into multiple reports.');
-        } else if (message.includes('memory')) {
-          throw new Error('Not enough memory to generate PDF. Try reducing the content or refreshing the page.');
+          throw new Error(`PDF generation timed out. The report contains ${totalTests} tests which may be too large for PDF generation. Consider filtering the results or generating separate reports.`);
+        } else if (message.includes('memory') || message.includes('Maximum call stack')) {
+          throw new Error(`Not enough memory to generate PDF with ${totalTests} tests. Try reducing the dataset size or refreshing the page.`);
         } else {
-          throw new Error('Failed to generate PDF. Please try again or reduce the report content.');
+          throw new Error(`Failed to generate PDF: ${message}. Try reducing the report content or contact support.`);
         }
       } else {
-        throw new Error('Failed to generate PDF due to an unknown error.');
+        throw new Error('Failed to generate PDF due to an unknown error. Please try again.');
       }
     }
   } catch (error) {
