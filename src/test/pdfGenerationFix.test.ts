@@ -57,11 +57,11 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     // Render a component that adds the chart-render-complete class
     render(React.createElement(TestMetrics, { testData: mockTestData }));
     
-    // Wait a moment for the useEffect to run
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Wait for the chart-render-complete class to be added
+    const indicator = await waitFor(() => document.querySelector('.chart-render-complete'));
     
     // Verify the chart-render-complete class was added
-    const indicator = document.querySelector('.chart-render-complete');
+    expect(indicator).toBeTruthy();
     expect(indicator).toBeTruthy();
     expect(indicator?.className).toBe('chart-render-complete');
     
