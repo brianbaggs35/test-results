@@ -504,13 +504,25 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
             {config.includeFailedTests ? '4. All Test Cases' : '3. All Test Cases'}
           </h2>
           {(() => {
-            // Get all test cases and limit to prevent PDF rendering issues
+            // Get all test cases with intelligent limiting for PDF
             const allTests = testData.suites.flatMap((suite) =>
               suite.testcases.map((test) => ({ ...test, suite: suite.name }))
             );
 
-            // Limit the number of tests displayed in PDF to prevent memory issues
-            const maxTestsInPDF = 1000; // Reasonable limit for PDF generation
+            // Calculate optimal limit based on content and memory constraints
+            const baseLimit = 500; // Conservative base limit
+            const totalTests = allTests.length;
+            let maxTestsInPDF = baseLimit;
+            
+            // Adjust limit based on total test count and available memory
+            if (totalTests > 5000) {
+              maxTestsInPDF = Math.min(300, totalTests); // Very large datasets
+            } else if (totalTests > 2000) {
+              maxTestsInPDF = Math.min(400, totalTests); // Large datasets
+            } else if (totalTests > 1000) {
+              maxTestsInPDF = Math.min(600, totalTests); // Medium datasets
+            }
+            
             const testsToShow = allTests.slice(0, maxTestsInPDF);
             const hasMoreTests = allTests.length > maxTestsInPDF;
 
@@ -521,11 +533,12 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                     backgroundColor: '#fef3c7',
                     border: '1px solid #f59e0b',
                     borderRadius: '4px',
-                    padding: '8px',
-                    marginBottom: '12px'
+                    padding: '12px',
+                    marginBottom: '16px'
                   }}>
-                    <p style={{ color: '#92400e', margin: '0', fontSize: '11px' }}>
-                      Note: Showing first {maxTestsInPDF} of {allTests.length} total test cases to optimize PDF performance.
+                    <p style={{ color: '#92400e', margin: '0', fontSize: '12px', fontWeight: '500' }}>
+                      📄 PDF Optimization: Showing first {maxTestsInPDF} of {allTests.length} total test cases.
+                      This ensures optimal PDF performance and file size. For complete results, use the web view or export data.
                     </p>
                   </div>
                 )}
@@ -592,63 +605,75 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                     </tr>
                   </thead>
                   <tbody>
-                    {testsToShow.map((test: any, testIndex: number) => (
-                      <tr key={`all-tests-${testIndex}`}>
-                        <td style={{
-                          padding: '8px 10px',
-                          fontWeight: '500',
-                          color: '#1f2937',
-                          border: '1px solid #e5e7eb',
-                          wordWrap: 'break-word',
-                          maxWidth: '0'
-                        }}>
-                          {test.name}
-                        </td>
-                        <td style={{
-                          padding: '8px 10px',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          wordWrap: 'break-word',
-                          maxWidth: '0'
-                        }}>
-                          {test.suite}
-                        </td>
-                        <td style={{
-                          padding: '8px 10px',
-                          border: '1px solid #e5e7eb',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            {getStatusIcon(test.status)}
-                            <span style={{
-                              marginLeft: '4px',
-                              color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
-                              fontWeight: '500',
-                              fontSize: '10px'
-                            }}>
-                              {test.status === 'passed' ? 'Passed' : test.status === 'failed' ? 'Failed' : 'Skipped'}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{
-                          padding: '8px 10px',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          wordWrap: 'break-word',
-                          maxWidth: '0'
-                        }}>
-                          {test.assignee || 'Unassigned'}
-                        </td>
-                        <td style={{
-                          padding: '8px 10px',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {parseFloat(test.time).toFixed(2)}s
-                        </td>
-                      </tr>
-                    ))}
+                    {testsToShow.map((test: TestCase & { suite: string }, testIndex: number) => {
+                      // Add page break hints for every 25 rows to help with PDF generation
+                      const rowStyle = testIndex > 0 && testIndex % 25 === 0 
+                        ? { pageBreakBefore: 'auto' as const } 
+                        : {};
+                      
+                      return (
+                        <tr key={`all-tests-${testIndex}`} style={rowStyle}>
+                          <td style={{
+                            padding: '6px 8px',
+                            fontWeight: '500',
+                            color: '#1f2937',
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0',
+                            fontSize: '10px'
+                          }}>
+                            {test.name}
+                          </td>
+                          <td style={{
+                            padding: '6px 8px',
+                            color: '#6b7280',
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0',
+                            fontSize: '10px'
+                          }}>
+                            {test.suite}
+                          </td>
+                          <td style={{
+                            padding: '6px 8px',
+                            border: '1px solid #e5e7eb',
+                            whiteSpace: 'nowrap',
+                            fontSize: '10px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              {getStatusIcon(test.status)}
+                              <span style={{
+                                marginLeft: '4px',
+                                color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
+                                fontWeight: '500',
+                                fontSize: '9px'
+                              }}>
+                                {test.status === 'passed' ? 'Passed' : test.status === 'failed' ? 'Failed' : 'Skipped'}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{
+                            padding: '6px 8px',
+                            color: '#6b7280',
+                            border: '1px solid #e5e7eb',
+                            wordWrap: 'break-word',
+                            maxWidth: '0',
+                            fontSize: '10px'
+                          }}>
+                            {(test as any).assignee || 'Unassigned'}
+                          </td>
+                          <td style={{
+                            padding: '6px 8px',
+                            color: '#6b7280',
+                            border: '1px solid #e5e7eb',
+                            whiteSpace: 'nowrap',
+                            fontSize: '10px'
+                          }}>
+                            {parseFloat(test.time.toString()).toFixed(2)}s
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -665,7 +690,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           </h2>
           {(() => {
             // Access localStorage safely for PDF generation
-            let progressData = {};
+            let progressData: Record<string, any> = {};
             try {
               const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
               progressData = savedProgress ? JSON.parse(savedProgress) : {};
