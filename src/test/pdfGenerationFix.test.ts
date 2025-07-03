@@ -52,15 +52,8 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     const existingElements = document.querySelectorAll('.chart-render-complete');
     existingElements.forEach(el => el.remove());
     
-    // Clean up window.html2pdf mock to prevent test pollution
-    if ('html2pdf' in window) {
-      try {
-        delete (window as Record<string, unknown>).html2pdf;
-      } catch {
-        // If delete fails, set to undefined instead
-        (window as Record<string, unknown>).html2pdf = undefined;
-      }
-    }
+    // Restore the original window.html2pdf value
+    (window as Record<string, unknown>).html2pdf = originalHtml2pdf;
   });
 
   it('should verify PDF generation can proceed when chart-render-complete class exists', async () => {
