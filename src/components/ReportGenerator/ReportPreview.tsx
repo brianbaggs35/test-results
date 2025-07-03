@@ -257,9 +257,9 @@ export const ReportPreview = ({
                       total tests)
                     </p>
                     <ul className="mt-2 space-y-1">
-                      {testData.suites.flatMap(suite => suite.testcases.filter(test => test.status === 'failed').map((test, index) => <li key={index} className="text-sm text-red-600">
+                      {failedTests.map((test, index) => <li key={index} className="text-sm text-red-600">
                               • {test.name} ({test.suite})
-                            </li>))}
+                            </li>)}
                     </ul>
                   </div>}
                 <p className="text-gray-700">
