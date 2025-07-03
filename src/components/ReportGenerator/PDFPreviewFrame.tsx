@@ -690,7 +690,13 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           </h2>
           {(() => {
             // Access localStorage safely for PDF generation
-            let progressData: Record<string, { status?: string; assignee?: string }> = {};
+            let progressData: Record<string, { 
+              status?: string; 
+              assignee?: string; 
+              name?: string; 
+              suite?: string; 
+              notes?: string; 
+            }> = {};
             try {
               const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
               progressData = savedProgress ? JSON.parse(savedProgress) : {};

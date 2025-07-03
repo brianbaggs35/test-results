@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeftIcon, DownloadIcon, BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon, LoaderIcon } from 'lucide-react';
 import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
@@ -19,7 +19,7 @@ export const ReportPreview = ({
     summary
   } = testData;
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [pdfError, setPdfError] = useState(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const handleGeneratePDF = async () => {
     setIsGeneratingPDF(true);
@@ -46,6 +46,14 @@ export const ReportPreview = ({
     outerRadius,
     percent,
     value
+  }: {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percent: number;
+    value: number;
   }) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
@@ -63,6 +71,9 @@ export const ReportPreview = ({
   const CustomTooltip = ({
     active,
     payload
+  }: {
+    active?: boolean;
+    payload?: Array<{ payload: { name: string; value: number } }>;
   }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -96,7 +107,7 @@ export const ReportPreview = ({
     ...test,
     suite: suite.name
   })));
-  const getStatusIcon = status => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'passed':
         return <CheckIcon className="w-4 h-4 text-green-500" />;
@@ -452,7 +463,13 @@ export const ReportPreview = ({
               {(() => {
             const savedProgress = localStorage.getItem('testFixProgress');
             const progressData = savedProgress ? JSON.parse(savedProgress) : {};
-            const failedTests = Object.values(progressData);
+            const failedTests = Object.values(progressData) as Array<{
+              status: string;
+              name: string;
+              suite: string;
+              notes?: string;
+              assignee?: string;
+            }>;
             const totalTests = failedTests.length;
             const completedTests = failedTests.filter(test => test.status === 'completed').length;
             const inProgressTests = failedTests.filter(test => test.status === 'in_progress').length;

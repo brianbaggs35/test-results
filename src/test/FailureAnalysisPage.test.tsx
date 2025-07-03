@@ -161,7 +161,7 @@ describe('FailureAnalysisPage', () => {
   });
 
   it('should show no data message when testData is undefined', () => {
-    render(<FailureAnalysisPage testData={undefined} />);
+    render(<FailureAnalysisPage testData={null} />);
 
     expect(screen.getByText('No Test Data Available')).toBeInTheDocument();
   });
@@ -224,14 +224,14 @@ describe('FailureAnalysisPage', () => {
     const resetButton = screen.getByTestId('reset-filters');
     fireEvent.click(resetButton);
 
-    expect(searchInput.value).toBe('');
+    expect((searchInput as HTMLInputElement).value).toBe('');
   });
 
   it('should open test details modal when test is clicked', () => {
     render(<FailureAnalysisPage testData={mockTestData} />);
 
     const testButton = screen.getByText('test1').closest('button');
-    fireEvent.click(testButton);
+    fireEvent.click(testButton!);
 
     expect(screen.getByTestId('test-details-modal')).toBeInTheDocument();
     expect(screen.getByText('Test: test1')).toBeInTheDocument();
@@ -242,7 +242,7 @@ describe('FailureAnalysisPage', () => {
 
     // Open modal
     const testButton = screen.getByText('test1').closest('button');
-    fireEvent.click(testButton);
+    fireEvent.click(testButton!);
 
     // Close modal
     const closeButton = screen.getByText('Close');

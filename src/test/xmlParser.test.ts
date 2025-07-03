@@ -34,7 +34,7 @@ describe('parseJUnitXML', () => {
       expect(result.suites[0].testcases[0]).toMatchObject({
         name: 'test1',
         classname: 'TestClass1',
-        time: '0.5',
+        time: 0.5,
         status: 'passed',
         errorMessage: null,
         failureDetails: null
@@ -220,7 +220,7 @@ describe('parseJUnitXML', () => {
       expect(result.suites[0].testcases[0]).toMatchObject({
         name: 'test1',
         classname: 'TestClass1',
-        time: '1.0',
+        time: 1.0,
         status: 'passed'
       });
     });

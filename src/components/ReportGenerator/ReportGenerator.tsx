@@ -19,7 +19,7 @@ export const ReportGenerator = ({
     includeResolutionProgress: false // Add new config option
   });
   const [showPreview, setShowPreview] = useState(false);
-  const handleInputChange = e => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
       value,

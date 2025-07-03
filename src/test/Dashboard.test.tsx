@@ -210,7 +210,7 @@ describe('Dashboard', () => {
   });
 
   it('should handle undefined testData', () => {
-    render(<Dashboard onDataUpload={mockOnDataUpload} testData={undefined} />);
+    render(<Dashboard onDataUpload={mockOnDataUpload} testData={null} />);
     
     expect(screen.getByTestId('file-uploader')).toBeInTheDocument();
     expect(screen.queryByTestId('test-metrics')).not.toBeInTheDocument();
