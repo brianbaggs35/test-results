@@ -84,7 +84,7 @@ const processTestSuites = suites => {
         return {
           name: testcase.name || 'Unnamed Test',
           classname: testcase.classname || '',
-          time: parseFloat(testcase.time || 0),
+          time: Number(testcase.time ?? '0'),
           status,
           errorMessage,
           failureDetails
