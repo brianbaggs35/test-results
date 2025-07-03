@@ -115,7 +115,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       box-sizing: border-box !important;
       overflow: visible !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-      padding: 5mm 8mm !important;
+      padding: 10mm 10mm !important;
     }
     .page-break-before {
       page-break-before: always !important;

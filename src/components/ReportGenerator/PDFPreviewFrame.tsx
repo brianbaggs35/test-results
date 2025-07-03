@@ -85,14 +85,14 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
       id="pdf-preview-frame"
       className="pdf-frame"
       style={{
-        width: '300mm',
+        width: '190mm', // Reduced from 300mm to fit A4 page width (210mm - 20mm for left/right margins)
         minHeight: '400mm',
         backgroundColor: 'white',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '10mm 160mm 10mm 5mm', // Optimized right padding to reduce whitespace while maintaining readability
+        padding: '10mm 10mm 10mm 10mm', // Adjusted to uniform 10mm padding to fit within A4 margins
         margin: '0',
         boxSizing: 'border-box'
       }}
