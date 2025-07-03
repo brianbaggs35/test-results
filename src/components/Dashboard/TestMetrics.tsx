@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
 import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { formatDuration } from '../../utils/formatting';
 import type { TestData } from '../../types';
+import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
 
 interface TestMetricsProps {
   testData: TestData;
@@ -13,21 +13,8 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
 }) => {
   const { summary } = testData;
   
-  // Add chart-render-complete class after component mounts for PDF generation
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      // Add the class to indicate charts have rendered
-      const chartContainer = document.querySelector('.recharts-responsive-container');
-      if (chartContainer && !document.querySelector('.chart-render-complete')) {
-        const indicator = document.createElement('div');
-        indicator.className = 'chart-render-complete';
-        indicator.style.display = 'none';
-        document.body.appendChild(indicator);
-      }
-    }, 100); // Small delay to ensure chart has rendered
-    
-    return () => clearTimeout(timer);
-  }, [testData]);
+  // Use custom hook to add chart-render-complete class for PDF generation
+  useChartRenderComplete([testData]);
   
   // Prepare test distribution data
   const statusData = [{

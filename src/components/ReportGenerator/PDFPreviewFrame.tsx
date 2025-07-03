@@ -1,39 +1,14 @@
-import { useEffect } from 'react';
 import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
-import { TestData, ReportConfig, TestCase } from '../../types';
+import { TestData, ReportConfig } from '../../types';
+import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
 
 export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; config: ReportConfig }) => {
   const { summary } = testData;
 
-  // Add chart-render-complete class after component mounts for PDF generation
-  useEffect(() => {
-    const chartContainer = document.querySelector('.recharts-responsive-container');
-    if (chartContainer) {
-      const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.type === 'childList' || mutation.type === 'attributes') {
-            if (!document.querySelector('.chart-render-complete')) {
-              const indicator = document.createElement('div');
-              indicator.className = 'chart-render-complete';
-              indicator.style.display = 'none';
-              document.body.appendChild(indicator);
-              observer.disconnect(); // Stop observing once the class is added
-            }
-          }
-        });
-      });
-      observer.observe(chartContainer, { childList: true, attributes: true, subtree: true });
-    }
-    
-    return () => {
-      if (chartContainer) {
-        const observer = new MutationObserver(() => {});
-        observer.disconnect();
-      }
-    };
-  }, [testData]);
+  // Use custom hook to add chart-render-complete class for PDF generation
+  useChartRenderComplete([testData]);
 
   const statusData = [
     { name: 'Passed', value: summary.passed, color: '#10B981' },
