@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
@@ -5,6 +6,22 @@ import { TestData, ReportConfig, TestCase } from '../../types';
 
 export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; config: ReportConfig }) => {
   const { summary } = testData;
+
+  // Add chart-render-complete class after component mounts for PDF generation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Add the class to indicate charts have rendered
+      const chartContainer = document.querySelector('.recharts-responsive-container');
+      if (chartContainer && !document.querySelector('.chart-render-complete')) {
+        const indicator = document.createElement('div');
+        indicator.className = 'chart-render-complete';
+        indicator.style.display = 'none';
+        document.body.appendChild(indicator);
+      }
+    }, 100); // Small delay to ensure chart has rendered
+    
+    return () => clearTimeout(timer);
+  }, [testData]);
 
   const statusData = [
     { name: 'Passed', value: summary.passed, color: '#10B981' },
