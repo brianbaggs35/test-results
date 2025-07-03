@@ -182,7 +182,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
     // Wait for any remaining chart animations or async rendering
     await new Promise<void>((resolve, reject) => {
       // In test environment, skip waiting for chart render complete
-      if (typeof window !== 'undefined' && 'vi' in window) {
+      if (import.meta.vitest) {
         resolve();
         return;
       }
