@@ -1,7 +1,7 @@
 import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
-import { TestData, ReportConfig, TestCase } from '../../types';
+import { TestData, ReportConfig } from '../../types';
 import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
 
 export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; config: ReportConfig }) => {
