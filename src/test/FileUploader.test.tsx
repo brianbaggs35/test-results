@@ -7,7 +7,7 @@ vi.mock('lucide-react', () => ({
   UploadIcon: () => <div data-testid="upload-icon" />,
   FileIcon: () => <div data-testid="file-icon" />,
   AlertCircleIcon: () => <div data-testid="alert-circle-icon" />,
-  LoaderIcon: ({ className }: any) => <div data-testid="loader-icon" className={className} />,
+  LoaderIcon: ({ className }: { className?: string }) => <div data-testid="loader-icon" className={className} />,
 }));
 
 describe('FileUploader', () => {

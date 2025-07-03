@@ -17,7 +17,14 @@ function createLargeTestData(numFailedTests: number) {
       skipped: 0,
       time: 0,
       timestamp: `2024-01-01T12:0${suiteIndex}:00Z`,
-      testcases: [] as any[]
+      testcases: [] as Array<{
+        name: string;
+        status: 'passed' | 'failed' | 'skipped';
+        suite: string;
+        classname?: string;
+        time: number;
+        failureDetails?: { message: string; type: string; stackTrace: string };
+      }>
     };
     
     const testsInThisSuite = Math.min(testsPerSuite, numFailedTests - (suiteIndex * testsPerSuite));
@@ -27,9 +34,9 @@ function createLargeTestData(numFailedTests: number) {
       suite.testcases.push({
         name: `test${suiteIndex}_${testIndex}`,
         classname: `Class${suiteIndex}_${testIndex}`,
+        suite: suite.name,
         status: 'failed' as const,
         time: testTime,
-        errorMessage: `Test failure ${suiteIndex}_${testIndex}`,
         failureDetails: {
           message: `Assertion error in test ${suiteIndex}_${testIndex}`,
           type: 'AssertionError',
@@ -58,7 +65,10 @@ function createLargeTestData(numFailedTests: number) {
 
 // Mock child components
 vi.mock('../components/Dashboard/TestDetailsModal', () => ({
-  TestDetailsModal: ({ test, onClose }: any) => (
+  TestDetailsModal: ({ test, onClose }: { 
+    test: { name: string } | null; 
+    onClose: () => void; 
+  }) => (
     <div data-testid="test-details-modal">
       <div>Test: {test?.name}</div>
       <button onClick={onClose}>Close</button>
@@ -67,7 +77,12 @@ vi.mock('../components/Dashboard/TestDetailsModal', () => ({
 }));
 
 vi.mock('../components/Dashboard/FilterControls', () => ({
-  FilterControls: ({ searchTerm, setSearchTerm, resetFilters, showFilters }: any) => (
+  FilterControls: ({ searchTerm, setSearchTerm, resetFilters, showFilters }: { 
+    searchTerm: string; 
+    setSearchTerm: (term: string) => void; 
+    resetFilters: () => void; 
+    showFilters: boolean; 
+  }) => (
     <div data-testid="filter-controls">
       <input
         data-testid="search-input"
@@ -231,7 +246,9 @@ describe('FailureAnalysisPage', () => {
     render(<FailureAnalysisPage testData={mockTestData} />);
 
     const testButton = screen.getByText('test1').closest('button');
-    fireEvent.click(testButton!);
+    if (testButton) {
+      fireEvent.click(testButton);
+    }
 
     expect(screen.getByTestId('test-details-modal')).toBeInTheDocument();
     expect(screen.getByText('Test: test1')).toBeInTheDocument();
@@ -242,7 +259,9 @@ describe('FailureAnalysisPage', () => {
 
     // Open modal
     const testButton = screen.getByText('test1').closest('button');
-    fireEvent.click(testButton!);
+    if (testButton) {
+      fireEvent.click(testButton);
+    }
 
     // Close modal
     const closeButton = screen.getByText('Close');

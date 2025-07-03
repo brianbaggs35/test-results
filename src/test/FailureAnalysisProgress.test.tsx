@@ -17,7 +17,14 @@ function createTestDataWithFailures(numFailedTests: number) {
       skipped: 0,
       time: 0,
       timestamp: `2024-01-01T12:0${suiteIndex}:00Z`,
-      testcases: [] as any[]
+      testcases: [] as Array<{
+        name: string;
+        status: 'passed' | 'failed' | 'skipped';
+        suite: string;
+        classname?: string;
+        time: number;
+        failureDetails?: { message: string; type: string; stackTrace: string };
+      }>
     };
     
     const testsInThisSuite = Math.min(testsPerSuite, numFailedTests - (suiteIndex * testsPerSuite));
@@ -27,9 +34,9 @@ function createTestDataWithFailures(numFailedTests: number) {
       suite.testcases.push({
         name: `test${suiteIndex}_${testIndex}`,
         classname: `Class${suiteIndex}_${testIndex}`,
+        suite: suite.name,
         status: 'failed' as const,
         time: testTime,
-        errorMessage: `Test failure ${suiteIndex}_${testIndex}`,
         failureDetails: {
           message: `Assertion error in test ${suiteIndex}_${testIndex}`,
           type: 'AssertionError',
@@ -58,7 +65,10 @@ function createTestDataWithFailures(numFailedTests: number) {
 
 // Mock child components
 vi.mock('../components/Dashboard/TestDetailsModal', () => ({
-  TestDetailsModal: ({ test, onClose }: any) => (
+  TestDetailsModal: ({ test, onClose }: { 
+    test: { name: string } | null; 
+    onClose: () => void; 
+  }) => (
     <div data-testid="test-details-modal">
       <div>Test: {test?.name}</div>
       <button onClick={onClose}>Close</button>
@@ -76,7 +86,16 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
     setShowFilters,
     resetFilters,
     statusOptions 
-  }: any) => (
+  }: { 
+    searchTerm: string; 
+    setSearchTerm: (term: string) => void; 
+    statusFilter: string; 
+    setStatusFilter: (filter: string) => void;
+    showFilters: boolean;
+    setShowFilters: (show: boolean) => void;
+    resetFilters: () => void;
+    statusOptions: Array<{ value: string; label: string }>;
+  }) => (
     <div data-testid="filter-controls">
       <input 
         data-testid="search-input" 
@@ -89,7 +108,7 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
         value={statusFilter} 
         onChange={(e) => setStatusFilter(e.target.value)}
       >
-        {statusOptions?.map((option: any) => (
+        {statusOptions?.map((option: { value: string; label: string }) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

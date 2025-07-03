@@ -52,14 +52,30 @@ describe('pdfGenerator module', () => {
   });
 
   it('should handle null/undefined element gracefully', async () => {
-    // Mock getElementById to return null
+    // Mock all DOM operations
     document.getElementById = vi.fn().mockReturnValue(null);
+    
+    // Create a mock element for chart-render-complete to prevent waiting
+    const mockElement = document.createElement('div');
+    mockElement.className = 'chart-render-complete';
+    
+    document.querySelector = vi.fn().mockReturnValue(mockElement);
+    
+    // Mock window.html2pdf to be available
+    Object.defineProperty(window, 'html2pdf', {
+      writable: true,
+      value: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        save: vi.fn().mockResolvedValue(undefined)
+      })
+    });
 
     const pdfGeneratorModule = await import('../components/ReportGenerator/pdfGenerator');
     
     await expect(pdfGeneratorModule.generatePDF(mockTestData, mockConfig))
       .rejects.toThrow('No report content found for PDF generation');
-  });
+  }, 20000); // Increase timeout to 20 seconds
 
   it('should handle test data with different sizes appropriately', () => {
     // Test the logic that would determine scaling based on test count

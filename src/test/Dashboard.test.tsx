@@ -4,7 +4,11 @@ import { Dashboard } from '../components/Dashboard/Dashboard';
 
 // Mock child components
 vi.mock('../components/Dashboard/FileUploader', () => ({
-  FileUploader: ({ onFileUpload, isLoading, error }: any) => (
+  FileUploader: ({ onFileUpload, isLoading, error }: { 
+    onFileUpload: (file: File) => void; 
+    isLoading: boolean; 
+    error: string | null; 
+  }) => (
     <div data-testid="file-uploader">
       <div>File Uploader</div>
       {isLoading && <div data-testid="loading">Loading...</div>}
@@ -38,19 +42,19 @@ vi.mock('../components/Dashboard/FileUploader', () => ({
 }));
 
 vi.mock('../components/Dashboard/TestMetrics', () => ({
-  TestMetrics: ({ testData }: any) => (
+  TestMetrics: ({ testData }: { testData: unknown }) => (
     <div data-testid="test-metrics">
       Test Metrics Component
-      {testData && <div data-testid="metrics-data">Metrics with data</div>}
+      {testData ? <div data-testid="metrics-data">Metrics with data</div> : null}
     </div>
   ),
 }));
 
 vi.mock('../components/Dashboard/TestResultsList', () => ({
-  TestResultsList: ({ testData }: any) => (
+  TestResultsList: ({ testData }: { testData: unknown }) => (
     <div data-testid="test-results-list">
       Test Results List Component  
-      {testData && <div data-testid="results-data">Results with data</div>}
+      {testData ? <div data-testid="results-data">Results with data</div> : null}
     </div>
   ),
 }));

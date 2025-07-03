@@ -1,24 +1,25 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
 
 // Mock recharts components
 vi.mock('recharts', () => ({
-  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  Pie: ({ data, dataKey }: any) => (
+  PieChart: ({ children }: { children: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>,
+  Pie: ({ data, dataKey }: { data?: Array<{ name: string; value: number }>; dataKey: string }) => (
     <div data-testid="pie" data-key={dataKey}>
-      {data?.map((item: any, index: number) => (
+      {data?.map((item: { name: string; value: number }, index: number) => (
         <div key={index} data-testid={`pie-item-${item.name}`}>
           {item.name}: {item.value}
         </div>
       ))}
     </div>
   ),
-  Cell: ({ fill }: any) => <div data-testid="cell" style={{ fill }} />,
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Bar: ({ dataKey }: any) => <div data-testid="bar" data-key={dataKey} />,
-  XAxis: ({ dataKey }: any) => <div data-testid="x-axis" data-key={dataKey} />,
+  Cell: ({ fill }: { fill: string }) => <div data-testid="cell" style={{ fill }} />,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
+  BarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="bar-chart">{children}</div>,
+  Bar: ({ dataKey }: { dataKey: string }) => <div data-testid="bar" data-key={dataKey} />,
+  XAxis: ({ dataKey }: { dataKey?: string }) => <div data-testid="x-axis" data-key={dataKey} />,
   YAxis: () => <div data-testid="y-axis" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
   Tooltip: () => <div data-testid="tooltip" />,
