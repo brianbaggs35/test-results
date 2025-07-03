@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
 import { PDFPreviewFrame } from '../components/ReportGenerator/PDFPreviewFrame';
@@ -51,6 +51,16 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     // Clean up after each test
     const existingElements = document.querySelectorAll('.chart-render-complete');
     existingElements.forEach(el => el.remove());
+    
+    // Clean up window.html2pdf mock to prevent test pollution
+    if ('html2pdf' in window) {
+      try {
+        delete (window as Record<string, unknown>).html2pdf;
+      } catch {
+        // If delete fails, set to undefined instead
+        (window as Record<string, unknown>).html2pdf = undefined;
+      }
+    }
   });
 
   it('should verify PDF generation can proceed when chart-render-complete class exists', async () => {
@@ -97,12 +107,13 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     // Render PDFPreviewFrame which should also add the chart-render-complete class
     render(React.createElement(PDFPreviewFrame, { testData: mockTestData, config: mockConfig }));
     
-    // Wait a moment for the useEffect to run
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Wait for the chart-render-complete class to be added
+    const indicator = await waitFor(() => {
+      const element = document.querySelector('.chart-render-complete');
+      expect(element).toBeTruthy();
+      return element;
+    });
     
-    // Verify the chart-render-complete class was added
-    const indicator = document.querySelector('.chart-render-complete');
-    expect(indicator).toBeTruthy();
     expect(indicator?.className).toBe('chart-render-complete');
   });
 });
