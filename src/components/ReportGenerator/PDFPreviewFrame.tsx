@@ -92,8 +92,8 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '10mm 10mm 10mm 10mm', // Adjusted to uniform 10mm padding to fit within A4 margins
-        margin: '0',
+        padding: '10mm 15mm 10mm 15mm', // Increased left/right padding to better center content within A4 margins
+        margin: '0 auto', // Center the frame horizontally
         boxSizing: 'border-box'
       }}
     >
