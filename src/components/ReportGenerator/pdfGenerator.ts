@@ -115,7 +115,8 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       box-sizing: border-box !important;
       overflow: visible !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-      padding: 10mm 10mm !important;
+      padding: 10mm 15mm !important;
+      margin: 0 auto !important;
     }
     .page-break-before {
       page-break-before: always !important;
@@ -268,6 +269,8 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
               pdfFrameParent.style.top = 'auto';
               pdfFrameParent.style.visibility = 'visible';
               pdfFrameParent.style.overflow = 'visible';
+              pdfFrameParent.style.margin = '0 auto';
+              pdfFrameParent.style.display = 'block';
             }
             pdfFrame.style.position = 'static';
             pdfFrame.style.left = 'auto';
@@ -275,6 +278,8 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
             pdfFrame.style.visibility = 'visible';
             pdfFrame.style.overflow = 'visible';
             pdfFrame.style.transform = 'none';
+            pdfFrame.style.margin = '0 auto';
+            pdfFrame.style.display = 'block';
           }
 
           // Hide the regular preview content to avoid conflicts
