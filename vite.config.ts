@@ -9,6 +9,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    exclude: [
+      '**/node_modules/**',
+      'spec/e2e/**',
+      '**/build/**',
+      '**/coverage/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -17,8 +23,12 @@ export default defineConfig({
         'src/test/',
         '**/*.d.ts',
         'dist/',
+        'spec/**',
+        'spec/e2e/**',
+        'test-results/**',
         '.eslintrc.cjs',
         'vite.config.ts',
+        'playwright.config.ts',
         'tailwind.config.js',
         'postcss.config.js'
       ],
