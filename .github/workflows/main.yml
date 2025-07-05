@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Workflow
 
 on:
   push:
@@ -28,6 +28,9 @@ jobs:
 
     - name: Run linter
       run: npm run lint
+
+    - name: Run typescript checks
+      run: npx tsc
 
     - name: Run tests with coverage
       run: npm run test:coverage
