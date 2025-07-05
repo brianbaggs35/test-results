@@ -26,6 +26,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Fund packages
+      run: npm fund
+
     - name: Run linter
       run: npm run lint
 
@@ -35,8 +38,8 @@ jobs:
     - name: Run tests with coverage
       run: npm run test:coverage
 
-    - name: Coverage Summary
-      run: |
-        echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
-        echo "The test suite has been executed with coverage reporting." >> $GITHUB_STEP_SUMMARY
-        echo "Check the detailed coverage report in the build artifacts." >> $GITHUB_STEP_SUMMARY
+    - name: Install playwright browsers
+      run: npx playwright install chromium --with-deps
+
+    - name: Run e2e tests with coverage
+      run: npm run test:ci
