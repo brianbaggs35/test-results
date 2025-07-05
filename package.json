@@ -12,6 +12,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "npx playwright test -c playwright.config.ts --retries=1",
+    "test:e2e:ui": "npx playwright test --ui",
     "test:watch": "vitest --watch"
   },
   "dependencies": {
