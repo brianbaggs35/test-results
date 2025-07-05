@@ -34,7 +34,7 @@ export default defineConfig({
         'spec/**',
         'spec/e2e/**',
         'test-results/**',
-        '.eslintrc.cjs',
+        'eslint.config.cjs',
         'vite.config.ts',
         'playwright.config.ts',
         'tailwind.config.js',
