@@ -42,6 +42,7 @@ A React-based web application for analyzing JUnit XML test results with comprehe
 ### Code Quality
 - `npm run lint` - Run ESLint
 - `npm run lintfix` - Fix ESLint issues automatically
+- `npx tsc` - Run typescript checks
 
 ### Testing
 - `npm test` - Run tests in watch mode
