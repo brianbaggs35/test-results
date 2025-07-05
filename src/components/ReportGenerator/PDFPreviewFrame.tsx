@@ -45,7 +45,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
     if (percent < 0.02) return null;
 
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.8; // Moved labels slightly outward
+    const radius = innerRadius + (outerRadius - innerRadius) * 1.0; // Moved labels slightly outward
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -82,18 +82,23 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
   return (
     <div
-      id="pdf-preview-frame"
+      id="report-preview"
       className="pdf-frame"
       style={{
-        width: '190mm', // Reduced from 300mm to fit A4 page width (210mm - 20mm for left/right margins)
-        minHeight: '400mm',
+        width: '794px', // Reduced from 300mm to fit A4 page width (210mm - 20mm for left/right margins)
+        height: '1123px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: 'white',
+        transform: 'scale(0.6)', // Adjusted scale for better fit
+        transformOrigin: 'center',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
         padding: '10mm 15mm 10mm 15mm', // Increased left/right padding to better center content within A4 margins
-        margin: '0 auto', // Center the frame horizontally
+        margin: 'auto', // Center the frame horizontally
         boxSizing: 'border-box'
       }}
     >
@@ -517,7 +522,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
             const baseLimit = 500; // Conservative base limit
             const totalTests = allTests.length;
             let maxTestsInPDF = baseLimit;
-            
+
             // Adjust limit based on total test count and available memory
             if (totalTests > 5000) {
               maxTestsInPDF = Math.min(300, totalTests); // Very large datasets
@@ -526,7 +531,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
             } else if (totalTests > 1000) {
               maxTestsInPDF = Math.min(600, totalTests); // Medium datasets
             }
-            
+
             const testsToShow = allTests.slice(0, maxTestsInPDF);
             const hasMoreTests = allTests.length > maxTestsInPDF;
 
@@ -611,10 +616,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                   <tbody>
                     {testsToShow.map((test: TestCase & { suite: string }, testIndex: number) => {
                       // Add page break hints for every 25 rows to help with PDF generation
-                      const rowStyle = testIndex > 0 && testIndex % 25 === 0 
-                        ? { pageBreakBefore: 'auto' as const } 
+                      const rowStyle = testIndex > 0 && testIndex % 25 === 0
+                        ? { pageBreakBefore: 'auto' as const }
                         : {};
-                      
+
                       return (
                         <tr key={`all-tests-${testIndex}`} style={rowStyle}>
                           <td style={{
@@ -694,12 +699,12 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           </h2>
           {(() => {
             // Access localStorage safely for PDF generation
-            let progressData: Record<string, { 
-              status?: string; 
-              assignee?: string; 
-              name?: string; 
-              suite?: string; 
-              notes?: string; 
+            let progressData: Record<string, {
+              status?: string;
+              assignee?: string;
+              name?: string;
+              suite?: string;
+              notes?: string;
             }> = {};
             try {
               const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;

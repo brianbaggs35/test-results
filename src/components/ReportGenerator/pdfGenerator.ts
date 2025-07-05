@@ -33,6 +33,7 @@ interface HTML2CanvasOptions {
   useCORS: boolean;
   logging: boolean;
   allowTaint: boolean;
+  scrollX: number;
   scrollY: number;
   dpi: number;
   windowWidth: number;
@@ -113,10 +114,16 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     }
     .pdf-frame {
       box-sizing: border-box !important;
+      width: 794px !important;
+      height: 1123px !important;
+      position: relative !important;
+      justify-content: center !important;
+      display: flex !important;
       overflow: visible !important;
+      align-items: center !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
       padding: 10mm 15mm !important;
-      margin: 0 auto !important;
+      margin: auto !important;
     }
     .page-break-before {
       page-break-before: always !important;
@@ -171,7 +178,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
     if (onProgress) onProgress(10);
 
     // Try to find the PDF preview frame first, fallback to regular preview if needed
-    let reportElement = document.getElementById("pdf-preview-frame");
+    let reportElement = document.getElementById("report-preview");
     if (!reportElement) {
       console.warn("PDF preview frame not found, falling back to regular preview");
       reportElement = document.getElementById("report-preview");
@@ -187,7 +194,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
         resolve();
         return;
       }
-      
+
       const maxWaitTime = 5000; // Maximum wait time in milliseconds
       const interval = 100; // Polling interval in milliseconds
       let elapsedTime = 0;
@@ -220,23 +227,23 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
     // Calculate appropriate scale based on content size and test count
     const estimatedContentSize = content.innerHTML.length;
     const totalTests = testData.summary.total;
-    
+
     // More intelligent scaling based on both content size and test count
-    let scale = 2.0;
-    let windowWidth = 1400;
-    let windowHeight = 1980;
-    
+    let scale = 1.5;
+    let windowWidth = 1700;
+    let windowHeight = 2500;
+
     if (totalTests > 2000 || estimatedContentSize > 1000000) {
       // Very large datasets
-      scale = 1.2;
-      windowWidth = 1000;
-      windowHeight = 1414;
+      scale = 1.5;
+      windowWidth = 1700;
+      windowHeight = 2500;
       console.warn(`Very large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), using conservative settings`);
     } else if (totalTests > 500 || estimatedContentSize > 300000) {
       // Large datasets
       scale = 1.5;
-      windowWidth = 1200;
-      windowHeight = 1697;
+      windowWidth = 1700;
+      windowHeight = 2500;
       console.warn(`Large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), reducing scale`);
     }
 
@@ -246,40 +253,46 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "jpeg", // Use JPEG for better compression
-        quality: 0.9 // High quality but compressed
+        quality: 0.98 // High quality but compressed
       },
       html2canvas: {
         scale: scale,
         useCORS: true,
         logging: false,
         allowTaint: true,
+        scrollX: 0,
         scrollY: 0,
-        dpi: 192, // Reduced DPI for better memory usage
+        dpi: 100, // Reduced DPI for better memory usage
         windowWidth: windowWidth,
         windowHeight: windowHeight,
         timeout: 60000, // Reduced timeout to fail faster
         onclone: (doc: Document) => {
           // Ensure the PDF frame is visible in the cloned document
-          const pdfFrame = doc.getElementById('pdf-preview-frame');
+          const pdfFrame = doc.getElementById('report-preview');
           if (pdfFrame) {
             const pdfFrameParent = pdfFrame.parentElement;
             if (pdfFrameParent) {
-              pdfFrameParent.style.position = 'static';
+              pdfFrameParent.style.position = 'relative';
+              pdfFrameParent.style.justifyContent = 'right';
               pdfFrameParent.style.left = 'auto';
               pdfFrameParent.style.top = 'auto';
+              pdfFrameParent.style.transform = 'scale(0.8)';
+              pdfFrameParent.style.transformOrigin = 'center';
               pdfFrameParent.style.visibility = 'visible';
               pdfFrameParent.style.overflow = 'visible';
-              pdfFrameParent.style.margin = '0 auto';
-              pdfFrameParent.style.display = 'block';
+              pdfFrameParent.style.margin = 'auto';
+              pdfFrameParent.style.display = 'flex';
             }
-            pdfFrame.style.position = 'static';
+            pdfFrame.style.position = 'relative';
+            pdfFrame.style.justifyContent = 'right';
             pdfFrame.style.left = 'auto';
             pdfFrame.style.top = 'auto';
             pdfFrame.style.visibility = 'visible';
             pdfFrame.style.overflow = 'visible';
-            pdfFrame.style.transform = 'none';
-            pdfFrame.style.margin = '0 auto';
-            pdfFrame.style.display = 'block';
+            pdfFrame.style.transform = 'scale(0.8)';
+            pdfFrame.style.transformOrigin = 'center';
+            pdfFrame.style.margin = 'auto';
+            pdfFrame.style.display = 'flex';
           }
 
           // Hide the regular preview content to avoid conflicts
@@ -349,12 +362,12 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
         }
       },
       jsPDF: {
-        unit: "mm",
+        unit: "pt",
         format: "a4",
         orientation: "portrait",
         compress: true,
         putOnlyUsedFonts: true,
-        floatPrecision: 8 // Reduced precision for smaller file size
+        floatPrecision: 2 // Reduced precision for smaller file size
       },
       pagebreak: {
         mode: ['css', 'legacy'],

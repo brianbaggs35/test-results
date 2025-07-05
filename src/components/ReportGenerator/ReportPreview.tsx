@@ -552,7 +552,7 @@ export const ReportPreview = ({
             </div>}
         </div>
       </div>
-      
+
       {/* Hidden PDF Preview Frame - optimized for PDF generation */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', visibility: 'hidden' }}>
         <PDFPreviewFrame testData={testData} config={config} />

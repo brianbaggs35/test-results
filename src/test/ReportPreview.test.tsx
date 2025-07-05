@@ -15,7 +15,7 @@ vi.mock('recharts', () => ({
 
 // Mock PDF components
 vi.mock('../components/ReportGenerator/PDFPreviewFrame', () => ({
-  PDFPreviewFrame: () => <div data-testid="pdf-preview-frame" />
+  PDFPreviewFrame: () => <div data-testid="report-preview" />
 }));
 
 // Mock PDF generation
@@ -103,10 +103,10 @@ describe('ReportPreview', () => {
 
   it('should render failed tests without duplicate React keys', () => {
     const { container } = render(
-      <ReportPreview 
-        testData={mockTestData} 
-        config={mockConfig} 
-        onBack={() => { /* noop */ }} 
+      <ReportPreview
+        testData={mockTestData}
+        config={mockConfig}
+        onBack={() => { /* noop */ }}
       />
     );
 
@@ -127,10 +127,10 @@ describe('ReportPreview', () => {
 
   it('should render all tests table without duplicate React keys', () => {
     const { container } = render(
-      <ReportPreview 
-        testData={mockTestData} 
-        config={mockConfig} 
-        onBack={() => { /* noop */ }} 
+      <ReportPreview
+        testData={mockTestData}
+        config={mockConfig}
+        onBack={() => { /* noop */ }}
       />
     );
 
@@ -147,10 +147,10 @@ describe('ReportPreview', () => {
 
   it('should render failed tests table without duplicate React keys', () => {
     const { container } = render(
-      <ReportPreview 
-        testData={mockTestData} 
-        config={mockConfig} 
-        onBack={() => { /* noop */ }} 
+      <ReportPreview
+        testData={mockTestData}
+        config={mockConfig}
+        onBack={() => { /* noop */ }}
       />
     );
 
@@ -171,24 +171,24 @@ describe('ReportPreview', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* noop */ });
 
     render(
-      <ReportPreview 
-        testData={mockTestData} 
-        config={mockConfig} 
-        onBack={() => { /* noop */ }} 
+      <ReportPreview
+        testData={mockTestData}
+        config={mockConfig}
+        onBack={() => { /* noop */ }}
       />
     );
 
     // Check that no warnings about duplicate keys were logged
-    const duplicateKeyWarnings = consoleWarnSpy.mock.calls.filter(call => 
-      call.some(arg => 
-        typeof arg === 'string' && 
+    const duplicateKeyWarnings = consoleWarnSpy.mock.calls.filter(call =>
+      call.some(arg =>
+        typeof arg === 'string' &&
         arg.includes('Encountered two children with the same key')
       )
     );
-    
-    const duplicateKeyErrors = consoleErrorSpy.mock.calls.filter(call => 
-      call.some(arg => 
-        typeof arg === 'string' && 
+
+    const duplicateKeyErrors = consoleErrorSpy.mock.calls.filter(call =>
+      call.some(arg =>
+        typeof arg === 'string' &&
         arg.includes('Encountered two children with the same key')
       )
     );

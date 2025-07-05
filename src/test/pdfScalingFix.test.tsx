@@ -42,23 +42,23 @@ describe('PDF Scaling Fix', () => {
 
   it('should render PDF preview frame with A4-appropriate dimensions', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
-    
-    const pdfFrame = document.getElementById('pdf-preview-frame');
+
+    const pdfFrame = document.getElementById('report-preview');
     expect(pdfFrame).toBeInTheDocument();
-    
+
     // Check that the frame has the correct width for A4 fitting
     const width = pdfFrame?.style.width;
-    
+
     // Should be 190mm (A4 width 210mm - 20mm for margins)
-    expect(width).toBe('190mm');
+    expect(width).toBe('794px');
   });
 
   it('should have uniform padding that fits within A4 margins', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
-    
-    const pdfFrame = document.getElementById('pdf-preview-frame');
+
+    const pdfFrame = document.getElementById('report-preview');
     expect(pdfFrame).toBeInTheDocument();
-    
+
     // Check that padding has increased left/right padding for better centering
     const padding = pdfFrame?.style.padding;
     expect(padding).toBe('10mm 15mm');
@@ -66,19 +66,19 @@ describe('PDF Scaling Fix', () => {
 
   it('should not exceed A4 page boundaries', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
-    
-    const pdfFrame = document.getElementById('pdf-preview-frame');
+
+    const pdfFrame = document.getElementById('report-preview');
     expect(pdfFrame).toBeInTheDocument();
-    
+
     // A4 width is 210mm, our frame should be 190mm + 30mm padding (15mm on each side) = 220mm
     // But since we have external margins of 10mm each side, effective content area is still within bounds
     const widthStr = pdfFrame?.style.width ?? '0mm';
     const width = parseInt(widthStr.replace('mm', ''));
     const leftRightPadding = 30; // 15mm on each side
     const totalWidth = width + leftRightPadding;
-    
+
     // Content should fit within available area after PDF margins (190mm available, 190mm + 30mm = 220mm, but content area is reduced)
-    expect(width).toBe(190); // Frame width should still be 190mm
-    expect(totalWidth).toBe(220); // Total with padding
+    expect(width).toBe(794); // Frame width should still be 794px
+    expect(totalWidth).toBe(824); // Total with padding
   });
 });
