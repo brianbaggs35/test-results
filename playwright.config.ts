@@ -75,5 +75,8 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
+    env: {
+      USE_BABEL_PLUGIN_ISTANBUL: '1',
+    },
   },
 });
