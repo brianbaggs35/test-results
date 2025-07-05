@@ -22,8 +22,8 @@ const mockTestData = {
       time: 25.5,
       timestamp: '2024-01-01T12:00:00Z',
       testcases: [
-        { name: 'Test 1', status: 'passed', suite: 'Test Suite', time: 2.5 },
-        { name: 'Test 2', status: 'failed', suite: 'Test Suite', time: 3.0, errorMessage: 'Test failed' }
+        { name: 'Test 1', status: "passed" as const, suite: 'Test Suite', time: 2.5 },
+        { name: 'Test 2', status: "failed" as const, suite: 'Test Suite', time: 3.0, errorMessage: 'Test failed' }
       ]
     }
   ]
@@ -49,7 +49,7 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     existingElements.forEach(el => el.remove());
 
     // Save the original window.html2pdf value
-    originalHtml2pdf = (window as Record<string, unknown>).html2pdf;
+    originalHtml2pdf = ((window as unknown) as Record<string, unknown>).html2pdf;
   });
 
   afterEach(() => {
@@ -58,7 +58,7 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     existingElements.forEach(el => el.remove());
 
     // Restore the original window.html2pdf value
-    (window as Record<string, unknown>).html2pdf = originalHtml2pdf;
+    ((window as unknown) as Record<string, unknown>).html2pdf = originalHtml2pdf;
   });
 
   it('should verify PDF generation can proceed when chart-render-complete class exists', async () => {

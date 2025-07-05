@@ -14,6 +14,12 @@ describe('PDF Scaling Fix', () => {
     suites: [
       {
         name: 'Suite A',
+        tests: 2,
+        failures: 1,
+        errors: 0,
+        skipped: 0,
+        time: 1.0,
+        timestamp: '2024-01-01T00:00:00Z',
         testcases: [
           { name: 'test1', status: 'passed' as const, time: 0.5 },
           { name: 'test2', status: 'failed' as const, time: 0.5, errorMessage: 'Test failed' }

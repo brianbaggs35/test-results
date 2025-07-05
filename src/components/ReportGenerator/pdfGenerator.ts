@@ -4,6 +4,9 @@ declare global {
   interface Window {
     html2pdf: HTMLToPDFApi;
   }
+  interface ImportMeta {
+    vitest?: boolean;
+  }
 }
 
 interface HTMLToPDFApi {
