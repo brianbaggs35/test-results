@@ -29,7 +29,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
     if (!testData) return ['all'];
     return ['all', ...new Set(testData.suites.map(suite => suite.name))];
   }, [testData]);
-  
+
   const classNames = useMemo(() => {
     if (!testData) return ['all'];
     return ['all', ...new Set(
@@ -38,7 +38,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
         .filter((className): className is string => Boolean(className))
     )];
   }, [testData]);
-  
+
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('failed');
@@ -46,11 +46,11 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
     setClassNameFilter('all');
     setCurrentPage(1);
   };
-  
+
   const filteredTests = useMemo(() => {
     if (!testData) return [];
     return testData.suites
-      .flatMap(suite => 
+      .flatMap(suite =>
         suite.testcases
           .filter(test => test.status === 'failed')
           .map(test => ({
@@ -61,8 +61,8 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
       .filter(test => {
         if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
         if (classNameFilter !== 'all' && test.classname !== classNameFilter) return false;
-        if (searchTerm && 
-            !test.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
+        if (searchTerm &&
+            !test.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
             !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;
       });
@@ -147,7 +147,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
               </div>
             </button>)}
         </div>
-        
+
         {/* Pagination Controls */}
         {filteredTests.length > testsPerPage && (
           <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
@@ -162,7 +162,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
               >
                 Previous
               </button>
-              
+
               <div className="flex items-center space-x-1">
                 {/* Show page numbers */}
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -176,7 +176,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
                   } else {
                     pageNum = currentPage - 2 + i;
                   }
-                  
+
                   return (
                     <button
                       key={pageNum}
@@ -192,7 +192,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
                   );
                 })}
               </div>
-              
+
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}

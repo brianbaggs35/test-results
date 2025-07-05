@@ -12,10 +12,10 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
   testData
 }) => {
   const { summary } = testData;
-  
+
   // Use custom hook to add chart-render-complete class for PDF generation
   useChartRenderComplete([testData]);
-  
+
   // Prepare test distribution data
   const statusData = [{
     name: 'Passed',

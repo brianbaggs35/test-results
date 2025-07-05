@@ -13,7 +13,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   error
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {

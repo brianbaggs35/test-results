@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
+import ClearLocalStorageButton from '../Dashboard/ClearLocalStorage';
 import type { TestData, TestCase } from '../../types';
 
 interface FailureProgressItem {
@@ -29,7 +30,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   const [notes, setNotes] = useState('');
   const [assignee, setAssignee] = useState('');
   const [showStackTrace, setShowStackTrace] = useState<TestCase | null>(null);
-  
+
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -38,12 +39,12 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const testsPerPage = 50;
-  
+
   // Bulk actions state
   const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!testData) return;
-    
+
     // Load progress data from localStorage
     const savedProgress = localStorage.getItem('testFixProgress');
     if (savedProgress) {
@@ -125,11 +126,11 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   const totalTests = failedTests.length;
   const completedTests = failedTests.filter(test => test.status === 'completed').length;
   const inProgressTests = failedTests.filter(test => test.status === 'in_progress').length;
-  
+
   // Get unique values for filters
   const suites = ['all', ...new Set(failedTests.map(test => test.suite))];
   const classNames = ['all']; // Progress doesn't track classnames, so just show 'all'
-  
+
   // Custom status options for progress tracking
   const statusOptions = [
     { value: 'all', label: 'All Statuses' },
@@ -137,7 +138,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     { value: 'in_progress', label: 'In Progress' },
     { value: 'completed', label: 'Completed' }
   ];
-  
+
   // Reset filters function
   const resetFilters = () => {
     setSearchTerm('');
@@ -146,16 +147,16 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     setClassNameFilter('all');
     setCurrentPage(1);
   };
-  
+
   // Filter tests based on search and filter criteria (memoized to prevent infinite re-renders)
   const filteredTests = useMemo(() => {
     return failedTests.filter(test => {
       // Status filter
       if (statusFilter !== 'all' && test.status !== statusFilter) return false;
-      
+
       // Suite filter
       if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
-      
+
       // Search term (search in name, suite, error message, notes, and assignee)
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -164,23 +165,23 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
         const matchesError = test.errorMessage?.toLowerCase().includes(searchLower);
         const matchesNotes = test.notes?.toLowerCase().includes(searchLower);
         const matchesAssignee = test.assignee?.toLowerCase().includes(searchLower);
-        
+
         if (!matchesName && !matchesSuite && !matchesError && !matchesNotes && !matchesAssignee) {
           return false;
         }
       }
-      
+
       return true;
     });
   }, [failedTests, statusFilter, suiteFilter, searchTerm]);
-  
+
   // Reset to page 1 when filters change
   const totalPages = Math.ceil(filteredTests.length / testsPerPage);
   const validCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
   if (validCurrentPage !== currentPage) {
     setCurrentPage(validCurrentPage);
   }
-  
+
   // Paginate the filtered tests (memoized to prevent infinite re-renders)
   const paginationData = useMemo(() => {
     const startIndex = (validCurrentPage - 1) * testsPerPage;
@@ -218,7 +219,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
 
   const handleShowStackTrace = (test: FailureProgressItem) => {
     if (!testData) return;
-    
+
     // Find the original test data to get all details
     const suite = testData.suites.find(s => s.name === test.suite);
     const testDetails = suite?.testcases.find(t => t.name === test.name);
@@ -256,6 +257,11 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
           Failure Resolution Progress
         </h2>
+        <div className="flex mb-4">
+          <button className="px-2 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+            <ClearLocalStorageButton />
+          </button>
+        </div>
         <div className="mb-4">
           <p className="text-sm text-gray-500">
             {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''} tracked
@@ -299,25 +305,25 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
           width: `${totalTests > 0 ? (completedTests / totalTests * 100) : 0}%`
         }} />
         </div>
-        
+
         {/* Filter Controls */}
-        <FilterControls 
-          searchTerm={searchTerm} 
-          setSearchTerm={setSearchTerm} 
-          statusFilter={statusFilter} 
-          setStatusFilter={setStatusFilter} 
-          suiteFilter={suiteFilter} 
-          setSuiteFilter={setSuiteFilter} 
-          classNameFilter={classNameFilter} 
-          setClassNameFilter={setClassNameFilter} 
-          showFilters={showFilters} 
-          setShowFilters={setShowFilters} 
-          suites={suites} 
-          classNames={classNames} 
+        <FilterControls
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          suiteFilter={suiteFilter}
+          setSuiteFilter={setSuiteFilter}
+          classNameFilter={classNameFilter}
+          setClassNameFilter={setClassNameFilter}
+          showFilters={showFilters}
+          setShowFilters={setShowFilters}
+          suites={suites}
+          classNames={classNames}
           resetFilters={resetFilters}
           statusOptions={statusOptions}
         />
-        
+
         {/* Bulk Actions Bar */}
         {paginatedTests.length > 0 && (
           <div className="bg-gray-50 border rounded-lg p-4 mb-4">
@@ -335,7 +341,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                   </span>
                 </label>
               </div>
-              
+
               {selectedTests.size > 0 && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-600">Bulk Actions:</span>
@@ -362,7 +368,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
             </div>
           </div>
         )}
-        
+
         {/* Failed Tests List */}
         <div className="space-y-4">
           {paginatedTests.map(test => <div key={test.id} className={`border rounded-lg overflow-hidden ${getStatusColor(test.status)}`}>
@@ -434,7 +440,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
               </div>
             </div>)}
         </div>
-        
+
         {/* Pagination Controls */}
         {filteredTests.length > testsPerPage && (
           <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
@@ -449,7 +455,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
               >
                 Previous
               </button>
-              
+
               <div className="flex items-center space-x-1">
                 {/* Show page numbers */}
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -463,7 +469,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                   } else {
                     pageNum = currentPage - 2 + i;
                   }
-                  
+
                   return (
                     <button
                       key={pageNum}
@@ -479,7 +485,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                   );
                 })}
               </div>
-              
+
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}

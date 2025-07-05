@@ -8,7 +8,7 @@ interface FailureAnalysisProps {
 export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({
   testData
 }) => {
-  const failedTests = testData.suites.flatMap(suite => 
+  const failedTests = testData.suites.flatMap(suite =>
     suite.testcases
       .filter(test => test.status === 'failed')
       .map(test => ({

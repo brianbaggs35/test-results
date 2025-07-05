@@ -24,7 +24,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
   const [selectedTest, setSelectedTest] = useState<TestWithSuite | null>(null);
   const [suiteFilter, setSuiteFilter] = useState('all');
   const [classNameFilter, setClassNameFilter] = useState('all');
-  
+
   // Get unique values for filters
   const suites = ['all', ...new Set(testData.suites.map(suite => suite.name))];
   const classNames = ['all', ...new Set(
@@ -75,7 +75,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
     });
     setFilteredTests(filtered);
   }, [testData, searchTerm, statusFilter, suiteFilter, classNameFilter, sortField, sortDirection]);
-  
+
   const handleSort = (field: keyof TestWithSuite) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
