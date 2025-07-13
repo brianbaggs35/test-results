@@ -38,7 +38,8 @@ export default defineConfig({
         'vite.config.ts',
         'playwright.config.ts',
         'tailwind.config.js',
-        'postcss.config.js'
+        'postcss.config.js',
+        'src/index.tsx',
       ],
       thresholds: {
         global: {

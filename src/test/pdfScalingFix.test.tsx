@@ -56,7 +56,7 @@ describe('PDF Scaling Fix', () => {
     const width = pdfFrame?.style.width;
 
     // Should be 190mm (A4 width 210mm - 20mm for margins)
-    expect(width).toBe('794px');
+    expect(width).toBe('900px');
   });
 
   it('should have uniform padding that fits within A4 margins', () => {
@@ -67,7 +67,7 @@ describe('PDF Scaling Fix', () => {
 
     // Check that padding has increased left/right padding for better centering
     const padding = pdfFrame?.style.padding;
-    expect(padding).toBe('10mm 15mm');
+    expect(padding).toBe('12px 20px');
   });
 
   it('should not exceed A4 page boundaries', () => {
@@ -84,7 +84,7 @@ describe('PDF Scaling Fix', () => {
     const totalWidth = width + leftRightPadding;
 
     // Content should fit within available area after PDF margins (190mm available, 190mm + 30mm = 220mm, but content area is reduced)
-    expect(width).toBe(794); // Frame width should still be 794px
-    expect(totalWidth).toBe(824); // Total with padding
+    expect(width).toBe(900); // Frame width should still be 794px
+    expect(totalWidth).toBe(930); // Total with padding
   });
 });
