@@ -166,7 +166,7 @@ export const ReportPreview = ({
               </p>}
           </div>
           {/* Table of Contents */}
-          <div className="mb-12 pb-12 border-b border-gray-200 page-break-after">
+          <div className="mb-12 pb-12 border-b border-gray-200">
             <div className="flex items-center mb-6">
               <BookOpenIcon className="w-6 h-6 text-blue-600 mr-2" />
               <h2 className="text-2xl font-bold text-gray-800">
@@ -176,25 +176,25 @@ export const ReportPreview = ({
             <ul className="space-y-3">
               <li className="flex items-center">
                 <span className="text-blue-600 font-medium mr-2">1.</span>
-                <a href="#executive-summary" className="text-blue-600 hover:underline">
+                <a className="text-blue-600 hover:underline">
                   Executive Summary
                 </a>
               </li>
               <li className="flex items-center">
                 <span className="text-blue-600 font-medium mr-2">2.</span>
-                <a href="#test-metrics" className="text-blue-600 hover:underline">
+                <a className="text-blue-600 hover:underline">
                   Test Metrics
                 </a>
               </li>
               <li className="flex items-center">
                 <span className="text-blue-600 font-medium mr-2">3.</span>
-                <a href="#failed-tests" className="text-blue-600 hover:underline">
+                <a className="text-blue-600 hover:underline">
                   Failed Tests
                 </a>
               </li>
               {config.includeAllTests && <li className="flex items-center">
                   <span className="text-blue-600 font-medium mr-2">4.</span>
-                  <a href="#all-tests" className="text-blue-600 hover:underline">
+                  <a className="text-blue-600 hover:underline">
                     All Test Cases
                   </a>
                 </li>}
@@ -378,12 +378,6 @@ export const ReportPreview = ({
                         <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Suite
                         </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Duration
-                        </th>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Error Message
-                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -393,9 +387,6 @@ export const ReportPreview = ({
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-500 break-words">
                             {test.suite}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 break-words max-w-xs">
-                            {test.errorMessage || 'No error message provided'}
                           </td>
                         </tr>)}
                     </tbody>

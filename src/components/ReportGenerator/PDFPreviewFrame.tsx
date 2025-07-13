@@ -45,7 +45,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
     if (percent < 0.02) return null;
 
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 1.0; // Moved labels slightly outward
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.99; // Moved labels slightly outward
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -85,21 +85,22 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
       id="report-preview"
       className="pdf-frame"
       style={{
-        width: '794px', // Reduced from 300mm to fit A4 page width (210mm - 20mm for left/right margins)
-        height: '1123px',
+        width: '900px', // About 190mm, fits A4 printable area with margins
+        height: '1300px', // About 290mm, fits A4 height with margins
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
         backgroundColor: 'white',
-        transform: 'scale(0.6)', // Adjusted scale for better fit
+        transform: 'scale(1)', // No scaling needed
         transformOrigin: 'center',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         fontSize: '12px', // Increased from 11px
         lineHeight: '1.5', // Increased from 1.4 for better readability
         color: '#374151',
-        padding: '10mm 15mm 10mm 15mm', // Increased left/right padding to better center content within A4 margins
+        padding: '12px 20px 12px 20px', // 24px left/right padding for A4 margins
         margin: 'auto', // Center the frame horizontally
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}
     >
       {/* Title Page */}
@@ -423,26 +424,6 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                   }}>
                     Suite
                   </th>
-                  <th style={{
-                    padding: '8px 10px',
-                    textAlign: 'left',
-                    fontWeight: '500',
-                    color: '#6b7280',
-                    border: '1px solid #e5e7eb',
-                    width: '10%'
-                  }}>
-                    Duration
-                  </th>
-                  <th style={{
-                    padding: '8px 10px',
-                    textAlign: 'left',
-                    fontWeight: '500',
-                    color: '#6b7280',
-                    border: '1px solid #e5e7eb',
-                    width: '45%'
-                  }}>
-                    Error Message
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -471,7 +452,8 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                       padding: '8px 10px',
                       color: '#6b7280',
                       border: '1px solid #e5e7eb',
-                      whiteSpace: 'nowrap'
+                      wordWrap: 'break-word',
+                      maxWidth: '0'
                     }}>
                       {test.time.toFixed(2)}s
                     </td>
@@ -482,7 +464,6 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                       wordWrap: 'break-word',
                       maxWidth: '0'
                     }}>
-                      {test.errorMessage || 'No error message provided'}
                     </td>
                   </tr>
                 ))}
@@ -600,16 +581,6 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                         width: '15%'
                       }}>
                         Assignee
-                      </th>
-                      <th style={{
-                        padding: '8px 10px',
-                        textAlign: 'left',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        border: '1px solid #e5e7eb',
-                        width: '10%'
-                      }}>
-                        Duration
                       </th>
                     </tr>
                   </thead>

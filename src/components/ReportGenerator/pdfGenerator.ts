@@ -21,6 +21,7 @@ interface HTMLToPDFWorker {
 
 interface PDFOptions {
   margin: number[];
+  autoPaging: string;
   filename: string;
   image: {
     type: string;
@@ -92,7 +93,7 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
       if (rows.length > 30) {
         rows.forEach((row, index) => {
           if (index > 0 && index % 25 === 0) {
-            (row as HTMLElement).style.pageBreakBefore = 'auto';
+            (row as HTMLElement).style.breakBefore = 'auto';
           }
         });
       }
@@ -101,32 +102,35 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
 
   // Add minimal PDF-specific styles for page breaks and print optimization
   const style = document.createElement("style");
-  style.textContent = `
-    @page {
-      margin: 10mm;
-      size: A4 portrait;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-      width: 100% !important;
-      max-width: none !important;
-      -webkit-print-color-adjust: exact !important;
-      color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    .pdf-frame {
-      box-sizing: border-box !important;
-      width: 794px !important;
-      height: 1123px !important;
-      position: relative !important;
-      justify-content: center !important;
-      display: flex !important;
-      overflow: visible !important;
-      align-items: center !important;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-      padding: 10mm 15mm !important;
-      margin: auto !important;
+style.textContent = `
+  @page {
+    margin: 5mm;
+    size: A4 portrait;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .pdf-frame {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 900px !important; /* A4 width at 96dpi */
+    min-width: 0 !important;
+    position: relative !important;
+    justify-content: center !important;
+    display: flex !important;
+    overflow: visible !important;
+    align-items: center !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    padding: 5mm 5mm !important;
+    margin: auto !important;
+  }
     }
     .page-break-before {
       page-break-before: always !important;
@@ -145,10 +149,12 @@ const prepareContent = (element: HTMLElement): HTMLElement => {
     }
     tr {
       page-break-inside: avoid !important;
+      width: 100% !important;
     }
     td, th {
       word-wrap: break-word !important;
       overflow-wrap: break-word !important;
+      width: 100% !important;
     }
     svg {
       max-width: 100% !important;
@@ -232,27 +238,28 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
     const totalTests = testData.summary.total;
 
     // More intelligent scaling based on both content size and test count
-    let scale = 1.5;
-    let windowWidth = 1700;
-    let windowHeight = 2500;
+    let scale = 1.08;
+    let windowWidth = 1400;
+    let windowHeight = 1900;
 
     if (totalTests > 2000 || estimatedContentSize > 1000000) {
       // Very large datasets
-      scale = 1.5;
-      windowWidth = 1700;
-      windowHeight = 2500;
+      scale = 1.08;
+      windowWidth = 1400;
+      windowHeight = 1900;
       console.warn(`Very large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), using conservative settings`);
     } else if (totalTests > 500 || estimatedContentSize > 300000) {
       // Large datasets
-      scale = 1.5;
-      windowWidth = 1700;
-      windowHeight = 2500;
+      scale = 1.08;
+      windowWidth = 1400;
+      windowHeight = 1900;
       console.warn(`Large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), reducing scale`);
     }
 
     // Configure PDF options with improved settings for memory efficiency
     const opt: PDFOptions = {
-      margin: [10, 10, 10, 10],
+      margin: [2, 2, 2, 2],
+      autoPaging: 'text',
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "jpeg", // Use JPEG for better compression
@@ -263,8 +270,8 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
         useCORS: true,
         logging: false,
         allowTaint: true,
-        scrollX: 0,
-        scrollY: 0,
+        scrollX: -50,
+        scrollY: 5,
         dpi: 100, // Reduced DPI for better memory usage
         windowWidth: windowWidth,
         windowHeight: windowHeight,
@@ -287,7 +294,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
               pdfFrameParent.style.display = 'flex';
             }
             pdfFrame.style.position = 'relative';
-            pdfFrame.style.justifyContent = 'right';
+            pdfFrame.style.justifyContent = 'center';
             pdfFrame.style.left = 'auto';
             pdfFrame.style.top = 'auto';
             pdfFrame.style.visibility = 'visible';
@@ -338,7 +345,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
           Array.from(tables).forEach(table => {
             table.style.borderCollapse = 'collapse';
             table.style.width = '100%';
-            table.style.pageBreakInside = 'auto';
+            table.style.breakInside = 'auto';
             table.style.marginBottom = '5mm';
 
             // For large tables, ensure proper page breaking
@@ -346,11 +353,11 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
             if (rows.length > 25) {
               Array.from(rows).forEach((row, index) => {
                 if (index > 0 && index % 20 === 0) {
-                  row.style.pageBreakBefore = 'auto';
+                  (row as HTMLElement).style.breakBefore = 'auto';
                 }
                 // Prevent orphaned rows
                 if (index < rows.length - 2) {
-                  row.style.pageBreakAfter = 'avoid';
+                  row.style.breakAfter = 'avoid';
                 }
               });
             }
@@ -360,7 +367,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
           const sections = doc.querySelectorAll('[style*="marginBottom"]');
           Array.from(sections).forEach(section => {
             const htmlSection = section as HTMLElement;
-            htmlSection.style.pageBreakInside = 'avoid';
+            htmlSection.style.breakInside = 'avoid';
           });
         }
       },
