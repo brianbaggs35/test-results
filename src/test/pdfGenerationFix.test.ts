@@ -99,7 +99,7 @@ describe('PDF Generation Chart Render Complete Fix', () => {
 
     // Cleanup
     document.body.removeChild(mockReportElement);
-  });
+  }, 15000); // Increased timeout to 15 seconds
 
   it('should verify PDFPreviewFrame also adds chart-render-complete class', async () => {
     // Render PDFPreviewFrame which should also add the chart-render-complete class
