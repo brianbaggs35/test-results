@@ -105,8 +105,8 @@ describe('PDFPreviewFrame', () => {
       includeResolutionProgress: true
     };
 
-    // Mock localStorage
-    Object.defineProperty(window, 'localStorage', {
+    // Mock sessionStorage
+    Object.defineProperty(window, 'sessionStorage', {
       value: {
         getItem: vi.fn(() => '{}'),
         setItem: vi.fn(),
@@ -130,7 +130,7 @@ describe('PDFPreviewFrame', () => {
 
     // Check that the basic summary is displayed - total appears in multiple places
     expect(screen.getAllByText('100')).toHaveLength(2); // Total tests appears in multiple places
-    
+
     // Check that other metrics are present by looking for the pass rate which is easier to find
     expect(screen.getByText('75.0%')).toBeInTheDocument(); // Pass rate includes the statistics
   });
@@ -174,11 +174,11 @@ describe('PDFPreviewFrame', () => {
 
     // Check for the section heading (more specific than the TOC entry)
     expect(screen.getByText('4. All Test Cases')).toBeInTheDocument();
-    
+
     // Check that tests appear - they may appear multiple times in different sections
     const test1Elements = screen.getAllByText('Test 1');
     const test2Elements = screen.getAllByText('Test 2');
-    
+
     expect(test1Elements.length).toBeGreaterThan(0);
     expect(test2Elements.length).toBeGreaterThan(0);
   });
@@ -223,7 +223,7 @@ describe('PDFPreviewFrame', () => {
     // Check for formatted test durations - use getAllByText since durations appear multiple times
     const durations1 = screen.getAllByText('1.50s');
     const durations2 = screen.getAllByText('2.10s');
-    
+
     expect(durations1.length).toBeGreaterThan(0);
     expect(durations2.length).toBeGreaterThan(0);
   });
@@ -261,12 +261,12 @@ describe('PDFPreviewFrame', () => {
     expect(screen.queryByText('5. Failure Resolution Progress')).not.toBeInTheDocument();
   });
 
-  it('should handle localStorage errors gracefully', () => {
-    // Mock localStorage to throw an error
-    Object.defineProperty(window, 'localStorage', {
+  it('should handle sessionStorage errors gracefully', () => {
+    // Mock sessionStorage to throw an error
+    Object.defineProperty(window, 'sessionStorage', {
       value: {
         getItem: vi.fn(() => {
-          throw new Error('localStorage error');
+          throw new Error('sessionStorage error');
         })
       },
       writable: true

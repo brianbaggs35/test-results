@@ -669,7 +669,7 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
             {config.includeAllTests ? '5. Failure Resolution Progress' : config.includeFailedTests ? '4. Failure Resolution Progress' : '3. Failure Resolution Progress'}
           </h2>
           {(() => {
-            // Access localStorage safely for PDF generation
+            // Access sessionStorage safely for PDF generation
             let progressData: Record<string, {
               status?: string;
               assignee?: string;
@@ -678,10 +678,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
               notes?: string;
             }> = {};
             try {
-              const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
+              const savedProgress = typeof window !== 'undefined' ? sessionStorage.getItem('testFixProgress') : null;
               progressData = savedProgress ? JSON.parse(savedProgress) : {};
             } catch (e) {
-              console.warn('Could not access localStorage in PDF context:', e);
+              console.warn('Could not access sessionStorage in PDF context:', e);
             }
 
             const failedTests = Object.values(progressData);

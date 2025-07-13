@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
-import ClearLocalStorageButton from '../Dashboard/ClearLocalStorage';
+import ClearsessionStorageButton from '../Dashboard/ClearsessionStorage';
 import type { TestData, TestCase } from '../../types';
 
 interface FailureProgressItem {
@@ -45,8 +45,8 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   useEffect(() => {
     if (!testData) return;
 
-    // Load progress data from localStorage
-    const savedProgress = localStorage.getItem('testFixProgress');
+    // Load progress data from sessionStorage
+    const savedProgress = sessionStorage.getItem('testFixProgress');
     if (savedProgress) {
       setProgressData(JSON.parse(savedProgress));
     } else {
@@ -67,7 +67,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
         });
       });
       setProgressData(initialProgress);
-      localStorage.setItem('testFixProgress', JSON.stringify(initialProgress));
+      sessionStorage.setItem('testFixProgress', JSON.stringify(initialProgress));
     }
   }, [testData]);
   const updateTestStatus = (testId: string, status: 'pending' | 'in_progress' | 'completed') => {
@@ -82,7 +82,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
       }
     };
     setProgressData(updatedProgress);
-    localStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
+    sessionStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
     setSelectedTest(null);
     setNotes('');
     setAssignee('');
@@ -99,7 +99,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
       };
     });
     setProgressData(updatedProgress);
-    localStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
+    sessionStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
     setSelectedTests(new Set()); // Clear selection after bulk update
   };
   const getStatusIcon = (status: string) => {
@@ -259,7 +259,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
         </h2>
         <div className="flex mb-4">
           <button className="px-2 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-            <ClearLocalStorageButton />
+            <ClearsessionStorageButton />
           </button>
         </div>
         <div className="mb-4">

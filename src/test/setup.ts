@@ -22,13 +22,13 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() { /* mock implementation */ }
 };
 
-// Mock localStorage
-const localStorageMock = {
+// Mock sessionStorage
+const sessionStorageMock = {
   getItem: () => null,
   setItem: () => { /* mock implementation */ },
   removeItem: () => { /* mock implementation */ },
   clear: () => { /* mock implementation */ },
 };
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
+Object.defineProperty(window, 'sessionStorage', {
+  value: sessionStorageMock,
 });

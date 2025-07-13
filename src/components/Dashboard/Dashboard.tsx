@@ -3,7 +3,7 @@ import { FileUploader } from './FileUploader';
 import { TestMetrics } from './TestMetrics';
 import { TestResultsList } from './TestResultsList';
 import { parseJUnitXML } from '../../utils/xmlParser';
-import ClearLocalStorageButton from './ClearLocalStorage';
+import ClearsessionStorageButton from './ClearsessionStorage';
 import type { TestData } from '../../types';
 
 interface DashboardProps {
@@ -39,7 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </h2>
         <div className="flex mb-4">
           <button className="px-2 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-            <ClearLocalStorageButton />
+            <ClearsessionStorageButton />
           </button>
         </div>
         {!testData && <FileUploader onFileUpload={handleFileUpload} isLoading={isLoading} error={error} />}

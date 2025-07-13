@@ -452,7 +452,7 @@ export const ReportPreview = ({
                 5. Failure Resolution Progress
               </h2>
               {(() => {
-            const savedProgress = localStorage.getItem('testFixProgress');
+            const savedProgress = sessionStorage.getItem('testFixProgress');
             const progressData = savedProgress ? JSON.parse(savedProgress) : {};
             const failedTests = Object.values(progressData) as Array<{
               status: string;
