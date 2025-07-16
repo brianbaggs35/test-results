@@ -238,21 +238,21 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
     const totalTests = testData.summary.total;
 
     // More intelligent scaling based on both content size and test count
-    let scale = 1.08;
+    let scale = 1.9;
     let windowWidth = 1400;
     let windowHeight = 1900;
 
     if (totalTests > 2000 || estimatedContentSize > 1000000) {
       // Very large datasets
-      scale = 1.08;
-      windowWidth = 1400;
-      windowHeight = 1900;
+      scale = 1.9;
+      windowWidth = 1200;
+      windowHeight = 1800;
       console.warn(`Very large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), using conservative settings`);
     } else if (totalTests > 500 || estimatedContentSize > 300000) {
       // Large datasets
-      scale = 1.08;
-      windowWidth = 1400;
-      windowHeight = 1900;
+      scale = 1.9;
+      windowWidth = 1000;
+      windowHeight = 1600;
       console.warn(`Large dataset detected (${totalTests} tests, ${estimatedContentSize} chars), reducing scale`);
     }
 
@@ -263,15 +263,15 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
       filename: `test-results-report-${new Date().toISOString().split("T")[0]}.pdf`,
       image: {
         type: "jpeg", // Use JPEG for better compression
-        quality: 0.98 // High quality but compressed
+        quality: 0.99 // High quality but compressed
       },
       html2canvas: {
         scale: scale,
         useCORS: true,
         logging: false,
         allowTaint: true,
-        scrollX: -50,
-        scrollY: 5,
+        scrollX: 100,
+        scrollY: 0,
         dpi: 100, // Reduced DPI for better memory usage
         windowWidth: windowWidth,
         windowHeight: windowHeight,
@@ -283,7 +283,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
             const pdfFrameParent = pdfFrame.parentElement;
             if (pdfFrameParent) {
               pdfFrameParent.style.position = 'relative';
-              pdfFrameParent.style.justifyContent = 'right';
+              pdfFrameParent.style.justifyContent = 'auto';
               pdfFrameParent.style.left = 'auto';
               pdfFrameParent.style.top = 'auto';
               pdfFrameParent.style.transform = 'scale(0.8)';
@@ -374,7 +374,7 @@ export const generatePDF = async (testData: TestData, _config: ReportConfig, onP
       jsPDF: {
         unit: "pt",
         format: "a4",
-        orientation: "portrait",
+        orientation: "landscape",
         compress: true,
         putOnlyUsedFonts: true,
         floatPrecision: 2 // Reduced precision for smaller file size
