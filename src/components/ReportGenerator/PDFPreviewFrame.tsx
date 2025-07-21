@@ -114,8 +114,12 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           lineHeight: '1.2',
           letterSpacing: '0.025em', // Added letter spacing for better readability
           whiteSpace: 'normal', // Ensure normal white space handling
-          wordSpacing: 'normal', // Explicit word spacing
-          textRendering: 'optimizeLegibility' // Better text rendering
+          wordSpacing: '0.25em', // Explicit word spacing to ensure proper separation in PDF
+          textRendering: 'optimizeLegibility', // Better text rendering
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', // Explicit font stack
+          fontStretch: 'normal', // Ensure normal font stretch
+          fontVariant: 'normal', // Ensure normal font variant
+          unicodeBidi: 'normal' // Ensure proper text direction
         }}>
           {config.title}
         </h1>

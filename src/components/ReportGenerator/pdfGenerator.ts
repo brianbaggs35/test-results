@@ -170,9 +170,13 @@ style.textContent = `
     h1, h2, h3 {
       page-break-after: avoid !important;
       white-space: normal !important;
-      word-spacing: normal !important;
-      letter-spacing: inherit !important;
+      word-spacing: 0.25em !important;
+      letter-spacing: 0.025em !important;
       text-rendering: optimizeLegibility !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      font-stretch: normal !important;
+      font-variant: normal !important;
+      unicode-bidi: normal !important;
     }
     .recharts-responsive-container {
       overflow: visible !important;
