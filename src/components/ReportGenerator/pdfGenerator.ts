@@ -131,7 +131,6 @@ style.textContent = `
     padding: 5mm 5mm !important;
     margin: auto !important;
   }
-    }
     .page-break-before {
       page-break-before: always !important;
     }
@@ -170,6 +169,10 @@ style.textContent = `
     }
     h1, h2, h3 {
       page-break-after: avoid !important;
+      white-space: normal !important;
+      word-spacing: normal !important;
+      letter-spacing: inherit !important;
+      text-rendering: optimizeLegibility !important;
     }
     .recharts-responsive-container {
       overflow: visible !important;

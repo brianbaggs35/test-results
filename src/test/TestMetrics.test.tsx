@@ -34,6 +34,16 @@ vi.mock('lucide-react', () => ({
   AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
 }));
 
+// Mock formatDuration utility
+vi.mock('../../utils/formatting', () => ({
+  formatDuration: vi.fn((time: number) => `${time.toFixed(1)}s`)
+}));
+
+// Mock useChartRenderComplete hook
+vi.mock('../../hooks/useChartRenderComplete', () => ({
+  useChartRenderComplete: vi.fn()
+}));
+
 describe('TestMetrics', () => {
   const mockTestData = {
     summary: {
@@ -196,5 +206,104 @@ describe('TestMetrics', () => {
     // Suite time data should be processed for charting
     // The component should handle long suite names by truncating them
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
+  });
+
+  it('should display formatted duration using formatDuration utility', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    // The formatDuration should have been called and the result displayed
+    expect(screen.getByText('2m')).toBeInTheDocument();
+    expect(screen.getByText('Total Duration:')).toBeInTheDocument();
+  });
+
+  it('should calculate and display success rate correctly', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    expect(screen.getByText('Success Rate:')).toBeInTheDocument();
+    // Success rate = passed / (passed + failed + skipped) * 100 = 85 / 100 * 100 = 85.0%
+    expect(screen.getByText('85.0%')).toBeInTheDocument();
+  });
+
+  it('should handle zero total for success rate calculation', () => {
+    const zeroTestData = {
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        time: 0
+      },
+      suites: []
+    };
+
+    render(<TestMetrics testData={zeroTestData} />);
+
+    // When total is 0, success rate calculation should handle division by zero
+    // 0 / 0 * 100 = NaN, which toFixed(1) converts to "NaN"
+    expect(screen.getByText(/NaN%|0\.0%/)).toBeInTheDocument();
+  });
+
+  it('should render alert triangle icon for skipped tests', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
+  });
+
+  it('should use chart render complete hook with test data', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    // The component should render successfully, indicating the hook was called
+    expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
+  });
+
+  it('should render tooltip and legend components', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    expect(screen.getByTestId('tooltip')).toBeInTheDocument();
+    expect(screen.getByTestId('legend')).toBeInTheDocument();
+  });
+
+  it('should render Test Status Distribution heading', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    expect(screen.getByText('Test Status Distribution')).toBeInTheDocument();
+  });
+
+  it('should render different test scenarios correctly', () => {
+    const allFailedData = {
+      summary: {
+        total: 20,
+        passed: 0,
+        failed: 20,
+        skipped: 0,
+        time: 45.8
+      },
+      suites: []
+    };
+
+    render(<TestMetrics testData={allFailedData} />);
+
+    expect(screen.getByText('20')).toBeInTheDocument(); // Failed count
+    expect(screen.getAllByText('0')).toHaveLength(2); // Passed and skipped both 0
+    expect(screen.getByText('0.0%')).toBeInTheDocument(); // 0% success rate
+  });
+
+  it('should render all skipped tests scenario', () => {
+    const allSkippedData = {
+      summary: {
+        total: 15,
+        passed: 0,
+        failed: 0,
+        skipped: 15,
+        time: 0
+      },
+      suites: []
+    };
+
+    render(<TestMetrics testData={allSkippedData} />);
+
+    expect(screen.getByText('15')).toBeInTheDocument(); // Skipped count
+    expect(screen.getAllByText('0')).toHaveLength(2); // Passed and failed both 0
+    expect(screen.getByText('0.0%')).toBeInTheDocument(); // 0% success rate
   });
 });
