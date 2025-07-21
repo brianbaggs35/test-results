@@ -416,4 +416,204 @@ describe('pdfGenerator', () => {
     expect(mockTestData.summary).toHaveProperty('time');
     expect(Array.isArray(mockTestData.suites)).toBe(true);
   });
+
+  it('should handle prepareContent with large tables', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock a large table structure
+    const mockElement = {
+      cloneNode: vi.fn().mockReturnValue({
+        querySelectorAll: vi.fn().mockImplementation((selector: string) => {
+          if (selector === 'table') {
+            return [{
+              querySelector: vi.fn().mockReturnValue({
+                querySelectorAll: vi.fn().mockReturnValue(
+                  // Create array of 35 mock rows to trigger the large table logic
+                  Array.from({ length: 35 }, (_, index) => ({
+                    style: {},
+                    textContent: `Row ${index}`
+                  }))
+                )
+              })
+            }];
+          }
+          if (selector.includes('.recharts-tooltip-wrapper') || 
+              selector.includes('button') || 
+              selector.includes('.print-hide') ||
+              selector.includes('input') ||
+              selector.includes('select')) {
+            return [{
+              remove: vi.fn()
+            }];
+          }
+          return [];
+        }),
+        querySelector: vi.fn(),
+        getElementsByTagName: vi.fn().mockReturnValue([]),
+        insertBefore: vi.fn(),
+        innerHTML: '<div>Mock content with large table</div>',
+        style: {}
+      }),
+      querySelector: vi.fn(),
+      querySelectorAll: vi.fn().mockReturnValue([]),
+      style: {},
+      innerHTML: '<div>Mock content with large table</div>'
+    };
+
+    (document.getElementById as any).mockReturnValue(mockElement);
+
+    await generatePDF(mockTestData, mockConfig);
+
+    expect(mockHtml2Pdf).toHaveBeenCalled();
+  });
+
+  it('should handle chart render complete polling in non-test environment', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock window.vi to be undefined to simulate non-test environment
+    const originalVi = (window as any).vi;
+    delete (window as any).vi;
+
+    // Mock querySelector to return null initially, then a chart-render-complete element
+    let queryCallCount = 0;
+    (document.querySelector as any).mockImplementation((selector: string) => {
+      if (selector === '.chart-render-complete') {
+        queryCallCount++;
+        if (queryCallCount > 2) {
+          return { textContent: 'complete' }; // Simulate finding the element after a few calls
+        }
+        return null;
+      }
+      return null;
+    });
+
+    try {
+      await generatePDF(mockTestData, mockConfig);
+      expect(mockHtml2Pdf).toHaveBeenCalled();
+    } finally {
+      // Restore original values
+      if (originalVi !== undefined) {
+        (window as any).vi = originalVi;
+      }
+    }
+  });
+
+  it('should handle onclone function with PDF frame styling', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock the onclone callback to test the PDF frame styling logic
+    let oncloneCallback: ((doc: Document) => void) | undefined;
+    
+    mockHtml2PdfWorker.set.mockImplementation((options: any) => {
+      if (options.onclone) {
+        oncloneCallback = options.onclone;
+      }
+      return mockHtml2PdfWorker;
+    });
+
+    // Mock a document with PDF frame elements
+    const mockDoc = {
+      getElementById: vi.fn().mockImplementation((id: string) => {
+        if (id === 'report-preview') {
+          return {
+            style: {},
+            parentElement: {
+              style: {}
+            }
+          };
+        }
+        return null;
+      })
+    } as unknown as Document;
+
+    await generatePDF(mockTestData, mockConfig);
+
+    // Execute the onclone callback if it was set
+    if (oncloneCallback) {
+      oncloneCallback(mockDoc);
+    }
+
+    expect(mockHtml2Pdf).toHaveBeenCalled();
+  });
+
+  it('should handle errors without specific message patterns', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock a generic error without timeout, memory, or stack overflow messages
+    mockHtml2PdfWorker.save.mockRejectedValueOnce(new Error('Generic error'));
+
+    await expect(generatePDF(mockTestData, mockConfig)).rejects.toThrow(
+      'Failed to generate PDF: Generic error. Try reducing the report content or contact support.'
+    );
+  });
+
+  it('should handle non-Error exceptions', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock a non-Error exception (like a string or object)
+    mockHtml2PdfWorker.save.mockRejectedValueOnce('String error');
+
+    await expect(generatePDF(mockTestData, mockConfig)).rejects.toThrow(
+      'Failed to generate PDF due to an unknown error. Please try again.'
+    );
+  });
+
+  it('should handle HTML2PDF library loading when not available', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock window without html2pdf to test the loading logic
+    const originalHtml2Pdf = (window as any).html2pdf;
+    delete (window as any).html2pdf;
+
+    // Mock script loading
+    const mockScript = {
+      src: '',
+      onload: null as (() => void) | null,
+      onerror: null as (() => void) | null
+    };
+
+    (document.createElement as any).mockImplementation((tagName: string) => {
+      if (tagName === 'script') {
+        return mockScript;
+      }
+      return {
+        style: {},
+        innerHTML: '',
+        textContent: '',
+        querySelector: vi.fn(),
+        querySelectorAll: vi.fn().mockReturnValue([]),
+        getElementsByTagName: vi.fn().mockReturnValue([]),
+        remove: vi.fn(),
+        appendChild: vi.fn(),
+        insertBefore: vi.fn()
+      };
+    });
+
+    // Mock document.head.appendChild
+    const mockHead = {
+      appendChild: vi.fn().mockImplementation(() => {
+        // Simulate successful script loading
+        if (mockScript.onload) {
+          setTimeout(() => {
+            (window as any).html2pdf = mockHtml2Pdf;
+            mockScript.onload!();
+          }, 0);
+        }
+      })
+    };
+
+    Object.defineProperty(document, 'head', {
+      value: mockHead,
+      configurable: true
+    });
+
+    try {
+      await generatePDF(mockTestData, mockConfig);
+      expect(mockHead.appendChild).toHaveBeenCalled();
+      expect(mockHtml2Pdf).toHaveBeenCalled();
+    } finally {
+      // Restore original html2pdf
+      (window as any).html2pdf = originalHtml2Pdf;
+    }
+  });
 });
