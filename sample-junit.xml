@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Sample Test Suite" tests="10" failures="2" errors="0" skipped="1" time="45.123">
+  <testcase name="Test Login Functionality" classname="com.example.LoginTest" time="2.5">
+  </testcase>
+  <testcase name="Test User Registration" classname="com.example.UserTest" time="3.2">
+  </testcase>
+  <testcase name="Test Data Validation" classname="com.example.ValidationTest" time="1.8">
+    <failure message="Assertion failed" type="AssertionError">
+      Expected: true
+      Actual: false
+      Stack trace here...
+    </failure>
+  </testcase>
+  <testcase name="Test API Integration" classname="com.example.ApiTest" time="5.1">
+  </testcase>
+  <testcase name="Test Database Connection" classname="com.example.DbTest" time="12.3">
+    <failure message="Connection timeout" type="TimeoutException">
+      Could not connect to database within 30 seconds
+    </failure>
+  </testcase>
+  <testcase name="Test File Upload" classname="com.example.FileTest" time="4.7">
+  </testcase>
+  <testcase name="Test Email Service" classname="com.example.EmailTest" time="2.1">
+  </testcase>
+  <testcase name="Test Payment Processing" classname="com.example.PaymentTest" time="8.9">
+    <skipped message="Payment service unavailable"/>
+  </testcase>
+  <testcase name="Test Security Features" classname="com.example.SecurityTest" time="3.4">
+  </testcase>
+  <testcase name="Test Performance" classname="com.example.PerformanceTest" time="1.1">
+  </testcase>
+</testsuite>
