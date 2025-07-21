@@ -34,7 +34,7 @@ export const FailureAnalysis: React.FC<FailureAnalysisProps> = ({
       </div>;
   }
   return <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">
             Failure Analysis

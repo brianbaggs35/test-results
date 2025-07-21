@@ -1,12 +1,65 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TestData, ReportConfig } from '../types';
 
-// Simple test that focuses on the parts we can test without complex DOM mocking
-describe('pdfGenerator module', () => {
+// Mock window.html2pdf
+const mockHtml2PdfWorker = {
+  from: vi.fn().mockReturnThis(),
+  set: vi.fn().mockReturnThis(),
+  save: vi.fn().mockResolvedValue(undefined)
+};
+
+const mockHtml2Pdf = vi.fn(() => mockHtml2PdfWorker);
+
+// Global window mock setup
+Object.defineProperty(global, 'window', {
+  value: {
+    html2pdf: mockHtml2Pdf
+  },
+  writable: true
+});
+
+// Mock document for HTML parsing
+Object.defineProperty(global, 'document', {
+  value: {
+    createElement: vi.fn().mockReturnValue({
+      style: {},
+      innerHTML: '',
+      textContent: '',
+      querySelector: vi.fn(),
+      querySelectorAll: vi.fn().mockReturnValue([]),
+      getElementsByTagName: vi.fn().mockReturnValue([]),
+      remove: vi.fn(),
+      appendChild: vi.fn(),
+      insertBefore: vi.fn()
+    }),
+    getElementById: vi.fn().mockReturnValue({
+      cloneNode: vi.fn().mockReturnValue({
+        querySelectorAll: vi.fn().mockReturnValue([]),
+        querySelector: vi.fn(),
+        getElementsByTagName: vi.fn().mockReturnValue([]),
+        insertBefore: vi.fn(),
+        innerHTML: '<div>Mock content</div>',
+        style: {}
+      }),
+      querySelector: vi.fn(),
+      querySelectorAll: vi.fn().mockReturnValue([]),
+      style: {},
+      innerHTML: '<div>Mock content</div>'
+    }),
+    head: {
+      appendChild: vi.fn()
+    }
+  },
+  writable: true
+});
+
+describe('pdfGenerator', () => {
   let mockTestData: TestData;
   let mockConfig: ReportConfig;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    
     mockTestData = {
       summary: {
         total: 100,
@@ -44,6 +97,16 @@ describe('pdfGenerator module', () => {
       includeAllTests: true,
       includeResolutionProgress: true
     };
+
+    // Reset import meta vitest flag
+    Object.defineProperty(import.meta, 'vitest', {
+      value: undefined,
+      writable: true
+    });
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
   });
 
   it('should export generatePDF function', async () => {
@@ -51,42 +114,233 @@ describe('pdfGenerator module', () => {
     expect(typeof generatePDF).toBe('function');
   });
 
-  it('should handle null/undefined element gracefully', async () => {
-    // Mock all DOM operations
+  it('should successfully generate PDF with valid data', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    await expect(generatePDF(mockTestData, mockConfig)).resolves.not.toThrow();
+    
+    expect(mockHtml2Pdf).toHaveBeenCalled();
+    expect(mockHtml2PdfWorker.from).toHaveBeenCalled();
+    expect(mockHtml2PdfWorker.set).toHaveBeenCalled();
+    expect(mockHtml2PdfWorker.save).toHaveBeenCalled();
+  });
+
+  it('should call progress callback if provided', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    const progressCallback = vi.fn();
+    
+    await generatePDF(mockTestData, mockConfig, progressCallback);
+    
+    expect(progressCallback).toHaveBeenCalledWith(expect.any(Number));
+  });
+
+  it('should throw error if report preview element not found', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock getElementById to return null
     document.getElementById = vi.fn().mockReturnValue(null);
     
-    // Create a mock element for chart-render-complete to prevent waiting
-    const mockElement = document.createElement('div');
-    mockElement.className = 'chart-render-complete';
+    await expect(generatePDF(mockTestData, mockConfig)).rejects.toThrow('No report content found for PDF generation');
+  });
+
+  it('should handle HTML2PDF library loading', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
     
-    document.querySelector = vi.fn().mockReturnValue(mockElement);
+    // Test when html2pdf is not available initially
+    (window as { html2pdf?: unknown }).html2pdf = undefined;
     
-    // Mock window.html2pdf to be available
-    Object.defineProperty(window, 'html2pdf', {
-      writable: true,
-      value: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        set: vi.fn().mockReturnThis(),
-        save: vi.fn().mockResolvedValue(undefined)
+    // Mock script creation and loading
+    const mockScript = {
+      src: '',
+      onload: null as (() => void) | null,
+      onerror: null as (() => void) | null
+    };
+    
+    document.createElement = vi.fn().mockReturnValue(mockScript);
+    
+    // Simulate successful script loading
+    setTimeout(() => {
+      if (mockScript.onload) {
+        window.html2pdf = mockHtml2Pdf;
+        mockScript.onload();
+      }
+    }, 0);
+    
+    await generatePDF(mockTestData, mockConfig);
+    
+    expect(document.createElement).toHaveBeenCalledWith('script');
+  });
+
+  it('should optimize settings for very large datasets', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Create a very large dataset
+    const largeTestData: TestData = {
+      summary: {
+        total: 5000,
+        passed: 4000,
+        failed: 900,
+        skipped: 100,
+        time: 3600
+      },
+      suites: [{
+        name: 'Large Suite',
+        tests: 5000,
+        failures: 900,
+        errors: 0,
+        skipped: 100,
+        time: 3600,
+        timestamp: '2024-01-01T12:00:00Z',
+        testcases: Array.from({ length: 5000 }, (_, index) => ({
+          name: `Test ${index + 1}`,
+          status: index < 4000 ? 'passed' : index < 4900 ? 'failed' : 'skipped',
+          suite: 'Large Suite',
+          time: Math.random() * 5
+        }))
+      }]
+    };
+    
+    await generatePDF(largeTestData, mockConfig);
+    
+    expect(mockHtml2PdfWorker.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html2canvas: expect.objectContaining({
+          scale: expect.any(Number),
+          windowWidth: expect.any(Number),
+          windowHeight: expect.any(Number)
+        })
       })
-    });
+    );
+  });
 
-    const pdfGeneratorModule = await import('../components/ReportGenerator/pdfGenerator');
+  it('should handle chart render complete in test environment', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
     
-    await expect(pdfGeneratorModule.generatePDF(mockTestData, mockConfig))
-      .rejects.toThrow('No report content found for PDF generation');
-  }, 20000); // Increase timeout to 20 seconds
+    // Set vitest flag to simulate test environment
+    Object.defineProperty(import.meta, 'vitest', {
+      value: true,
+      writable: true
+    });
+    
+    await expect(generatePDF(mockTestData, mockConfig)).resolves.not.toThrow();
+  });
 
-  it('should handle test data with different sizes appropriately', () => {
-    // Test the logic that would determine scaling based on test count
-    const smallDataset = { ...mockTestData, summary: { ...mockTestData.summary, total: 50 } };
-    const mediumDataset = { ...mockTestData, summary: { ...mockTestData.summary, total: 800 } };
-    const largeDataset = { ...mockTestData, summary: { ...mockTestData.summary, total: 3000 } };
+  it('should generate appropriate filename', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    await generatePDF(mockTestData, mockConfig);
+    
+    expect(mockHtml2PdfWorker.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: expect.stringMatching(/test-results-report-\d{4}-\d{2}-\d{2}\.pdf/)
+      })
+    );
+  });
 
-    // These test the data structures and logic, not the actual PDF generation
-    expect(smallDataset.summary.total).toBe(50);
-    expect(mediumDataset.summary.total).toBe(800);
-    expect(largeDataset.summary.total).toBe(3000);
+  it('should handle PDF generation timeout error', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock save to reject with timeout
+    mockHtml2PdfWorker.save = vi.fn().mockRejectedValue(new Error('PDF generation timed out'));
+    
+    await expect(generatePDF(mockTestData, mockConfig)).rejects.toThrow(/PDF generation timed out/);
+  });
+
+  it('should handle memory errors gracefully', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock save to reject with memory error
+    mockHtml2PdfWorker.save = vi.fn().mockRejectedValue(new Error('Maximum call stack size exceeded'));
+    
+    await expect(generatePDF(mockTestData, mockConfig)).rejects.toThrow(/Not enough memory/);
+  });
+
+  it('should handle unknown errors', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    // Mock save to reject with unknown error
+    mockHtml2PdfWorker.save = vi.fn().mockRejectedValue('Unknown error');
+    
+    await expect(generatePDF(mockTestData, mockConfig)).rejects.toThrow(/Failed to generate PDF due to an unknown error/);
+  });
+
+  it('should configure PDF options correctly', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    await generatePDF(mockTestData, mockConfig);
+    
+    expect(mockHtml2PdfWorker.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        margin: [2, 2, 2, 2],
+        autoPaging: 'text',
+        image: expect.objectContaining({
+          type: 'jpeg',
+          quality: 0.99
+        }),
+        jsPDF: expect.objectContaining({
+          unit: 'pt',
+          format: 'a4',
+          orientation: 'landscape',
+          compress: true
+        })
+      })
+    );
+  });
+
+  it('should handle medium-sized datasets with appropriate scaling', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    const mediumTestData: TestData = {
+      summary: {
+        total: 1000,
+        passed: 800,
+        failed: 150,
+        skipped: 50,
+        time: 600
+      },
+      suites: [{
+        name: 'Medium Suite',
+        tests: 1000,
+        failures: 150,
+        errors: 0,
+        skipped: 50,
+        time: 600,
+        timestamp: '2024-01-01T12:00:00Z',
+        testcases: Array.from({ length: 1000 }, (_, index) => ({
+          name: `Test ${index + 1}`,
+          status: index < 800 ? 'passed' : index < 950 ? 'failed' : 'skipped',
+          suite: 'Medium Suite',
+          time: Math.random() * 5
+        }))
+      }]
+    };
+    
+    await generatePDF(mediumTestData, mockConfig);
+    
+    expect(mockHtml2PdfWorker.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html2canvas: expect.objectContaining({
+          scale: expect.any(Number)
+        })
+      })
+    );
+  });
+
+  it('should configure page break options correctly', async () => {
+    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+    
+    await generatePDF(mockTestData, mockConfig);
+    
+    expect(mockHtml2PdfWorker.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pagebreak: expect.objectContaining({
+          mode: ['css', 'legacy'],
+          before: '.page-break-before',
+          after: '.page-break-after',
+          avoid: ['.avoid-break', 'h1', 'h2', 'h3']
+        })
+      })
+    );
   });
 
   it('should validate config structure', () => {

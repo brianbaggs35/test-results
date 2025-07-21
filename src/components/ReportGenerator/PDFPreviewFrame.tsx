@@ -111,7 +111,9 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           textAlign: 'center',
           color: '#1f2937',
           marginBottom: '16px', // Increased spacing
-          lineHeight: '1.2'
+          lineHeight: '1.2',
+          letterSpacing: '0.025em', // Added letter spacing for better readability
+          whiteSpace: 'normal' // Ensure normal white space handling
         }}>
           {config.title}
         </h1>
