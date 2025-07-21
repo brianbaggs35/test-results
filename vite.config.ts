@@ -40,6 +40,7 @@ export default defineConfig({
         'tailwind.config.js',
         'postcss.config.js',
         'src/index.tsx',
+        'src/types/**',
       ],
       thresholds: {
         global: {

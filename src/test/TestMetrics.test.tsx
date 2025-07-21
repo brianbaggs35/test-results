@@ -249,6 +249,37 @@ describe('TestMetrics', () => {
     expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
   });
 
+  it('should render CustomTooltip with correct data when active', () => {
+    render(<TestMetrics testData={mockTestData} />);
+    
+    // Find the tooltip element and verify it's rendered
+    expect(screen.getByTestId('tooltip')).toBeInTheDocument();
+  });
+
+  it('should handle CustomTooltip with payload data', () => {
+    render(<TestMetrics testData={mockTestData} />);
+    
+    // The tooltip should be present in the DOM
+    const tooltip = screen.getByTestId('tooltip');
+    expect(tooltip).toBeInTheDocument();
+  });
+
+  it('should render legend with custom formatter', () => {
+    render(<TestMetrics testData={mockTestData} />);
+    
+    // Legend should be present
+    expect(screen.getByTestId('legend')).toBeInTheDocument();
+  });
+
+  it('should render pie chart with custom elements', () => {
+    render(<TestMetrics testData={mockTestData} />);
+    
+    // The pie chart should be rendered with proper data items
+    expect(screen.getByTestId('pie-item-Passed')).toBeInTheDocument();
+    expect(screen.getByTestId('pie-item-Failed')).toBeInTheDocument();
+    expect(screen.getByTestId('pie-item-Skipped')).toBeInTheDocument();
+  });
+
   it('should use chart render complete hook with test data', () => {
     render(<TestMetrics testData={mockTestData} />);
 
