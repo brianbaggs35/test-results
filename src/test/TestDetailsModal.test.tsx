@@ -34,7 +34,7 @@ describe('TestDetailsModal', () => {
 
     expect(screen.getByText('Login Test')).toBeInTheDocument();
     expect(screen.getByText('Auth Suite')).toBeInTheDocument();
-    expect(screen.getByText('2.5 seconds')).toBeInTheDocument();
+    expect(screen.getByText('2.50 seconds')).toBeInTheDocument();
     expect(screen.getByTestId('check-circle-icon')).toBeInTheDocument();
   });
 
@@ -51,7 +51,7 @@ describe('TestDetailsModal', () => {
 
     expect(screen.getByText('API Test')).toBeInTheDocument();
     expect(screen.getByText('API Suite')).toBeInTheDocument();
-    expect(screen.getByText('1.8 seconds')).toBeInTheDocument();
+    expect(screen.getByText('1.80 seconds')).toBeInTheDocument();
     expect(screen.getByTestId('x-circle-icon')).toBeInTheDocument();
     expect(screen.getByText('Expected 200 but got 500')).toBeInTheDocument();
   });
