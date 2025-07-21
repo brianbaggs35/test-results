@@ -113,7 +113,9 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           marginBottom: '16px', // Increased spacing
           lineHeight: '1.2',
           letterSpacing: '0.025em', // Added letter spacing for better readability
-          whiteSpace: 'normal' // Ensure normal white space handling
+          whiteSpace: 'normal', // Ensure normal white space handling
+          wordSpacing: 'normal', // Explicit word spacing
+          textRendering: 'optimizeLegibility' // Better text rendering
         }}>
           {config.title}
         </h1>
