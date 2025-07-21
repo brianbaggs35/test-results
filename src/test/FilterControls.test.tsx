@@ -24,8 +24,8 @@ describe('FilterControls', () => {
     setClassNameFilter: vi.fn(),
     showFilters: false,
     setShowFilters: vi.fn(),
-    suites: ['Suite 1', 'Suite 2'],
-    classNames: ['Class A', 'Class B'],
+    suites: ['all', 'Suite 1', 'Suite 2'],
+    classNames: ['all', 'Class A', 'Class B'],
     resetFilters: vi.fn(),
     statusOptions: [
       { value: 'all', label: 'All Status' },
@@ -61,7 +61,19 @@ describe('FilterControls', () => {
     const searchInput = screen.getByPlaceholderText('Search tests...');
     await user.type(searchInput, 'test query');
 
-    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('test query');
+    // user.type simulates typing each character one by one
+    // and each character triggers onChange with that character's value
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledTimes(10);
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('t');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('e');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('s');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('t');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith(' ');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('q');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('u');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('e');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('r');
+    expect(defaultProps.setSearchTerm).toHaveBeenCalledWith('y');
   });
 
   it('should display search term value', () => {
