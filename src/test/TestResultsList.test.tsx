@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestResultsList } from '../components/Dashboard/TestResultsList';
 import { TestData } from '../types';
 
 // Mock child components
 vi.mock('../components/Dashboard/TestDetailsModal', () => ({
-  TestDetailsModal: ({ test, onClose }: { test: any; onClose: () => void }) => (
+  TestDetailsModal: ({ test, onClose }: { test: { name: string }; onClose: () => void }) => (
     <div data-testid="test-details-modal">
       <span>Test: {test.name}</span>
       <button onClick={onClose} data-testid="modal-close">Close</button>
@@ -23,7 +23,15 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
     showFilters,
     setShowFilters,
     resetFilters
-  }: any) => (
+  }: {
+    searchTerm: string;
+    setSearchTerm: (term: string) => void;
+    statusFilter: string;
+    setStatusFilter: (status: string) => void;
+    showFilters: boolean;
+    setShowFilters: (show: boolean) => void;
+    resetFilters: () => void;
+  }) => (
     <div data-testid="filter-controls">
       <input 
         value={searchTerm} 

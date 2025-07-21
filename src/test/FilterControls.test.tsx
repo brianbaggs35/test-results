@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FilterControls } from '../components/Dashboard/FilterControls';
@@ -178,6 +178,7 @@ describe('FilterControls', () => {
 
   it('should use default status options when not provided', () => {
     const propsWithoutStatusOptions = { ...defaultProps };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (propsWithoutStatusOptions as any).statusOptions;
     
     render(<FilterControls {...propsWithoutStatusOptions} showFilters={true} />);
