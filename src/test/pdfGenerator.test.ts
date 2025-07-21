@@ -1,6 +1,30 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TestData, ReportConfig } from '../types';
 
+// Type definitions for window extensions and mock objects
+interface WindowWithExtensions extends Window {
+  html2pdf?: () => typeof mockHtml2PdfWorker;
+  vi?: unknown;
+}
+
+interface MockDocument extends Document {
+  getElementById: ReturnType<typeof vi.fn>;
+  querySelector: ReturnType<typeof vi.fn>;
+  querySelectorAll: ReturnType<typeof vi.fn>;
+  createElement: ReturnType<typeof vi.fn>;
+}
+
+interface Html2PdfOptions {
+  margin?: number[];
+  filename?: string;
+  image?: Record<string, unknown>;
+  html2canvas?: Record<string, unknown>;
+  jsPDF?: Record<string, unknown>;
+  pagebreak?: Record<string, unknown>;
+  autoPaging?: string;
+  onclone?: (doc: Document) => void;
+}
+
 // Mock window.html2pdf
 const mockHtml2PdfWorker = {
   from: vi.fn().mockReturnThis(),
@@ -460,7 +484,7 @@ describe('pdfGenerator', () => {
       innerHTML: '<div>Mock content with large table</div>'
     };
 
-    (document.getElementById as any).mockReturnValue(mockElement);
+    (document.getElementById as MockDocument['getElementById']).mockReturnValue(mockElement);
 
     await generatePDF(mockTestData, mockConfig);
 
@@ -471,12 +495,12 @@ describe('pdfGenerator', () => {
     const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
     
     // Mock window.vi to be undefined to simulate non-test environment
-    const originalVi = (window as any).vi;
-    delete (window as any).vi;
+    const originalVi = (window as WindowWithExtensions).vi;
+    delete (window as WindowWithExtensions).vi;
 
     // Mock querySelector to return null initially, then a chart-render-complete element
     let queryCallCount = 0;
-    (document.querySelector as any).mockImplementation((selector: string) => {
+    (document.querySelector as MockDocument['querySelector']).mockImplementation((selector: string) => {
       if (selector === '.chart-render-complete') {
         queryCallCount++;
         if (queryCallCount > 2) {
@@ -493,7 +517,7 @@ describe('pdfGenerator', () => {
     } finally {
       // Restore original values
       if (originalVi !== undefined) {
-        (window as any).vi = originalVi;
+        (window as WindowWithExtensions).vi = originalVi;
       }
     }
   });
@@ -504,7 +528,7 @@ describe('pdfGenerator', () => {
     // Mock the onclone callback to test the PDF frame styling logic
     let oncloneCallback: ((doc: Document) => void) | undefined;
     
-    mockHtml2PdfWorker.set.mockImplementation((options: any) => {
+    mockHtml2PdfWorker.set.mockImplementation((options: Html2PdfOptions) => {
       if (options.onclone) {
         oncloneCallback = options.onclone;
       }
@@ -562,8 +586,8 @@ describe('pdfGenerator', () => {
     const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
     
     // Mock window without html2pdf to test the loading logic
-    const originalHtml2Pdf = (window as any).html2pdf;
-    delete (window as any).html2pdf;
+    const originalHtml2Pdf = (window as WindowWithExtensions).html2pdf;
+    delete (window as WindowWithExtensions).html2pdf;
 
     // Mock script loading
     const mockScript = {
@@ -572,7 +596,7 @@ describe('pdfGenerator', () => {
       onerror: null as (() => void) | null
     };
 
-    (document.createElement as any).mockImplementation((tagName: string) => {
+    (document.createElement as MockDocument['createElement']).mockImplementation((tagName: string) => {
       if (tagName === 'script') {
         return mockScript;
       }
@@ -595,7 +619,7 @@ describe('pdfGenerator', () => {
         // Simulate successful script loading
         if (mockScript.onload) {
           setTimeout(() => {
-            (window as any).html2pdf = mockHtml2Pdf;
+            (window as WindowWithExtensions).html2pdf = mockHtml2Pdf;
             mockScript.onload!();
           }, 0);
         }
@@ -613,7 +637,7 @@ describe('pdfGenerator', () => {
       expect(mockHtml2Pdf).toHaveBeenCalled();
     } finally {
       // Restore original html2pdf
-      (window as any).html2pdf = originalHtml2Pdf;
+      (window as WindowWithExtensions).html2pdf = originalHtml2Pdf;
     }
   });
 });
