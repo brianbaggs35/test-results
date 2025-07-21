@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ReportPreview } from '../components/ReportGenerator/ReportPreview';
 import { TestData, ReportConfig } from '../types';
 

@@ -253,4 +253,21 @@ describe('TestDetailsModal', () => {
     const statusBadge = screen.getByText('Skipped');
     expect(statusBadge).toBeInTheDocument();
   });
+
+  it('should display classname when available', () => {
+    const testWithClassname: TestCase = {
+      name: 'Test With Class',
+      status: 'passed',
+      suite: 'Test Suite',
+      classname: 'com.example.TestClass',
+      time: 1.5
+    };
+
+    render(<TestDetailsModal test={testWithClassname} onClose={mockOnClose} />);
+
+    expect(screen.getByText('Test With Class')).toBeInTheDocument();
+    expect(screen.getByText('Class Name')).toBeInTheDocument();
+    expect(screen.getByText('com.example.TestClass')).toBeInTheDocument();
+    expect(screen.getByTestId('code-icon')).toBeInTheDocument();
+  });
 });

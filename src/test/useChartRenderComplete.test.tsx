@@ -95,8 +95,8 @@ describe('useChartRenderComplete', () => {
       {
         type: 'childList' as MutationType,
         target: chartContainer,
-        addedNodes: [] as any,
-        removedNodes: [] as any,
+        addedNodes: [] as NodeList,
+        removedNodes: [] as NodeList,
         previousSibling: null,
         nextSibling: null,
         attributeName: null,
@@ -107,7 +107,7 @@ describe('useChartRenderComplete', () => {
 
     // Trigger the mutation callback
     act(() => {
-      mockMutationCallback(mockMutations, null as any);
+      mockMutationCallback(mockMutations, null as unknown as MutationObserver);
     });
 
     // Should add chart-render-complete element
@@ -131,8 +131,8 @@ describe('useChartRenderComplete', () => {
       {
         type: 'attributes' as MutationType,
         target: chartContainer,
-        addedNodes: [] as any,
-        removedNodes: [] as any,
+        addedNodes: [] as NodeList,
+        removedNodes: [] as NodeList,
         previousSibling: null,
         nextSibling: null,
         attributeName: 'class',
@@ -143,7 +143,7 @@ describe('useChartRenderComplete', () => {
 
     // Trigger the mutation callback
     act(() => {
-      mockMutationCallback(mockMutations, null as any);
+      mockMutationCallback(mockMutations, null as unknown as MutationObserver);
     });
 
     // Should add chart-render-complete element

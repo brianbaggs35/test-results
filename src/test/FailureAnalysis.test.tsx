@@ -198,6 +198,45 @@ describe('FailureAnalysis', () => {
     expect(screen.getByText('Expected 5 but got 3')).toBeInTheDocument();
   });
 
+  it('should display classname when available', () => {
+    const testData: TestData = {
+      summary: {
+        total: 1,
+        passed: 0,
+        failed: 1,
+        skipped: 0,
+        time: 15.0
+      },
+      suites: [
+        {
+          name: 'Suite 1',
+          tests: 1,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 15.0,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [
+            {
+              name: 'Failed Test',
+              status: 'failed',
+              suite: 'Suite 1',
+              classname: 'com.example.TestClass',
+              time: 15.0,
+              errorMessage: 'Test failed'
+            }
+          ]
+        }
+      ]
+    };
+
+    render(<FailureAnalysis testData={testData} />);
+
+    expect(screen.getByText('Failed Test')).toBeInTheDocument();
+    expect(screen.getByText('Class Name')).toBeInTheDocument();
+    expect(screen.getByText('com.example.TestClass')).toBeInTheDocument();
+  });
+
   it('should handle tests from multiple suites', () => {
     const testData: TestData = {
       summary: {

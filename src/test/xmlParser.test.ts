@@ -281,5 +281,17 @@ describe('parseJUnitXML', () => {
       
       consoleSpy.mockRestore();
     });
+
+    it('should handle test cases with skipped attribute', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="0" skipped="1" time="0.123">
+  <testcase name="SkippedTest" classname="TestClass" time="0.0" skipped="true"/>
+</testsuite>`;
+      
+      const result = parseJUnitXML(xml);
+      
+      expect(result.suites[0].testcases[0].status).toBe('skipped');
+      expect(result.summary.skipped).toBe(1);
+    });
   });
 });
