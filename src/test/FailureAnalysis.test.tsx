@@ -264,7 +264,7 @@ describe('FailureAnalysis', () => {
     expect(screen.getByText('2 failed tests detected')).toBeInTheDocument();
     expect(screen.getByText('Login Test')).toBeInTheDocument();
     expect(screen.getByText('GET Test')).toBeInTheDocument();
-    expect(screen.getByText('Auth Suite')).toBeInTheDocument();
-    expect(screen.getByText('API Suite')).toBeInTheDocument();
+    expect(screen.getByText('Suite: Auth Suite')).toBeInTheDocument();
+    expect(screen.getByText('Suite: API Suite')).toBeInTheDocument();
   });
 });
