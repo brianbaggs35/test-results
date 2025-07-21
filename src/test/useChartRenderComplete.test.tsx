@@ -91,12 +91,12 @@ describe('useChartRenderComplete', () => {
     renderHook(() => useChartRenderComplete([]));
 
     // Simulate a mutation
-    const mockMutations = [
+    const mockMutations: MutationRecord[] = [
       {
-        type: 'childList' as MutationType,
+        type: 'childList',
         target: chartContainer,
-        addedNodes: [] as NodeList,
-        removedNodes: [] as NodeList,
+        addedNodes: document.createDocumentFragment().childNodes,
+        removedNodes: document.createDocumentFragment().childNodes,
         previousSibling: null,
         nextSibling: null,
         attributeName: null,
@@ -127,12 +127,12 @@ describe('useChartRenderComplete', () => {
     renderHook(() => useChartRenderComplete([]));
 
     // Simulate an attributes mutation
-    const mockMutations = [
+    const mockMutations: MutationRecord[] = [
       {
-        type: 'attributes' as MutationType,
+        type: 'attributes',
         target: chartContainer,
-        addedNodes: [] as NodeList,
-        removedNodes: [] as NodeList,
+        addedNodes: document.createDocumentFragment().childNodes,
+        removedNodes: document.createDocumentFragment().childNodes,
         previousSibling: null,
         nextSibling: null,
         attributeName: 'class',
