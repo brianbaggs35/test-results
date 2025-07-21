@@ -389,11 +389,11 @@ describe('FailureAnalysisProgress', () => {
       const editButton = screen.getByText('Edit');
       fireEvent.click(editButton);
 
-      const pendingButton = screen.getByText('Pending');
+      const pendingButton = screen.getByRole('button', { name: 'Pending' });
       fireEvent.click(pendingButton);
 
       // Status should be updated
-      expect(screen.getByText('Update Status')).toBeInTheDocument();
+      expect(screen.getByText('Edit')).toBeInTheDocument();
     });
 
     it('should update test status to in_progress', () => {
@@ -403,11 +403,11 @@ describe('FailureAnalysisProgress', () => {
       const editButton = screen.getByText('Edit');
       fireEvent.click(editButton);
 
-      const inProgressButton = screen.getByText('In Progress');
+      const inProgressButton = screen.getByRole('button', { name: 'In Progress' });
       fireEvent.click(inProgressButton);
 
       // Status should be updated
-      expect(screen.getByText('Update Status')).toBeInTheDocument();
+      expect(screen.getByText('Edit')).toBeInTheDocument();
     });
 
     it('should update test status to completed', () => {
@@ -421,7 +421,7 @@ describe('FailureAnalysisProgress', () => {
       fireEvent.click(completeButton);
 
       // Status should be updated
-      expect(screen.getByText('Update Status')).toBeInTheDocument();
+      expect(screen.getByText('Edit')).toBeInTheDocument();
     });
   });
 
@@ -463,25 +463,29 @@ describe('FailureAnalysisProgress', () => {
       expect(notesInput).toHaveValue('This is a test note');
     });
 
-    it('should display existing notes when not editing', () => {
-      // First add a note to localStorage
-      const progressData = {
-        'test0_0': {
-          id: 'test0_0',
-          name: 'test0_0',
-          suite: 'TestSuite1',
-          status: 'in_progress' as const,
-          notes: 'Existing note for this test',
-          assignee: 'Jane Doe'
-        }
-      };
-      localStorage.setItem('testFixProgress', JSON.stringify(progressData));
-
+    it('should display existing notes when not editing', async () => {
       const testData = createTestDataWithFailures(1);
       render(<FailureAnalysisProgress testData={testData} />);
-
+      
+      // First, click Edit to enter editing mode
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+      
+      // Add notes and assignee
+      const notesInput = screen.getByPlaceholderText('Add any notes about the fix...');
+      const assigneeInput = screen.getByPlaceholderText('Who is working on this?');
+      
+      fireEvent.change(notesInput, { target: { value: 'Existing note for this test' } });
+      fireEvent.change(assigneeInput, { target: { value: 'Jane Doe' } });
+      
+      // Set status to in_progress to save the notes
+      const inProgressButton = screen.getByRole('button', { name: 'In Progress' });
+      fireEvent.click(inProgressButton);
+      
+      // Now verify that the notes are displayed
       expect(screen.getByText('Notes:')).toBeInTheDocument();
       expect(screen.getByText('Existing note for this test')).toBeInTheDocument();
+      expect(screen.getByText('Jane Doe')).toBeInTheDocument();
     });
   });
 

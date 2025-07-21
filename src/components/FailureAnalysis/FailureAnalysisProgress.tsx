@@ -258,9 +258,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
           Failure Resolution Progress
         </h2>
         <div className="flex mb-4">
-          <button className="px-2 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-            <ClearLocalStorageButton />
-          </button>
+          <ClearLocalStorageButton />
         </div>
         <div className="mb-4">
           <p className="text-sm text-gray-500">
@@ -392,7 +390,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                     </div>
                   </div>
                   {selectedTest !== test.id ? <button onClick={() => setSelectedTest(test.id)} className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                      Update Status
+                      Edit
                     </button> : <div className="flex space-x-2">
                       <button onClick={() => updateTestStatus(test.id, 'pending')} className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">
                         Pending
@@ -446,6 +444,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
           <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
             <div className="flex items-center text-sm text-gray-500">
               Showing {startIndex + 1} to {Math.min(endIndex, filteredTests.length)} of {filteredTests.length} results
+              <span className="ml-2">Page {currentPage} of {totalPages}</span>
             </div>
             <div className="flex items-center space-x-2">
               <button
