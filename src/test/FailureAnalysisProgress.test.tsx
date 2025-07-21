@@ -377,9 +377,9 @@ describe('FailureAnalysisProgress', () => {
       const editButton = screen.getAllByText('Edit')[0];
       fireEvent.click(editButton);
 
-      expect(screen.getByText('Pending')).toBeInTheDocument();
-      expect(screen.getByText('In Progress')).toBeInTheDocument();
-      expect(screen.getByText('Complete')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Pending' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'In Progress' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Complete' })).toBeInTheDocument();
     });
 
     it('should update test status to pending', () => {

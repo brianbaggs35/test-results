@@ -597,7 +597,7 @@ describe('pdfGenerator', () => {
     
     // Mock window without html2pdf to test the loading logic
     const originalHtml2Pdf = (window as unknown as WindowWithExtensions).html2pdf;
-    delete (window as unknown as WindowWithExtensions).html2pdf;
+    delete (window as unknown as Record<string, unknown>).html2pdf;
 
     // Mock script loading
     const mockScript = {
