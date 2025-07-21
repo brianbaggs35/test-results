@@ -155,19 +155,6 @@ describe('pdfGenerator', () => {
       return null;
     });
     document.querySelectorAll = vi.fn().mockReturnValue([]);
-
-    // Reset import meta vitest flag if it exists
-    try {
-      if (import.meta.vitest !== undefined) {
-        Object.defineProperty(import.meta, 'vitest', {
-          value: undefined,
-          writable: true,
-          configurable: true
-        });
-      }
-    } catch (error) {
-      // Property might not be configurable, ignore the error
-    }
   });
 
   afterEach(() => {
