@@ -1,10 +1,20 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TestData, ReportConfig } from '../types';
 
-// Type definitions for window extensions and mock objects
+// Type definitions for window extensions and mock objects  
 interface WindowWithExtensions extends Window {
-  html2pdf?: () => typeof mockHtml2PdfWorker;
+  html2pdf: (() => MockHtml2PdfWorker) & MockHtml2PdfApi;
   vi?: unknown;
+}
+
+interface MockHtml2PdfWorker {
+  from: ReturnType<typeof vi.fn>;
+  set: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+}
+
+interface MockHtml2PdfApi {
+  (): MockHtml2PdfWorker;
 }
 
 interface MockDocument extends Document {
@@ -26,13 +36,13 @@ interface Html2PdfOptions {
 }
 
 // Mock window.html2pdf
-const mockHtml2PdfWorker = {
+const mockHtml2PdfWorker: MockHtml2PdfWorker = {
   from: vi.fn().mockReturnThis(),
   set: vi.fn().mockReturnThis(),
   save: vi.fn().mockResolvedValue(undefined)
 };
 
-const mockHtml2Pdf = vi.fn(() => mockHtml2PdfWorker);
+const mockHtml2Pdf = vi.fn(() => mockHtml2PdfWorker) as MockHtml2PdfApi;
 
 // Global window mock setup
 Object.defineProperty(global, 'window', {
@@ -495,8 +505,8 @@ describe('pdfGenerator', () => {
     const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
     
     // Mock window.vi to be undefined to simulate non-test environment
-    const originalVi = (window as WindowWithExtensions).vi;
-    delete (window as WindowWithExtensions).vi;
+    const originalVi = (window as unknown as WindowWithExtensions).vi;
+    delete (window as unknown as WindowWithExtensions).vi;
 
     // Mock querySelector to return null initially, then a chart-render-complete element
     let queryCallCount = 0;
@@ -517,7 +527,7 @@ describe('pdfGenerator', () => {
     } finally {
       // Restore original values
       if (originalVi !== undefined) {
-        (window as WindowWithExtensions).vi = originalVi;
+        (window as unknown as WindowWithExtensions).vi = originalVi;
       }
     }
   });
@@ -586,8 +596,8 @@ describe('pdfGenerator', () => {
     const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
     
     // Mock window without html2pdf to test the loading logic
-    const originalHtml2Pdf = (window as WindowWithExtensions).html2pdf;
-    delete (window as WindowWithExtensions).html2pdf;
+    const originalHtml2Pdf = (window as unknown as WindowWithExtensions).html2pdf;
+    delete (window as unknown as WindowWithExtensions).html2pdf;
 
     // Mock script loading
     const mockScript = {
@@ -619,7 +629,7 @@ describe('pdfGenerator', () => {
         // Simulate successful script loading
         if (mockScript.onload) {
           setTimeout(() => {
-            (window as WindowWithExtensions).html2pdf = mockHtml2Pdf;
+            (window as unknown as WindowWithExtensions).html2pdf = mockHtml2Pdf;
             mockScript.onload!();
           }, 0);
         }
@@ -637,7 +647,7 @@ describe('pdfGenerator', () => {
       expect(mockHtml2Pdf).toHaveBeenCalled();
     } finally {
       // Restore original html2pdf
-      (window as WindowWithExtensions).html2pdf = originalHtml2Pdf;
+      (window as unknown as WindowWithExtensions).html2pdf = originalHtml2Pdf;
     }
   });
 });
