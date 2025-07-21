@@ -96,12 +96,12 @@ describe('PDF Title Spacing Issue', () => {
     const titleElement = container.querySelector('h1');
     expect(titleElement).toBeTruthy();
     
-    // Check that the element has the expected inline styles for better PDF rendering
-    const styleAttr = titleElement!.getAttribute('style');
-    expect(styleAttr).toContain('word-spacing: 0.25em');
-    expect(styleAttr).toContain('white-space: normal');
-    expect(styleAttr).toContain('letter-spacing: 0.025em');
-    expect(styleAttr).toContain('font-family');
+    // Check that the element has the expected computed styles for better PDF rendering
+    const computedStyles = window.getComputedStyle(titleElement!);
+    expect(computedStyles.wordSpacing).toBe('0.25em');
+    expect(computedStyles.whiteSpace).toBe('normal');
+    expect(computedStyles.letterSpacing).toBe('0.025em');
+    expect(computedStyles.fontFamily).toBeTruthy();
   });
 
   it('should detect collapsed title text that might appear in PDF', () => {
