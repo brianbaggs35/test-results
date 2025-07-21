@@ -3,13 +3,45 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
 
+// Type definitions for recharts mock props
+interface PieLabelProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+  value: number;
+}
+
+interface TooltipPayload {
+  payload: {
+    name: string;
+    value: number;
+    description: string;
+  };
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+}
+
+interface LegendEntry {
+  color: string;
+}
+
+type PieLabelFunction = (props: PieLabelProps) => React.ReactNode | null;
+type TooltipContentFunction = (props: TooltipProps) => React.ReactNode | null;
+type LegendFormatterFunction = (value: string, entry: LegendEntry) => React.ReactNode;
+
 // Mock recharts components
 vi.mock('recharts', () => ({
   PieChart: ({ children }: { children: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>,
   Pie: ({ data, dataKey, label }: { 
     data?: Array<{ name: string; value: number }>; 
     dataKey: string;
-    label?: any;
+    label?: PieLabelFunction;
   }) => {
     // Call the label function if provided to trigger renderCustomizedLabel
     if (label && typeof label === 'function') {
@@ -34,7 +66,7 @@ vi.mock('recharts', () => ({
   XAxis: ({ dataKey }: { dataKey?: string }) => <div data-testid="x-axis" data-key={dataKey} />,
   YAxis: () => <div data-testid="y-axis" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: ({ content }: { content?: any }) => {
+  Tooltip: ({ content }: { content?: TooltipContentFunction }) => {
     // Call the content function if provided to trigger CustomTooltip
     if (content && typeof content === 'function') {
       const mockPayload = [{
@@ -58,7 +90,7 @@ vi.mock('recharts', () => ({
     }
     return <div data-testid="tooltip" />;
   },
-  Legend: ({ formatter }: { formatter?: any }) => {
+  Legend: ({ formatter }: { formatter?: LegendFormatterFunction }) => {
     // Call the formatter function if provided
     if (formatter && typeof formatter === 'function') {
       formatter('Passed', { color: '#22C55E' });
