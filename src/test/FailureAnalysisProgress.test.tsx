@@ -359,4 +359,152 @@ describe('FailureAnalysisProgress', () => {
       expect(screen.queryByText('Bulk Actions:')).not.toBeInTheDocument();
     });
   });
+
+  describe('Null testData scenario', () => {
+    it('should display message when testData is null', () => {
+      render(<FailureAnalysisProgress testData={null} />);
+
+      expect(screen.getByText('No Test Data Available')).toBeInTheDocument();
+      expect(screen.getByText('Please upload a JUnit XML file from the Dashboard to view failure resolution progress.')).toBeInTheDocument();
+    });
+  });
+
+  describe('Status update interactions', () => {
+    it('should show status update buttons when edit is clicked', () => {
+      const testData = createTestDataWithFailures(2);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getAllByText('Edit')[0];
+      fireEvent.click(editButton);
+
+      expect(screen.getByText('Pending')).toBeInTheDocument();
+      expect(screen.getByText('In Progress')).toBeInTheDocument();
+      expect(screen.getByText('Complete')).toBeInTheDocument();
+    });
+
+    it('should update test status to pending', () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+
+      const pendingButton = screen.getByText('Pending');
+      fireEvent.click(pendingButton);
+
+      // Status should be updated
+      expect(screen.getByText('Update Status')).toBeInTheDocument();
+    });
+
+    it('should update test status to in_progress', () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+
+      const inProgressButton = screen.getByText('In Progress');
+      fireEvent.click(inProgressButton);
+
+      // Status should be updated
+      expect(screen.getByText('Update Status')).toBeInTheDocument();
+    });
+
+    it('should update test status to completed', () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+
+      const completeButton = screen.getByText('Complete');
+      fireEvent.click(completeButton);
+
+      // Status should be updated
+      expect(screen.getByText('Update Status')).toBeInTheDocument();
+    });
+  });
+
+  describe('Notes and assignee functionality', () => {
+    it('should display assignee and notes inputs when test is selected', () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+
+      expect(screen.getByPlaceholderText('Who is working on this?')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Add any notes about the fix...')).toBeInTheDocument();
+    });
+
+    it('should handle assignee input changes', () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+
+      const assigneeInput = screen.getByPlaceholderText('Who is working on this?');
+      fireEvent.change(assigneeInput, { target: { value: 'John Doe' } });
+
+      expect(assigneeInput).toHaveValue('John Doe');
+    });
+
+    it('should handle notes input changes', () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const editButton = screen.getByText('Edit');
+      fireEvent.click(editButton);
+
+      const notesInput = screen.getByPlaceholderText('Add any notes about the fix...');
+      fireEvent.change(notesInput, { target: { value: 'This is a test note' } });
+
+      expect(notesInput).toHaveValue('This is a test note');
+    });
+
+    it('should display existing notes when not editing', () => {
+      // First add a note to localStorage
+      const progressData = {
+        'test0_0': {
+          id: 'test0_0',
+          name: 'test0_0',
+          suite: 'TestSuite1',
+          status: 'in_progress' as const,
+          notes: 'Existing note for this test',
+          assignee: 'Jane Doe'
+        }
+      };
+      localStorage.setItem('testFixProgress', JSON.stringify(progressData));
+
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      expect(screen.getByText('Notes:')).toBeInTheDocument();
+      expect(screen.getByText('Existing note for this test')).toBeInTheDocument();
+    });
+  });
+
+  describe('Pagination edge cases', () => {
+    it('should handle pagination navigation', () => {
+      const testData = createTestDataWithFailures(100);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      // Should have pagination controls
+      expect(screen.getByText('Next')).toBeInTheDocument();
+      expect(screen.getByText('Previous')).toBeInTheDocument();
+    });
+
+    it('should handle page number clicks', () => {
+      const testData = createTestDataWithFailures(100);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      // Click on page 2
+      const page2Button = screen.getByText('2');
+      fireEvent.click(page2Button);
+
+      // Should navigate to page 2
+      expect(screen.getByText(/Page 2 of/)).toBeInTheDocument();
+    });
+  });
 });
