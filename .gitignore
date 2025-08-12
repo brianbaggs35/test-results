@@ -13,8 +13,11 @@ dist-ssr
 *.local
 
 # Coverage reports
-coverage
+coverage/
 coverage/*
+.nyc_output/
+lcov.info
+*.lcov
 
 # Editor directories and files
 .vscode/*
