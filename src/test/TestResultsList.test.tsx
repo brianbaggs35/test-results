@@ -333,4 +333,16 @@ describe('TestResultsList', () => {
     expect(screen.getAllByText('AuthTests')).toHaveLength(3);
     expect(screen.getAllByText('APITests')).toHaveLength(3);
   });
+
+  it('should handle complex search with classname matching', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Search for tests that match classname
+    const searchInput = screen.getByTestId('search-input');
+    await user.type(searchInput, 'APITests');
+
+    // Should find tests with matching classname
+    expect(screen.getByText(/Showing \d+ of 6 tests/)).toBeInTheDocument();
+  });
 });

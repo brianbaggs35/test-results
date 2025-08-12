@@ -293,5 +293,60 @@ describe('parseJUnitXML', () => {
       expect(result.suites[0].testcases[0].status).toBe('skipped');
       expect(result.summary.skipped).toBe(1);
     });
+
+    it('should handle test cases with string-type failure', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="1" errors="0" time="0.123">
+  <testcase name="FailedTest" classname="TestClass" time="0.1">
+    <failure>Simple failure message</failure>
+  </testcase>
+</testsuite>`;
+      
+      const result = parseJUnitXML(xml);
+      
+      expect(result.suites[0].testcases[0].status).toBe('failed');
+      expect(result.suites[0].testcases[0].errorMessage).toBe('Simple failure message');
+    });
+
+    it('should handle test cases with string-type error', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="1" time="0.123">
+  <testcase name="ErrorTest" classname="TestClass" time="0.1">
+    <error>Simple error message</error>
+  </testcase>
+</testsuite>`;
+      
+      const result = parseJUnitXML(xml);
+      
+      expect(result.suites[0].testcases[0].status).toBe('failed');
+      expect(result.suites[0].testcases[0].errorMessage).toBe('Simple error message');
+    });
+
+    it('should handle test cases with object-type error with full details', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="1" time="0.123">
+  <testcase name="ErrorTest" classname="TestClass" time="0.1">
+    <error message="Detailed error" type="RuntimeError">Stack trace here</error>
+  </testcase>
+</testsuite>`;
+      
+      const result = parseJUnitXML(xml);
+      
+      expect(result.suites[0].testcases[0].status).toBe('failed');
+      expect(result.suites[0].testcases[0].errorMessage).toBe('Detailed error');
+      expect(result.suites[0].testcases[0].failureDetails?.type).toBe('RuntimeError');
+      expect(result.suites[0].testcases[0].failureDetails?.stackTrace).toBe('Stack trace here');
+    });
+
+    it('should handle testcases without name attribute', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="0" time="0.123">
+  <testcase classname="TestClass" time="0.1"/>
+</testsuite>`;
+      
+      const result = parseJUnitXML(xml);
+      
+      expect(result.suites[0].testcases[0].name).toBe('Unnamed Test');
+    });
   });
 });
