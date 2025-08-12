@@ -512,7 +512,7 @@ describe('TestMetrics', () => {
           return null;
         }
         return <text x={x} y={y} fill="#4B5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium">
-            {value} ({(percent * 100).toFixed(1)}%)
+            {value} ({Math.round(percent * 100)}%)
           </text>;
       };
 
@@ -531,16 +531,16 @@ describe('TestMetrics', () => {
     render(<TestLabelComponent />);
 
     // Should render labels for large segments (85%)
-    expect(screen.getByText('85 (85.0%)')).toBeInTheDocument();
+    expect(screen.getByText('85 (85%)')).toBeInTheDocument();
     // Should render labels for medium segments (5%)
-    expect(screen.getByText('5 (5.0%)')).toBeInTheDocument();
-    // Should render decimal precision for high percentages like 99.7%
-    expect(screen.getByText('99.7 (99.7%)')).toBeInTheDocument();
+    expect(screen.getByText('5 (5%)')).toBeInTheDocument();
+    // Should render rounded percentages like 99.7% rounded to 100%
+    expect(screen.getByText('99.7 (100%)')).toBeInTheDocument();
     // Small segments (1%) should not render - can't easily test null return
   });
 
-  it('should display chart percentages with decimal precision', () => {
-    // Test specifically for the decimal display issue mentioned in the requirements
+  it('should display chart percentages with rounded precision', () => {
+    // Test specifically for the rounded display format as expected by e2e tests
     const highPassRateData = {
       summary: {
         total: 1000,
