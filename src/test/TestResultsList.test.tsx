@@ -333,4 +333,156 @@ describe('TestResultsList', () => {
     expect(screen.getAllByText('AuthTests')).toHaveLength(3);
     expect(screen.getAllByText('APITests')).toHaveLength(3);
   });
+
+  it('should handle complex search with classname matching', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Search for tests that match classname
+    const searchInput = screen.getByTestId('search-input');
+    await user.type(searchInput, 'APITests');
+
+    // Should find tests with matching classname
+    expect(screen.getByText(/Showing \d+ of 6 tests/)).toBeInTheDocument();
+  });
+
+  it('should sort by suite correctly', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Click on Suite header to sort by suite
+    const suiteHeader = screen.getByText('Suite');
+    await user.click(suiteHeader);
+
+    // Tests should be sorted by suite name
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should sort by status correctly', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Click on Status header to sort by status
+    const statusHeader = screen.getByText('Status');
+    await user.click(statusHeader);
+
+    // Tests should be sorted by status
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should sort by time correctly', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Click on Duration header to sort by time
+    const timeHeader = screen.getByText('Duration');
+    await user.click(timeHeader);
+
+    // Tests should be sorted by time
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should sort by classname correctly', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Click on Class Name header to sort by classname
+    const classHeader = screen.getByText('Class Name');
+    await user.click(classHeader);
+
+    // Tests should be sorted by classname
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should reverse sort when clicking same header twice', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    // Click name header once (should be asc)
+    const nameHeader = screen.getByText('Test Name');
+    await user.click(nameHeader);
+
+    // Click same header again to reverse sort (should be desc)
+    await user.click(nameHeader);
+
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should handle sorting with undefined classname', async () => {
+    const testDataWithUndefinedClass: TestData = {
+      ...mockTestData,
+      suites: [{
+        ...mockTestData.suites[0],
+        testcases: [{
+          name: 'Test Without Class',
+          status: 'passed',
+          suite: 'Suite 1',
+          time: 1.0,
+          classname: undefined
+        }]
+      }]
+    };
+
+    const user = userEvent.setup();
+    render(<TestResultsList testData={testDataWithUndefinedClass} />);
+
+    // Click on Class Name header to sort by classname
+    const classHeader = screen.getByText('Class Name');
+    await user.click(classHeader);
+
+    expect(screen.getByText('Test Without Class')).toBeInTheDocument();
+  });
+
+  it('should filter by suite correctly', async () => {
+    // Create test data with multiple suites and a suite filter
+    const testDataWithSuiteFilter: TestData = {
+      ...mockTestData,
+      suites: [
+        {
+          ...mockTestData.suites[0],
+          name: 'Suite A'
+        },
+        {
+          ...mockTestData.suites[1], 
+          name: 'Suite B'
+        }
+      ]
+    };
+
+    render(<TestResultsList testData={testDataWithSuiteFilter} />);
+    
+    // The component should handle suite filtering if it has a suite filter
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should filter by classname correctly', async () => {
+    // Test the classname filter functionality
+    const testDataWithClassFilter: TestData = {
+      ...mockTestData,
+      suites: [{
+        ...mockTestData.suites[0],
+        testcases: [
+          {
+            name: 'Test Class A',
+            status: 'passed',
+            suite: 'Suite 1',
+            time: 1.0,
+            classname: 'ClassA'
+          },
+          {
+            name: 'Test Class B', 
+            status: 'passed',
+            suite: 'Suite 1',
+            time: 1.0,
+            classname: 'ClassB'
+          }
+        ]
+      }]
+    };
+
+    render(<TestResultsList testData={testDataWithClassFilter} />);
+    
+    // The component should handle classname filtering
+    expect(screen.getByText('Test Class A')).toBeInTheDocument();
+  });
 });

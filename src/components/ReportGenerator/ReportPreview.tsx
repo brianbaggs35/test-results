@@ -64,7 +64,7 @@ export const ReportPreview = ({
       return null;
     }
     return <text x={x} y={y} fill="#4B5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium">
-        {value} ({(percent * 100).toFixed(0)}%)
+        {value} ({(percent * 100).toFixed(1)}%)
       </text>;
   };
   // Add the CustomTooltip component
