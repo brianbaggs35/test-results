@@ -262,6 +262,9 @@ describe('PDFPreviewFrame', () => {
   });
 
   it('should handle localStorage errors gracefully', () => {
+    // Mock console.warn to suppress expected error output
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
     // Mock localStorage to throw an error
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -278,6 +281,12 @@ describe('PDFPreviewFrame', () => {
     }).not.toThrow();
 
     expect(screen.getByText('Test Results Report')).toBeInTheDocument();
+    
+    // Verify the warning was called (for test completeness)
+    expect(consoleSpy).toHaveBeenCalledWith('Could not access localStorage in PDF context:', expect.any(Error));
+    
+    // Restore console.warn
+    consoleSpy.mockRestore();
   });
 
   it('should display correct test status indicators', () => {
