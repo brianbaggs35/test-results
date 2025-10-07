@@ -11,6 +11,7 @@ const {
 
 const tsParser = require("@typescript-eslint/parser");
 const reactRefresh = require("eslint-plugin-react-refresh");
+const reactHooks = require("eslint-plugin-react-hooks");
 const js = require("@eslint/js");
 
 const {
@@ -35,16 +36,18 @@ module.exports = defineConfig([{
     extends: fixupConfigRules(compat.extends(
         "eslint:recommended",
         "plugin:@typescript-eslint/recommended",
-        "plugin:react-hooks/recommended",
     )),
 
     plugins: {
         "react-refresh": reactRefresh,
+        "react-hooks": reactHooks,
     },
 
     rules: {
         "react-refresh/only-export-components": ["warn", {
             allowConstantExport: true,
         }],
+        "react-hooks/rules-of-hooks": "error",
+        "react-hooks/exhaustive-deps": "warn",
     },
 }, globalIgnores(["**/dist", "**/.eslintrc.cjs", "**/eslint.config.cjs"])]);

@@ -38,9 +38,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           Test Results Dashboard
         </h2>
         <div className="flex mb-4">
-          <button className="px-2 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-            <ClearLocalStorageButton />
-          </button>
+          <ClearLocalStorageButton />
         </div>
         {!testData && <FileUploader onFileUpload={handleFileUpload} isLoading={isLoading} error={error} />}
       </div>

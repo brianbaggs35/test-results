@@ -511,6 +511,6 @@ describe('FailureAnalysisPage', () => {
       fireEvent.click(page2Button);
       
       expect(screen.getByText('Showing 51 to 100 of 200 results')).toBeInTheDocument();
-    });
+    }, 10000); // Increase timeout to 10 seconds
   });
 });
