@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
-console.error = (...args: any[]) => {
+console.error = (...args: unknown[]) => {
   const message = args.join(' ');
   
   // Filter out expected test error messages
@@ -24,7 +24,7 @@ console.error = (...args: any[]) => {
   originalConsoleError(...args);
 };
 
-console.warn = (...args: any[]) => {
+console.warn = (...args: unknown[]) => {
   const message = args.join(' ');
   
   // Filter out expected test warning messages
