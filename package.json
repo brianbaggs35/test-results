@@ -20,7 +20,7 @@
   "dependencies": {
     "fast-xml-parser": "latest",
     "html2canvas": "latest",
-    "jspdf": "^3.0.3",
+    "jspdf": "^4.0.0",
     "lucide-react": "^0.546.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
