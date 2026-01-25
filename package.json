@@ -54,6 +54,6 @@
     "typescript": "^5.5.4",
     "vite": "^7.1.12",
     "vite-plugin-istanbul": "^7.2.1",
-    "vitest": "^3.2.3"
+    "vitest": "^4.0.18"
   }
 }
