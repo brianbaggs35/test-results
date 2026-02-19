@@ -2,13 +2,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import IstanbulPlugin from 'vite-plugin-istanbul';
+import { publishPlugin } from './server/publishPlugin';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
     sourcemap: true,
   },
-  plugins: [react(), IstanbulPlugin({
+  plugins: [react(), publishPlugin(), IstanbulPlugin({
     include: 'src/*',
     exclude: ['node_modules', 'test/'],
     extension: [ '.js', '.ts','.tsx' ],

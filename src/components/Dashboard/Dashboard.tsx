@@ -8,11 +8,13 @@ import type { TestData } from '../../types';
 
 interface DashboardProps {
   onDataUpload: (data: TestData) => void;
+  onXmlContent?: (content: string) => void;
   testData: TestData | null;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   onDataUpload,
+  onXmlContent,
   testData
 }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +27,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const fileContent = await file.text();
       const parsedData = parseJUnitXML(fileContent);
       onDataUpload(parsedData);
+      onXmlContent?.(fileContent);
     } catch (err) {
       console.error('Error parsing file:', err);
       setError('Failed to parse the XML file. Please ensure it is a valid JUnit XML file.');

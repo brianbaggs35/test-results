@@ -1,0 +1,43 @@
+{
+    "api_key": "api-key-goes-here",
+    "project": "Regression Testing",
+    "run": "Full Regression February 17th",
+    "targets": [
+      {
+        "name": "slack",
+        "inputs": {
+          "url": "https://hooks.slack.com/services/slack-url-goes-here",
+          "publish": "test-summary",
+          "title": "Full Regression February 17th"
+        },
+        "extensions": [
+          {
+            "name": "metadata",
+            "inputs": {
+              "data": [
+                {
+                "key": "Failed Tests",
+                "value": "1"
+                },
+               {
+                "key": "Executed By",
+                "value": "User"
+                }
+              ]
+            }
+          },
+          {
+            "name": "quick-chart-test-summary"
+          }
+      ]
+      }
+    ],
+    "results": [
+        {
+          "type": "junit",
+          "files": [
+            "location/goes/here"
+          ]
+        }
+      ]
+  }

@@ -8,6 +8,7 @@ vi.mock('lucide-react', () => ({
   FileTextIcon: () => <div data-testid="file-text-icon" />,
   AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
   ListChecksIcon: () => <div data-testid="list-checks-icon" />,
+  SendIcon: () => <div data-testid="send-icon" />,
 }));
 
 describe('Navbar', () => {
@@ -30,6 +31,7 @@ describe('Navbar', () => {
     expect(screen.getByText('Failures')).toBeInTheDocument();
     expect(screen.getByText('Progress')).toBeInTheDocument();
     expect(screen.getByText('Report')).toBeInTheDocument();
+    expect(screen.getByText('Publish')).toBeInTheDocument();
   });
 
   it('should render all icons', () => {
@@ -39,6 +41,7 @@ describe('Navbar', () => {
     expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
     expect(screen.getByTestId('list-checks-icon')).toBeInTheDocument();
     expect(screen.getByTestId('file-text-icon')).toBeInTheDocument();
+    expect(screen.getByTestId('send-icon')).toBeInTheDocument();
   });
 
   it('should highlight the active dashboard tab', () => {
@@ -108,10 +111,27 @@ describe('Navbar', () => {
     const failuresButton = screen.getByText('Failures').closest('button');
     const progressButton = screen.getByText('Progress').closest('button');
     const reportButton = screen.getByText('Report').closest('button');
+    const publishButton = screen.getByText('Publish').closest('button');
 
     expect(failuresButton).toHaveClass('text-gray-600 hover:bg-gray-100');
     expect(progressButton).toHaveClass('text-gray-600 hover:bg-gray-100');
     expect(reportButton).toHaveClass('text-gray-600 hover:bg-gray-100');
+    expect(publishButton).toHaveClass('text-gray-600 hover:bg-gray-100');
+  });
+
+  it('should highlight the active publish tab', () => {
+    render(<Navbar activeTab="publish" setActiveTab={mockSetActiveTab} />);
+
+    const publishButton = screen.getByText('Publish').closest('button');
+    expect(publishButton).toHaveClass('bg-green-100 text-green-700');
+  });
+
+  it('should call setActiveTab when publish button is clicked', () => {
+    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
+
+    fireEvent.click(screen.getByText('Publish'));
+
+    expect(mockSetActiveTab).toHaveBeenCalledWith('publish');
   });
 
   it('should handle unknown active tab gracefully', () => {
