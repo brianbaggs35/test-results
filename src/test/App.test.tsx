@@ -18,15 +18,18 @@ vi.mock('../components/Layout/Navbar', () => ({
       <button data-testid="report-tab" onClick={() => setActiveTab('report')}>
         Report {activeTab === 'report' && '(active)'}
       </button>
+      <button data-testid="publish-tab" onClick={() => setActiveTab('publish')}>
+        Publish {activeTab === 'publish' && '(active)'}
+      </button>
     </div>
   ),
 }));
 
 vi.mock('../components/Dashboard/Dashboard', () => ({
-  Dashboard: ({ onDataUpload, testData }: { onDataUpload: (data: unknown) => void; testData: unknown }) => (
+  Dashboard: ({ onDataUpload, onXmlContent, testData }: { onDataUpload: (data: unknown) => void; onXmlContent?: (content: string) => void; testData: unknown }) => (
     <div data-testid="dashboard">
       Dashboard Component
-      <button data-testid="upload-data" onClick={() => onDataUpload({ test: 'data' })}>
+      <button data-testid="upload-data" onClick={() => { onDataUpload({ test: 'data' }); onXmlContent?.('<test>xml</test>'); }}>
         Upload Data
       </button>
       {testData ? <div data-testid="test-data">Test data loaded</div> : null}
@@ -61,10 +64,19 @@ vi.mock('../components/ReportGenerator/ReportGenerator', () => ({
   ),
 }));
 
+vi.mock('../components/Publish/PublishPage', () => ({
+  PublishPage: ({ xmlContent }: { xmlContent: string | null }) => (
+    <div data-testid="publish-page">
+      Publish Page
+      {xmlContent ? <div data-testid="publish-xml-content">XML content available</div> : null}
+    </div>
+  ),
+}));
+
 describe('App', () => {
   it('should render with dashboard as default tab', () => {
     render(<App />);
-    
+
     expect(screen.getByTestId('navbar')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard')).toBeInTheDocument();
     expect(screen.getByText('Dashboard (active)')).toBeInTheDocument();
@@ -72,9 +84,9 @@ describe('App', () => {
 
   it('should switch to failures tab when clicked', () => {
     render(<App />);
-    
+
     fireEvent.click(screen.getByTestId('failures-tab'));
-    
+
     expect(screen.getByTestId('failure-analysis')).toBeInTheDocument();
     expect(screen.getByText('Failures (active)')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument();
@@ -82,39 +94,39 @@ describe('App', () => {
 
   it('should switch to progress tab when clicked', () => {
     render(<App />);
-    
+
     fireEvent.click(screen.getByTestId('progress-tab'));
-    
+
     expect(screen.getByTestId('failure-progress')).toBeInTheDocument();
     expect(screen.getByText('Progress (active)')).toBeInTheDocument();
   });
 
   it('should switch to report tab when clicked', () => {
     render(<App />);
-    
+
     fireEvent.click(screen.getByTestId('report-tab'));
-    
+
     expect(screen.getByTestId('report-generator')).toBeInTheDocument();
     expect(screen.getByText('Report (active)')).toBeInTheDocument();
   });
 
   it('should handle data upload and pass data to components', () => {
     render(<App />);
-    
+
     // Upload data from dashboard
     fireEvent.click(screen.getByTestId('upload-data'));
-    
+
     // Verify data is shown in dashboard
     expect(screen.getByTestId('test-data')).toBeInTheDocument();
-    
+
     // Switch to failures tab and verify data is passed
     fireEvent.click(screen.getByTestId('failures-tab'));
     expect(screen.getByTestId('failure-test-data')).toBeInTheDocument();
-    
+
     // Switch to progress tab and verify data is passed
     fireEvent.click(screen.getByTestId('progress-tab'));
     expect(screen.getByTestId('progress-test-data')).toBeInTheDocument();
-    
+
     // Switch to report tab and verify data is passed
     fireEvent.click(screen.getByTestId('report-tab'));
     expect(screen.getByTestId('report-test-data')).toBeInTheDocument();
@@ -123,23 +135,44 @@ describe('App', () => {
   it('should default to dashboard for unknown tabs', () => {
     // This tests the default case in the switch statement
     render(<App />);
-    
+
     // We can't directly test this without modifying the component,
     // but we can verify the initial state is dashboard
     expect(screen.getByTestId('dashboard')).toBeInTheDocument();
   });
 
+  it('should switch to publish tab when clicked', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('publish-tab'));
+
+    expect(screen.getByTestId('publish-page')).toBeInTheDocument();
+    expect(screen.getByText('Publish (active)')).toBeInTheDocument();
+  });
+
+  it('should pass xml content to publish page after upload', () => {
+    render(<App />);
+
+    // Upload data from dashboard
+    fireEvent.click(screen.getByTestId('upload-data'));
+
+    // Switch to publish tab
+    fireEvent.click(screen.getByTestId('publish-tab'));
+
+    expect(screen.getByTestId('publish-xml-content')).toBeInTheDocument();
+  });
+
   it('should maintain test data when switching tabs', () => {
     render(<App />);
-    
+
     // Upload data
     fireEvent.click(screen.getByTestId('upload-data'));
-    
+
     // Switch tabs multiple times
     fireEvent.click(screen.getByTestId('failures-tab'));
     fireEvent.click(screen.getByTestId('dashboard-tab'));
     fireEvent.click(screen.getByTestId('report-tab'));
-    
+
     // Data should still be available
     expect(screen.getByTestId('report-test-data')).toBeInTheDocument();
   });

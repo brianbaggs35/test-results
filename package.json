@@ -18,13 +18,14 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "fast-xml-parser": "latest",
+    "fast-xml-parser": "5.3.6",
     "html2canvas": "latest",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.546.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "testbeats": "latest"
   },
   "devDependencies": {
     "@eslint/compat": "^1.3.1",
