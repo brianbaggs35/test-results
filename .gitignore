@@ -37,3 +37,4 @@ lcov.info
 /blob-report/
 /playwright/.cache/
 .nyc_output/*
+testbeats.config.json
