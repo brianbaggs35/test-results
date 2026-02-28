@@ -18,7 +18,7 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "fast-xml-parser": "5.3.6",
+    "fast-xml-parser": "5.3.8",
     "html2canvas": "latest",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.546.0",
