@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
 import { PDFPreviewFrame } from '../components/ReportGenerator/PDFPreviewFrame';
@@ -17,6 +17,11 @@ vi.mock('jspdf', () => ({
     addPage: vi.fn(), addImage: vi.fn(), save: vi.fn(),
   })),
 }));
+
+// Suppress jsdom canvas warnings (getContext / toDataURL not implemented)
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
 
 const mockTestData = {
   summary: {
@@ -69,13 +74,14 @@ describe('PDF Generation Chart Render Complete Fix', () => {
 
   it('should verify PDF generation can proceed when chart-render-complete class exists', async () => {
     // Render a component that adds the chart-render-complete class
-    render(React.createElement(TestMetrics, { testData: mockTestData }));
+    await act(async () => {
+      render(React.createElement(TestMetrics, { testData: mockTestData }));
+    });
 
     // Wait for the chart-render-complete class to be added
     const indicator = await waitFor(() => document.querySelector('.chart-render-complete'));
 
     // Verify the chart-render-complete class was added
-    expect(indicator).toBeTruthy();
     expect(indicator).toBeTruthy();
     expect(indicator?.className).toBe('chart-render-complete');
 
@@ -89,7 +95,9 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
 
     // This should not timeout since chart-render-complete class exists
-    await expect(generatePDF(mockTestData, mockConfig)).resolves.not.toThrow();
+    await act(async () => {
+      await expect(generatePDF(mockTestData, mockConfig)).resolves.not.toThrow();
+    });
 
     // Cleanup
     document.body.removeChild(mockReportElement);

@@ -1,0 +1,15 @@
+{
+  "exclude": [
+    "node_modules/**",
+    "src/test/**",
+    "spec/**",
+    "coverage/**",
+    ".history/**",
+    "test-results/**",
+    "dist/**",
+    "**/*.d.ts",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ],
+  "report-dir": "coverage/e2e"
+}

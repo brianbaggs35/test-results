@@ -11,7 +11,7 @@ export default defineConfig({
   },
   plugins: [react(), publishPlugin(), IstanbulPlugin({
     include: 'src/*',
-    exclude: ['node_modules', 'test/', 'src/test/**'],
+    exclude: ['node_modules', 'test/', 'src/test/**', '.history/**'],
     extension: [ '.js', '.ts','.tsx' ],
   })],
   test: {
@@ -36,6 +36,7 @@ export default defineConfig({
         'spec/**',
         'spec/e2e/**',
         'test-results/**',
+        '.history/**',
         'eslint.config.cjs',
         'vite.config.ts',
         'playwright.config.ts',

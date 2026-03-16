@@ -574,9 +574,11 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                         <tr key={`progress-${i}`} style={zebraRow(i)}>
                           <td style={{ ...tdStyle, fontWeight: '500' }}>{test.name}</td>
                           <td style={tdStyle}>{test.suite}</td>
-                          <td style={tdStyle}>
+                          <td style={{ ...tdStyle, verticalAlign: 'middle' }}>
                             <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                               padding: '2px 8px', borderRadius: '10px', fontSize: '9px', fontWeight: '600',
+                              lineHeight: '1.4',
                               backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : '#fee2e2',
                               color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : '#991b1b',
                             }}>

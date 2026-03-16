@@ -58,6 +58,7 @@ describe('pdfGenerator', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Re-wire after clearAllMocks
     __mocks.canvas.getContext.mockReturnValue(__mocks.canvasCtx);
