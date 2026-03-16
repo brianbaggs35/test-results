@@ -107,11 +107,21 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    const label = `${value} (${(percent * 100).toFixed(0)}%)`;
     return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central"
-        style={{ fontSize: '11px', fontWeight: '600' }}>
-        {value} ({(percent * 100).toFixed(0)}%)
-      </text>
+      <g>
+        {/* White outline for readability on all segment colors */}
+        <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+          style={{ fontSize: '10px', fontWeight: '700' }}
+          stroke="#ffffff" strokeWidth={3} fill="#ffffff">
+          {label}
+        </text>
+        <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+          style={{ fontSize: '10px', fontWeight: '700' }}
+          fill="#1f2937">
+          {label}
+        </text>
+      </g>
     );
   };
 
@@ -329,15 +339,15 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
               <h3 style={{ fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '10px', marginTop: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Test Results Distribution
               </h3>
-              <div style={{ height: '200px', width: '100%' }}>
+              <div style={{ height: '220px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={statusData}
                       cx="50%"
-                      cy="45%"
-                      innerRadius={45}
-                      outerRadius={75}
+                      cy="42%"
+                      innerRadius={40}
+                      outerRadius={70}
                       paddingAngle={2}
                       dataKey="value"
                       labelLine={false}
