@@ -26,6 +26,8 @@ vi.mock('lucide-react', () => ({
   CheckIcon: () => <div data-testid="check-icon" />,
   XIcon: () => <div data-testid="x-icon" />,
   AlertCircleIcon: () => <div data-testid="alert-circle-icon" />,
+  ChevronUpIcon: () => <div data-testid="chevron-up-icon" />,
+  ChevronDownIcon: () => <div data-testid="chevron-down-icon" />,
 }));
 
 describe('ReportPreview', () => {
@@ -106,7 +108,7 @@ describe('ReportPreview', () => {
   it('should show preview container with max height constraint', () => {
     render(<ReportPreview testData={mockTestData} config={mockConfig} onBack={() => {}} />);
     const container = screen.getByTestId('preview-container');
-    expect(container.style.maxHeight).toBe('78vh');
+    expect(container.style.maxHeight).toBe('80vh');
     expect(container.style.overflowY).toBe('auto');
   });
 

@@ -11,7 +11,7 @@ export default defineConfig({
   },
   plugins: [react(), publishPlugin(), IstanbulPlugin({
     include: 'src/*',
-    exclude: ['node_modules', 'test/'],
+    exclude: ['node_modules', 'test/', 'src/test/**'],
     extension: [ '.js', '.ts','.tsx' ],
   })],
   test: {
