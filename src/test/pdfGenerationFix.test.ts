@@ -1,8 +1,27 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
 import { PDFPreviewFrame } from '../components/ReportGenerator/PDFPreviewFrame';
+
+// Mock html2canvas and jspdf so generatePDF runs without real rendering
+vi.mock('html2canvas', () => ({
+  default: vi.fn().mockResolvedValue({
+    width: 1588, height: 2246,
+    getContext: vi.fn().mockReturnValue({ fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() }),
+    toDataURL: vi.fn().mockReturnValue('data:image/jpeg;base64,mock'),
+  }),
+}));
+vi.mock('jspdf', () => ({
+  jsPDF: vi.fn().mockImplementation(() => ({
+    addPage: vi.fn(), addImage: vi.fn(), save: vi.fn(),
+  })),
+}));
+
+// Suppress jsdom canvas warnings (getContext / toDataURL not implemented)
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
 
 const mockTestData = {
   summary: {
@@ -41,35 +60,28 @@ const mockConfig = {
 };
 
 describe('PDF Generation Chart Render Complete Fix', () => {
-  let originalHtml2pdf: unknown;
-
   beforeEach(() => {
     // Clean up any existing chart-render-complete elements
     const existingElements = document.querySelectorAll('.chart-render-complete');
     existingElements.forEach(el => el.remove());
-
-    // Save the original window.html2pdf value
-    originalHtml2pdf = ((window as unknown) as Record<string, unknown>).html2pdf;
   });
 
   afterEach(() => {
     // Clean up after each test
     const existingElements = document.querySelectorAll('.chart-render-complete');
     existingElements.forEach(el => el.remove());
-
-    // Restore the original window.html2pdf value
-    ((window as unknown) as Record<string, unknown>).html2pdf = originalHtml2pdf;
   });
 
   it('should verify PDF generation can proceed when chart-render-complete class exists', async () => {
     // Render a component that adds the chart-render-complete class
-    render(React.createElement(TestMetrics, { testData: mockTestData }));
+    await act(async () => {
+      render(React.createElement(TestMetrics, { testData: mockTestData }));
+    });
 
     // Wait for the chart-render-complete class to be added
     const indicator = await waitFor(() => document.querySelector('.chart-render-complete'));
 
     // Verify the chart-render-complete class was added
-    expect(indicator).toBeTruthy();
     expect(indicator).toBeTruthy();
     expect(indicator?.className).toBe('chart-render-complete');
 
@@ -79,23 +91,13 @@ describe('PDF Generation Chart Render Complete Fix', () => {
     mockReportElement.innerHTML = '<div>Test content</div>';
     document.body.appendChild(mockReportElement);
 
-    // Mock html2pdf
-    const mockHtml2Pdf = vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnThis(),
-      set: vi.fn().mockReturnThis(),
-      save: vi.fn().mockResolvedValue(undefined)
-    });
-
-    Object.defineProperty(window, 'html2pdf', {
-      writable: true,
-      value: mockHtml2Pdf
-    });
-
-    // Import and test the PDF generator
+    // Import and test the PDF generator (html2canvas + jspdf are mocked at top)
     const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
 
     // This should not timeout since chart-render-complete class exists
-    await expect(generatePDF(mockTestData, mockConfig)).resolves.not.toThrow();
+    await act(async () => {
+      await expect(generatePDF(mockTestData, mockConfig)).resolves.not.toThrow();
+    });
 
     // Cleanup
     document.body.removeChild(mockReportElement);

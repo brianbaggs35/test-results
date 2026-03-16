@@ -38,3 +38,6 @@ lcov.info
 /playwright/.cache/
 .nyc_output/*
 testbeats.config.json
+teatbeats.config.*
+results.xml
+.history/

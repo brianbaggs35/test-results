@@ -1,43 +1,43 @@
 {
-    "api_key": "api-key-goes-here",
+    "api_key": "apikeyhere",
     "project": "Regression Testing",
-    "run": "Full Regression February 17th",
+    "run": "Release-March-12 Critical",
     "targets": [
-      {
-        "name": "slack",
-        "inputs": {
-          "url": "https://hooks.slack.com/services/slack-url-goes-here",
-          "publish": "test-summary",
-          "title": "Full Regression February 17th"
-        },
-        "extensions": [
-          {
-            "name": "metadata",
+        {
+            "name": "slack",
             "inputs": {
-              "data": [
+                "url": "URL here",
+                "publish": "test-summary",
+                "title": "Release-March-12 Critical"
+            },
+            "extensions": [
                 {
-                "key": "Failed Tests",
-                "value": "1"
+                    "name": "metadata",
+                    "inputs": {
+                        "data": [
+                            {
+                                "key": "Failed Tests",
+                                "value": "0"
+                            },
+                            {
+                                "key": "Executed By",
+                                "value": "Brian"
+                            }
+                        ]
+                    }
                 },
-               {
-                "key": "Executed By",
-                "value": "User"
+                {
+                    "name": "quick-chart-test-summary"
                 }
-              ]
-            }
-          },
-          {
-            "name": "quick-chart-test-summary"
-          }
-      ]
-      }
+            ]
+        }
     ],
     "results": [
         {
-          "type": "junit",
-          "files": [
-            "location/goes/here"
-          ]
+            "type": "junit",
+            "files": [
+                "/Users/brianbaggs/Dev/test-results/results.xml"
+            ]
         }
-      ]
-  }
+    ]
+}

@@ -1,90 +1,78 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { PDFPreviewFrame } from '../components/ReportGenerator/PDFPreviewFrame';
+import { TestData, ReportConfig } from '../types';
+
+vi.mock('recharts', () => ({
+  PieChart: ({ children }: { children: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>,
+  Pie: ({ children }: { children?: React.ReactNode }) => <div data-testid="pie">{children}</div>,
+  Cell: () => <div data-testid="cell" />,
+  Tooltip: () => <div data-testid="tooltip" />,
+  Legend: () => <div data-testid="legend" />,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="responsive-container">{children}</div>,
+}));
+
+vi.mock('lucide-react', () => ({
+  BookOpenIcon: () => <div data-testid="book-open-icon" />,
+  CheckIcon: () => <div data-testid="check-icon" />,
+  XIcon: () => <div data-testid="x-icon" />,
+  AlertCircleIcon: () => <div data-testid="alert-circle-icon" />,
+}));
 
 describe('PDF Scaling Fix', () => {
-  const mockTestData = {
-    summary: {
-      total: 9,
-      passed: 5,
-      failed: 4,
-      skipped: 0,
-      time: 4.5
-    },
-    suites: [
-      {
-        name: 'Suite A',
-        tests: 2,
-        failures: 1,
-        errors: 0,
-        skipped: 0,
-        time: 1.0,
-        timestamp: '2024-01-01T00:00:00Z',
-        testcases: [
-          { name: 'test1', status: 'passed' as const, time: 0.5 },
-          { name: 'test2', status: 'failed' as const, time: 0.5, errorMessage: 'Test failed' }
-        ]
-      }
-    ]
+  const mockTestData: TestData = {
+    summary: { total: 9, passed: 5, failed: 4, skipped: 0, time: 4.5 },
+    suites: [{
+      name: 'Suite A', tests: 2, failures: 1, errors: 0, skipped: 0,
+      time: 1.0, timestamp: '2024-01-01T00:00:00Z',
+      testcases: [
+        { name: 'test1', status: 'passed' as const, time: 0.5 },
+        { name: 'test2', status: 'failed' as const, time: 0.5, errorMessage: 'Failed' },
+      ],
+    }],
   };
 
-  const mockConfig = {
-    title: 'Test Report',
-    author: 'Test Author',
-    projectName: 'Test Project',
-    includeExecutiveSummary: true,
-    includeTestMetrics: true,
-    includeFailedTests: true,
-    includeAllTests: true,
-    includeResolutionProgress: true
+  const mockConfig: ReportConfig = {
+    title: 'Test Report', author: 'Author', projectName: 'Project',
+    includeExecutiveSummary: true, includeTestMetrics: true,
+    includeFailedTests: true, includeAllTests: true, includeResolutionProgress: true,
   };
 
-  beforeEach(() => {
-    // Mock chart render complete hook
-    const mockElement = document.createElement('div');
-    mockElement.classList.add('chart-render-complete');
-    document.body.appendChild(mockElement);
+  it('should render PDF preview frame with A4 width (794px)', () => {
+    render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
+    const frame = document.getElementById('report-preview');
+    expect(frame).toBeInTheDocument();
+    expect(frame?.style.width).toBe('794px');
   });
 
-  it('should render PDF preview frame with A4-appropriate dimensions', () => {
+  it('should have proper padding for A4 margins', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
-
-    const pdfFrame = document.getElementById('report-preview');
-    expect(pdfFrame).toBeInTheDocument();
-
-    // Check that the frame has the correct width for A4 fitting
-    const width = pdfFrame?.style.width;
-
-    // Should be 190mm (A4 width 210mm - 20mm for margins)
-    expect(width).toBe('900px');
+    const frame = document.getElementById('report-preview');
+    // Root has zero padding; each section carries its own horizontal padding
+    expect(frame?.style.padding).toBe('0px');
   });
 
-  it('should have uniform padding that fits within A4 margins', () => {
+  it('should use border-box sizing', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
-
-    const pdfFrame = document.getElementById('report-preview');
-    expect(pdfFrame).toBeInTheDocument();
-
-    // Check that padding has increased left/right padding for better centering
-    const padding = pdfFrame?.style.padding;
-    expect(padding).toBe('12px 20px');
+    const frame = document.getElementById('report-preview');
+    expect(frame?.style.boxSizing).toBe('border-box');
   });
 
-  it('should not exceed A4 page boundaries', () => {
+  it('should have minimum height for A4 page', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
+    const frame = document.getElementById('report-preview');
+    expect(frame?.style.minHeight).toBe('1123px');
+  });
 
-    const pdfFrame = document.getElementById('report-preview');
-    expect(pdfFrame).toBeInTheDocument();
+  it('should set white background', () => {
+    render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
+    const frame = document.getElementById('report-preview');
+    expect(frame?.style.backgroundColor).toBe('white');
+  });
 
-    // A4 width is 210mm, our frame should be 190mm + 30mm padding (15mm on each side) = 220mm
-    // But since we have external margins of 10mm each side, effective content area is still within bounds
-    const widthStr = pdfFrame?.style.width ?? '0mm';
-    const width = parseInt(widthStr.replace('mm', ''));
-    const leftRightPadding = 30; // 15mm on each side
-    const totalWidth = width + leftRightPadding;
-
-    // Content should fit within available area after PDF margins (190mm available, 190mm + 30mm = 220mm, but content area is reduced)
-    expect(width).toBe(900); // Frame width should still be 794px
-    expect(totalWidth).toBe(930); // Total with padding
+  it('should use pdf-content class for print styles', () => {
+    render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
+    const frame = document.getElementById('report-preview');
+    expect(frame?.classList.contains('pdf-content')).toBe(true);
   });
 });

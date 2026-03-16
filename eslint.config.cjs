@@ -50,4 +50,13 @@ module.exports = defineConfig([{
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
     },
-}, globalIgnores(["**/dist", "**/.eslintrc.cjs", "**/eslint.config.cjs"])]);
+}, globalIgnores([
+    "**/dist",
+    "**/.eslintrc.cjs",
+    "**/eslint.config.cjs",
+    "**/coverage",
+    "**/.history",
+    "**/node_modules",
+    "**/playwright-report",
+    "**/test-results",
+])]);
