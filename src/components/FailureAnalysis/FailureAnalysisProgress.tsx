@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
+import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, MessageSquareIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
 import ClearLocalStorageButton from '../Dashboard/ClearLocalStorage';
+import { BulkCommentModal } from './BulkCommentModal';
 import type { TestData, TestCase } from '../../types';
 
 interface FailureProgressItem {
@@ -42,6 +43,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
 
   // Bulk actions state
   const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set());
+  const [showBulkCommentModal, setShowBulkCommentModal] = useState(false);
   useEffect(() => {
     if (!testData) return;
 
@@ -101,6 +103,24 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     setProgressData(updatedProgress);
     localStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
     setSelectedTests(new Set()); // Clear selection after bulk update
+  };
+
+  // Bulk comment handler
+  const applyBulkComments = (comments: Record<string, string>) => {
+    const updatedProgress = { ...progressData };
+    Object.entries(comments).forEach(([testId, comment]) => {
+      if (updatedProgress[testId]) {
+        updatedProgress[testId] = {
+          ...updatedProgress[testId],
+          notes: comment,
+          updatedAt: new Date().toISOString()
+        };
+      }
+    });
+    setProgressData(updatedProgress);
+    localStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
+    setShowBulkCommentModal(false);
+    setSelectedTests(new Set());
   };
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -361,6 +381,15 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                   >
                     Mark as Complete
                   </button>
+                  <span className="border-l border-gray-300 h-5" />
+                  <button
+                    onClick={() => setShowBulkCommentModal(true)}
+                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 text-sm flex items-center gap-1"
+                    data-testid="bulk-comment-btn"
+                  >
+                    <MessageSquareIcon className="w-3 h-3" />
+                    Bulk Comment
+                  </button>
                 </div>
               )}
             </div>
@@ -498,5 +527,16 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
       </div>
       {/* Stack Trace Modal */}
       {showStackTrace && <TestDetailsModal test={showStackTrace} onClose={() => setShowStackTrace(null)} />}
+
+      {/* Bulk Comment Modal */}
+      {showBulkCommentModal && (
+        <BulkCommentModal
+          selectedItems={Array.from(selectedTests)
+            .map(id => progressData[id])
+            .filter(Boolean)}
+          onApply={applyBulkComments}
+          onClose={() => setShowBulkCommentModal(false)}
+        />
+      )}
     </div>;
 };

@@ -23,6 +23,7 @@ export default defineConfig({
       'spec/e2e/**',
       '**/build/**',
       '**/coverage/**',
+      '.history/**',
     ],
     coverage: {
       provider: 'v8',

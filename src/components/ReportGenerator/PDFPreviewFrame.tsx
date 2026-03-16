@@ -4,16 +4,78 @@ import { formatDuration } from '../../utils/formatting';
 import { TestData, ReportConfig, TestCase } from '../../types';
 import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
 
-export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; config: ReportConfig }) => {
+interface PDFPreviewFrameProps {
+  testData: TestData;
+  config: ReportConfig;
+}
+
+// A4 at 96 DPI = 794 x 1123 px
+const A4_WIDTH = 794;
+
+const sectionStyle: React.CSSProperties = {
+  marginBottom: '28px',
+  paddingBottom: '20px',
+  borderBottom: '2px solid #e5e7eb',
+  pageBreakInside: 'avoid',
+};
+
+const headingStyle: React.CSSProperties = {
+  fontSize: '16px',
+  fontWeight: '700',
+  color: '#111827',
+  marginBottom: '14px',
+  marginTop: '0',
+  paddingBottom: '6px',
+  borderBottom: '2px solid #2563eb',
+  display: 'inline-block',
+  pageBreakAfter: 'avoid',
+};
+
+const tableStyle: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: '10px',
+  backgroundColor: 'white',
+  border: '1px solid #d1d5db',
+  borderRadius: '4px',
+  overflow: 'hidden',
+};
+
+const thStyle: React.CSSProperties = {
+  padding: '8px 10px',
+  textAlign: 'left',
+  fontWeight: '600',
+  color: '#374151',
+  backgroundColor: '#f3f4f6',
+  borderBottom: '2px solid #d1d5db',
+  borderRight: '1px solid #e5e7eb',
+  fontSize: '10px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '7px 10px',
+  color: '#374151',
+  borderBottom: '1px solid #e5e7eb',
+  borderRight: '1px solid #f3f4f6',
+  wordWrap: 'break-word',
+  fontSize: '10px',
+};
+
+const zebraRow = (i: number): React.CSSProperties => ({
+  backgroundColor: i % 2 === 0 ? 'white' : '#f9fafb',
+});
+
+export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
   const { summary } = testData;
 
-  // Use custom hook to add chart-render-complete class for PDF generation
   useChartRenderComplete([testData]);
 
   const statusData = [
     { name: 'Passed', value: summary.passed, color: '#10B981' },
     { name: 'Failed', value: summary.failed, color: '#EF4444' },
-    { name: 'Skipped', value: summary.skipped, color: '#F59E0B' }
+    { name: 'Skipped', value: summary.skipped, color: '#F59E0B' },
   ];
 
   const failedTests = testData.suites.flatMap((suite) =>
@@ -33,31 +95,21 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
     }
   };
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: {
-    cx: number;
-    cy: number;
-    midAngle: number;
-    innerRadius: number;
-    outerRadius: number;
-    percent: number;
-    value: number;
+  const renderCustomizedLabel = ({
+    cx, cy, midAngle, innerRadius, outerRadius, percent, value,
+  }: {
+    cx: number; cy: number; midAngle: number;
+    innerRadius: number; outerRadius: number;
+    percent: number; value: number;
   }) => {
     if (percent < 0.02) return null;
-
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.99; // Moved labels slightly outward
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
     return (
-      <text
-        x={x}
-        y={y}
-        fill="#374151" // Darker color for better contrast
-        textAnchor={x > cx ? 'start' : 'end'}
-        dominantBaseline="central"
-        style={{ fontSize: '11px', fontWeight: '600' }} // Increased size and weight
-      >
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central"
+        style={{ fontSize: '11px', fontWeight: '600' }}>
         {value} ({(percent * 100).toFixed(0)}%)
       </text>
     );
@@ -73,119 +125,125 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
         <div className="bg-white p-2 rounded shadow border text-xs">
           <p className="font-medium text-gray-900">{data.name}</p>
           <p className="text-gray-600">{data.value} test{data.value !== 1 ? 's' : ''}</p>
-          <p className="text-gray-500">{(data.value / summary.total * 100).toFixed(1)}% of total</p>
+          <p className="text-gray-500">
+            {summary.total > 0 ? (data.value / summary.total * 100).toFixed(1) : '0.0'}% of total
+          </p>
         </div>
       );
     }
     return null;
   };
 
+  // Dynamic section numbering
+  let sectionNum = 0;
+  const nextSection = () => ++sectionNum;
+  const execSummaryNum = config.includeExecutiveSummary ? nextSection() : 0;
+  const metricsNum = config.includeTestMetrics ? nextSection() : 0;
+  const failedTestsNum = config.includeFailedTests ? nextSection() : 0;
+  const allTestsNum = config.includeAllTests ? nextSection() : 0;
+  const resolutionNum = config.includeResolutionProgress ? nextSection() : 0;
+
+  // Shared horizontal padding for all content sections below the title
+  const contentPad: React.CSSProperties = { paddingLeft: '40px', paddingRight: '40px' };
+
   return (
     <div
       id="report-preview"
-      className="pdf-frame"
+      className="pdf-content"
       style={{
-        width: '900px', // About 190mm, fits A4 printable area with margins
-        height: '1300px', // About 290mm, fits A4 height with margins
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start',
+        width: `${A4_WIDTH}px`,
+        minHeight: '1123px',
         backgroundColor: 'white',
-        transform: 'scale(1)', // No scaling needed
-        transformOrigin: 'center',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        fontSize: '12px', // Increased from 11px
-        lineHeight: '1.5', // Increased from 1.4 for better readability
+        fontSize: '12px',
+        lineHeight: '1.6',
         color: '#374151',
-        padding: '12px 20px 12px 20px', // 24px left/right padding for A4 margins
-        margin: 'auto', // Center the frame horizontally
+        padding: '0',
         boxSizing: 'border-box',
-        overflow: 'hidden'
+        overflow: 'hidden',
       }}
     >
-      {/* Title Page */}
-      <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb' }}>
+      {/* Title – no negative margins; sits flush at the top of the zero-padded root */}
+      <div style={{
+        textAlign: 'center',
+        borderBottom: '3px solid #2563eb',
+        marginBottom: '32px',
+        background: 'linear-gradient(180deg, #eff6ff 0%, white 100%)',
+        padding: '36px 40px 28px 40px',
+      }}>
         <h1 style={{
-          fontSize: '24px', // Increased from 22px
-          fontWeight: 'bold',
-          textAlign: 'center',
-          color: '#1f2937',
-          marginBottom: '16px', // Increased spacing
-          lineHeight: '1.2',
-          letterSpacing: '0.025em', // Added letter spacing for better readability
-          whiteSpace: 'normal', // Ensure normal white space handling
-          wordSpacing: '0.25em', // Explicit word spacing to ensure proper separation in PDF
-          textRendering: 'optimizeLegibility', // Better text rendering
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', // Explicit font stack
-          fontStretch: 'normal', // Ensure normal font stretch
-          fontVariant: 'normal', // Ensure normal font variant
-          unicodeBidi: 'normal' // Ensure proper text direction
+          fontSize: '26px', fontWeight: '800', color: '#111827',
+          marginBottom: '6px', marginTop: '0', letterSpacing: '-0.02em',
+          borderBottom: 'none', display: 'block',
         }}>
           {config.title}
         </h1>
         {config.projectName && (
           <h2 style={{
-            fontSize: '20px', // Increased from 18px
-            fontWeight: '600',
-            textAlign: 'center',
-            color: '#6b7280',
-            marginBottom: '20px' // Increased spacing
+            fontSize: '15px', fontWeight: '500', color: '#6b7280',
+            marginBottom: '16px', marginTop: '0',
           }}>
             {config.projectName}
           </h2>
         )}
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: '16px',
+          alignItems: 'center', flexWrap: 'wrap',
+        }}>
           <div style={{
-            backgroundColor: '#dbeafe',
-            color: '#1e40af',
-            padding: '10px 20px',
-            borderRadius: '20px',
-            display: 'inline-block',
-            fontSize: '13px'
+            backgroundColor: '#dbeafe', color: '#1e40af',
+            padding: '5px 14px', borderRadius: '16px',
+            fontSize: '11px', fontWeight: '500',
           }}>
             Generated on {new Date().toLocaleDateString()}
           </div>
+          {config.author && (
+            <div style={{
+              backgroundColor: '#f3f4f6', color: '#4b5563',
+              padding: '5px 14px', borderRadius: '16px',
+              fontSize: '11px', fontWeight: '500',
+            }}>
+              Prepared by: {config.author}
+            </div>
+          )}
         </div>
-        {config.author && (
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
-            Prepared by: {config.author}
-          </p>
-        )}
       </div>
 
       {/* Table of Contents */}
-      <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb' }}>
+      <div style={{ ...sectionStyle, marginBottom: '32px', ...contentPad }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-          <BookOpenIcon style={{ width: '16px', height: '16px', color: '#2563eb', marginRight: '8px' }} />
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', margin: '0' }}>
+          <BookOpenIcon style={{ width: '14px', height: '14px', color: '#2563eb', marginRight: '8px' }} />
+          <h2 style={{ ...headingStyle, marginBottom: '0', fontSize: '15px', borderBottom: 'none', display: 'inline' }}>
             Table of Contents
           </h2>
         </div>
-        <div style={{ paddingLeft: '24px' }}>
-          <div style={{ marginBottom: '8px' }}>
-            <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>1.</span>
-            <span style={{ color: '#2563eb', fontSize: '13px' }}>Executive Summary</span>
-          </div>
-          <div style={{ marginBottom: '8px' }}>
-            <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>2.</span>
-            <span style={{ color: '#2563eb', fontSize: '13px' }}>Test Metrics</span>
-          </div>
-          <div style={{ marginBottom: '8px' }}>
-            <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>3.</span>
-            <span style={{ color: '#2563eb', fontSize: '13px' }}>Failed Tests</span>
-          </div>
+        <div style={{
+          backgroundColor: '#f9fafb', borderRadius: '6px', padding: '14px 20px',
+          border: '1px solid #e5e7eb',
+        }}>
+          {config.includeExecutiveSummary && (
+            <div style={{ marginBottom: '6px', fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>
+              {execSummaryNum}. Executive Summary
+            </div>
+          )}
+          {config.includeTestMetrics && (
+            <div style={{ marginBottom: '6px', fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>
+              {metricsNum}. Test Metrics
+            </div>
+          )}
+          {config.includeFailedTests && (
+            <div style={{ marginBottom: '6px', fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>
+              {failedTestsNum}. Failed Tests
+            </div>
+          )}
           {config.includeAllTests && (
-            <div style={{ marginBottom: '8px' }}>
-              <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>4.</span>
-              <span style={{ color: '#2563eb', fontSize: '13px' }}>All Test Cases</span>
+            <div style={{ marginBottom: '6px', fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>
+              {allTestsNum}. All Test Cases
             </div>
           )}
           {config.includeResolutionProgress && (
-            <div style={{ marginBottom: '8px' }}>
-              <span style={{ color: '#2563eb', fontWeight: '500', marginRight: '10px', fontSize: '13px' }}>
-                {config.includeAllTests ? '5.' : config.includeFailedTests ? '4.' : '3.'}
-              </span>
-              <span style={{ color: '#2563eb', fontSize: '13px' }}>Failure Resolution Progress</span>
+            <div style={{ marginBottom: '0', fontSize: '12px', color: '#2563eb', fontWeight: '500' }}>
+              {resolutionNum}. Failure Resolution Progress
             </div>
           )}
         </div>
@@ -193,63 +251,59 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
       {/* Executive Summary */}
       {config.includeExecutiveSummary && (
-        <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
-            1. Executive Summary
-          </h2>
-          <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px' }}>
-            <p style={{ marginBottom: '12px', fontSize: '13px' }}>
-              This report provides an overview of the automated test results for {config.projectName || 'the project'}.
-              The tests were executed on {new Date().toLocaleDateString()} with a total duration of {formatDuration(summary.time)}.
+        <div style={{ ...sectionStyle, ...contentPad }} className="avoid-break">
+          <h2 style={headingStyle}>{execSummaryNum}. Executive Summary</h2>
+          <div style={{ backgroundColor: '#f9fafb', padding: '18px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <p style={{ marginBottom: '14px', fontSize: '12px', marginTop: '0', lineHeight: '1.6', color: '#4b5563' }}>
+              This report provides an overview of the automated test results for{' '}
+              <strong>{config.projectName || 'the project'}</strong>. The tests were executed on{' '}
+              {new Date().toLocaleDateString()} with a total duration of <strong>{formatDuration(summary.time)}</strong>.
             </p>
 
-            {/* Test Summary Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10mm', marginBottom: '16px' }}>
-              <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#6b7280', margin: '0' }}>Total Tests</h4>
-                  <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>{summary.total}</span>
+            {/* Summary Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
+              <div style={{
+                backgroundColor: 'white', padding: '12px 14px', borderRadius: '8px',
+                border: '1px solid #dbeafe', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Tests</div>
+                <div style={{ fontSize: '22px', fontWeight: '700', color: '#2563eb' }}>{summary.total}</div>
+              </div>
+              <div style={{
+                backgroundColor: 'white', padding: '12px 14px', borderRadius: '8px',
+                border: '1px solid #d1fae5', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pass Rate</div>
+                <div style={{ fontSize: '22px', fontWeight: '700', color: '#10b981' }}>
+                  {summary.total > 0 ? (summary.passed / summary.total * 100).toFixed(1) : '0.0'}%
                 </div>
               </div>
-              <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#6b7280', margin: '0' }}>Pass Rate</h4>
-                  <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>
-                    {(summary.passed / summary.total * 100).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#6b7280', margin: '0' }}>Duration</h4>
-                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#8b5cf6' }}>{formatDuration(summary.time)}</span>
-                </div>
+              <div style={{
+                backgroundColor: 'white', padding: '12px 14px', borderRadius: '8px',
+                border: '1px solid #ede9fe', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Duration</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#7c3aed' }}>{formatDuration(summary.time)}</div>
               </div>
             </div>
 
-            {/* Failed Tests Summary */}
             {summary.failed > 0 && (
               <div style={{
-                backgroundColor: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '6px',
-                padding: '12px',
-                marginBottom: '12px'
+                backgroundColor: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: '6px', padding: '10px', marginBottom: '8px',
               }}>
-                <h4 style={{ fontSize: '13px', fontWeight: '500', color: '#dc2626', marginBottom: '6px' }}>
-                  Failed Tests Summary
-                </h4>
-                <p style={{ color: '#dc2626', fontSize: '12px', marginBottom: '6px' }}>
-                  {summary.failed} test{summary.failed > 1 ? 's' : ''} failed ({(summary.failed / summary.total * 100).toFixed(1)}% of total tests)
+                <p style={{ color: '#dc2626', fontSize: '11px', fontWeight: '500', marginTop: '0', marginBottom: '4px' }}>
+                  {summary.failed} test{summary.failed > 1 ? 's' : ''} failed
+                  ({summary.total > 0 ? (summary.failed / summary.total * 100).toFixed(1) : '0.0'}% of total)
                 </p>
-                <ul style={{ margin: '0', paddingLeft: '18px' }}>
-                  {failedTests.slice(0, 5).map((test, index: number) => (
-                    <li key={index} style={{ fontSize: '11px', color: '#dc2626', marginBottom: '3px' }}>
-                      • {test.name} ({test.suite})
+                <ul style={{ margin: '0', paddingLeft: '16px' }}>
+                  {failedTests.slice(0, 5).map((test, i) => (
+                    <li key={`fail-summary-${i}`} style={{ fontSize: '10px', color: '#dc2626', marginBottom: '2px' }}>
+                      {test.name} ({test.suite})
                     </li>
                   ))}
                   {failedTests.length > 5 && (
-                    <li style={{ fontSize: '11px', color: '#dc2626', fontStyle: 'italic' }}>
+                    <li style={{ fontSize: '10px', color: '#dc2626', fontStyle: 'italic' }}>
                       ... and {failedTests.length - 5} more
                     </li>
                   )}
@@ -257,11 +311,10 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
               </div>
             )}
 
-            <p style={{ marginBottom: '0', fontSize: '13px' }}>
+            <p style={{ marginBottom: '0', fontSize: '12px', marginTop: '0' }}>
               {summary.failed > 0
-                ? `There were ${summary.failed} failed tests that require attention. Key areas to focus on include reviewing the failed test cases and addressing the underlying issues.`
-                : 'All tests passed successfully. The test suite is performing as expected.'
-              }
+                ? `There were ${summary.failed} failed tests that require attention.`
+                : 'All tests passed successfully.'}
             </p>
           </div>
         </div>
@@ -269,14 +322,11 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
       {/* Test Metrics */}
       {config.includeTestMetrics && (
-        <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
-            2. Test Metrics
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20mm' }}>
-            {/* Chart */}
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}>
+        <div style={{ ...sectionStyle, ...contentPad }} className="avoid-break">
+          <h2 style={headingStyle}>{metricsNum}. Test Metrics</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+            <div style={{ backgroundColor: '#f9fafb', borderRadius: '8px', padding: '14px', border: '1px solid #e5e7eb' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '10px', marginTop: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Test Results Distribution
               </h3>
               <div style={{ height: '200px', width: '100%' }}>
@@ -285,26 +335,26 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
                     <Pie
                       data={statusData}
                       cx="50%"
-                      cy="50%"
-                      innerRadius={45} // Increased from 40
-                      outerRadius={80} // Increased from 70
-                      paddingAngle={1} // Increased from 0 for better separation
+                      cy="45%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={2}
                       dataKey="value"
                       labelLine={false}
                       label={renderCustomizedLabel}
                       minAngle={2}
-                      stroke="#ffffff" // White stroke for better separation
+                      stroke="#ffffff"
                       strokeWidth={2}
                     >
                       {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={1} />
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip content={<CustomTooltip active={false} payload={[]} />} />
+                    <Tooltip content={<CustomTooltip />} />
                     <Legend
                       verticalAlign="bottom"
-                      height={30}
-                      wrapperStyle={{ fontSize: '11px' }}
+                      height={28}
+                      wrapperStyle={{ fontSize: '10px' }}
                       formatter={(value, entry) => (
                         <span style={{ color: entry.color, fontWeight: '500' }}>{value}</span>
                       )}
@@ -314,80 +364,43 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
               </div>
             </div>
 
-            {/* Summary Table */}
             <div>
-              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#6b7280', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: '600', color: '#4b5563', marginBottom: '10px', marginTop: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Test Results Summary
               </h3>
-              <table style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '11px',
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb'
-              }}>
+              <table style={tableStyle}>
                 <thead>
-                  <tr style={{ backgroundColor: '#f9fafb' }}>
-                    <th style={{
-                      padding: '8px 10px',
-                      textAlign: 'left',
-                      fontWeight: '500',
-                      color: '#6b7280',
-                      border: '1px solid #e5e7eb'
-                    }}>
-                      Metric
-                    </th>
-                    <th style={{
-                      padding: '8px 10px',
-                      textAlign: 'left',
-                      fontWeight: '500',
-                      color: '#6b7280',
-                      border: '1px solid #e5e7eb'
-                    }}>
-                      Value
-                    </th>
+                  <tr>
+                    <th style={thStyle}>Metric</th>
+                    <th style={thStyle}>Value</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}>
-                      Total Tests
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#6b7280', border: '1px solid #e5e7eb' }}>
-                      {summary.total}
+                  <tr style={zebraRow(0)}>
+                    <td style={{ ...tdStyle, fontWeight: '500' }}>Total Tests</td>
+                    <td style={{ ...tdStyle, fontWeight: '600' }}>{summary.total}</td>
+                  </tr>
+                  <tr style={zebraRow(1)}>
+                    <td style={{ ...tdStyle, fontWeight: '500' }}>Passed</td>
+                    <td style={{ ...tdStyle, color: '#059669', fontWeight: '600' }}>
+                      {summary.passed} ({summary.total > 0 ? (summary.passed / summary.total * 100).toFixed(1) : '0.0'}%)
                     </td>
                   </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}>
-                      Passed Tests
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#059669', fontWeight: '500', border: '1px solid #e5e7eb' }}>
-                      {summary.passed} ({(summary.passed / summary.total * 100).toFixed(1)}%)
+                  <tr style={zebraRow(2)}>
+                    <td style={{ ...tdStyle, fontWeight: '500' }}>Failed</td>
+                    <td style={{ ...tdStyle, color: '#dc2626', fontWeight: '600' }}>
+                      {summary.failed} ({summary.total > 0 ? (summary.failed / summary.total * 100).toFixed(1) : '0.0'}%)
                     </td>
                   </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}>
-                      Failed Tests
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#dc2626', fontWeight: '500', border: '1px solid #e5e7eb' }}>
-                      {summary.failed} ({(summary.failed / summary.total * 100).toFixed(1)}%)
+                  <tr style={zebraRow(3)}>
+                    <td style={{ ...tdStyle, fontWeight: '500' }}>Skipped</td>
+                    <td style={{ ...tdStyle, color: '#d97706', fontWeight: '600' }}>
+                      {summary.skipped} ({summary.total > 0 ? (summary.skipped / summary.total * 100).toFixed(1) : '0.0'}%)
                     </td>
                   </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}>
-                      Skipped Tests
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#d97706', fontWeight: '500', border: '1px solid #e5e7eb' }}>
-                      {summary.skipped} ({(summary.skipped / summary.total * 100).toFixed(1)}%)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 10px', fontWeight: '500', color: '#1f2937', border: '1px solid #e5e7eb' }}>
-                      Total Duration
-                    </td>
-                    <td style={{ padding: '8px 10px', color: '#6b7280', border: '1px solid #e5e7eb' }}>
-                      {formatDuration(summary.time)} ({summary.time.toFixed(2)} seconds)
-                    </td>
+                  <tr style={zebraRow(4)}>
+                    <td style={{ ...tdStyle, fontWeight: '500' }}>Duration</td>
+                    <td style={{ ...tdStyle, fontWeight: '600' }}>{formatDuration(summary.time)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -398,98 +411,37 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
       {/* Failed Tests */}
       {config.includeFailedTests && (
-        <div style={{ marginBottom: '20mm', paddingBottom: '10mm', borderBottom: '1px solid #e5e7eb', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
-            3. Failed Tests
-          </h2>
+        <div style={{ ...sectionStyle, ...contentPad }} className="avoid-break">
+          <h2 style={headingStyle}>{failedTestsNum}. Failed Tests</h2>
           {failedTests.length > 0 ? (
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '10px',
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb'
-            }}>
+            <table style={tableStyle}>
               <thead>
-                <tr style={{ backgroundColor: '#f9fafb' }}>
-                  <th style={{
-                    padding: '8px 10px',
-                    textAlign: 'left',
-                    fontWeight: '500',
-                    color: '#6b7280',
-                    border: '1px solid #e5e7eb',
-                    width: '25%'
-                  }}>
-                    Test Name
-                  </th>
-                  <th style={{
-                    padding: '8px 10px',
-                    textAlign: 'left',
-                    fontWeight: '500',
-                    color: '#6b7280',
-                    border: '1px solid #e5e7eb',
-                    width: '20%'
-                  }}>
-                    Suite
-                  </th>
+                <tr>
+                  <th style={{ ...thStyle, width: '50%' }}>Test Name</th>
+                  <th style={{ ...thStyle, width: '30%' }}>Suite</th>
+                  <th style={{ ...thStyle, width: '20%' }}>Duration</th>
                 </tr>
               </thead>
               <tbody>
-                {failedTests.map((test, index: number) => (
-                  <tr key={index}>
-                    <td style={{
-                      padding: '8px 10px',
-                      fontWeight: '500',
-                      color: '#dc2626',
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                      {test.name}
-                    </td>
-                    <td style={{
-                      padding: '8px 10px',
-                      color: '#6b7280',
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                      {test.suite}
-                    </td>
-                    <td style={{
-                      padding: '8px 10px',
-                      color: '#6b7280',
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                      {test.time.toFixed(2)}s
-                    </td>
-                    <td style={{
-                      padding: '8px 10px',
-                      color: '#6b7280',
-                      border: '1px solid #e5e7eb',
-                      wordWrap: 'break-word',
-                      maxWidth: '0'
-                    }}>
-                    </td>
+                {failedTests.map((test, i) => (
+                  <tr key={`failed-${i}`} style={zebraRow(i)}>
+                    <td style={{ ...tdStyle, color: '#dc2626', fontWeight: '500' }}>{test.name}</td>
+                    <td style={tdStyle}>{test.suite}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{test.time.toFixed(2)}s</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
             <div style={{
-              backgroundColor: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '4px',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center'
+              backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: '6px', padding: '10px',
+              display: 'flex', alignItems: 'center',
             }}>
-              <CheckIcon style={{ width: '16px', height: '16px', color: '#22c55e', marginRight: '8px' }} />
-              <p style={{ color: '#16a34a', margin: '0' }}>
-                No failed tests were found. All tests passed successfully!
-              </p>
+              <CheckIcon style={{ width: '14px', height: '14px', color: '#22c55e', marginRight: '6px' }} />
+              <span style={{ color: '#16a34a', fontSize: '12px' }}>
+                All tests passed successfully!
+              </span>
             </div>
           )}
         </div>
@@ -497,171 +449,61 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
       {/* All Tests */}
       {config.includeAllTests && (
-        <div style={{ marginBottom: '20mm', pageBreakInside: 'avoid' }} className="page-break-before">
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
-            {config.includeFailedTests ? '4. All Test Cases' : '3. All Test Cases'}
-          </h2>
+        <div style={{ ...sectionStyle, ...contentPad }} className="page-break-before">
+          <h2 style={headingStyle}>{allTestsNum}. All Test Cases</h2>
           {(() => {
-            // Get all test cases with intelligent limiting for PDF
             const allTests = testData.suites.flatMap((suite) =>
               suite.testcases.map((test) => ({ ...test, suite: suite.name }))
             );
 
-            // Calculate optimal limit based on content and memory constraints
-            const baseLimit = 500; // Conservative base limit
-            const totalTests = allTests.length;
-            let maxTestsInPDF = baseLimit;
+            const maxTests = allTests.length > 5000 ? 300
+              : allTests.length > 2000 ? 400
+              : allTests.length > 1000 ? 600 : 500;
 
-            // Adjust limit based on total test count and available memory
-            if (totalTests > 5000) {
-              maxTestsInPDF = Math.min(300, totalTests); // Very large datasets
-            } else if (totalTests > 2000) {
-              maxTestsInPDF = Math.min(400, totalTests); // Large datasets
-            } else if (totalTests > 1000) {
-              maxTestsInPDF = Math.min(600, totalTests); // Medium datasets
-            }
-
-            const testsToShow = allTests.slice(0, maxTestsInPDF);
-            const hasMoreTests = allTests.length > maxTestsInPDF;
+            const testsToShow = allTests.slice(0, maxTests);
+            const hasMore = allTests.length > maxTests;
 
             return (
               <div>
-                {hasMoreTests && (
+                {hasMore && (
                   <div style={{
-                    backgroundColor: '#fef3c7',
-                    border: '1px solid #f59e0b',
-                    borderRadius: '4px',
-                    padding: '12px',
-                    marginBottom: '16px'
+                    backgroundColor: '#fef3c7', border: '1px solid #f59e0b',
+                    borderRadius: '4px', padding: '8px', marginBottom: '12px',
                   }}>
-                    <p style={{ color: '#92400e', margin: '0', fontSize: '12px', fontWeight: '500' }}>
-                      📄 PDF Optimization: Showing first {maxTestsInPDF} of {allTests.length} total test cases.
-                      This ensures optimal PDF performance and file size. For complete results, use the web view or export data.
+                    <p style={{ color: '#92400e', margin: '0', fontSize: '11px', fontWeight: '500' }}>
+                      Showing first {maxTests} of {allTests.length} total test cases for PDF optimization.
                     </p>
                   </div>
                 )}
-
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '10px',
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb'
-                }}>
+                <table style={tableStyle}>
                   <thead>
-                    <tr style={{ backgroundColor: '#f9fafb' }}>
-                      <th style={{
-                        padding: '8px 10px',
-                        textAlign: 'left',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        border: '1px solid #e5e7eb',
-                        width: '30%'
-                      }}>
-                        Test Name
-                      </th>
-                      <th style={{
-                        padding: '8px 10px',
-                        textAlign: 'left',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        border: '1px solid #e5e7eb',
-                        width: '20%'
-                      }}>
-                        Suite
-                      </th>
-                      <th style={{
-                        padding: '8px 10px',
-                        textAlign: 'left',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        border: '1px solid #e5e7eb',
-                        width: '15%'
-                      }}>
-                        Status
-                      </th>
-                      <th style={{
-                        padding: '8px 10px',
-                        textAlign: 'left',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        border: '1px solid #e5e7eb',
-                        width: '15%'
-                      }}>
-                        Assignee
-                      </th>
+                    <tr>
+                      <th style={{ ...thStyle, width: '35%' }}>Test Name</th>
+                      <th style={{ ...thStyle, width: '25%' }}>Suite</th>
+                      <th style={{ ...thStyle, width: '20%' }}>Status</th>
+                      <th style={{ ...thStyle, width: '20%' }}>Duration</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {testsToShow.map((test: TestCase & { suite: string }, testIndex: number) => {
-                      // Add page break hints for every 25 rows to help with PDF generation
-                      const rowStyle = testIndex > 0 && testIndex % 25 === 0
-                        ? { pageBreakBefore: 'auto' as const }
-                        : {};
-
-                      return (
-                        <tr key={`all-tests-${testIndex}`} style={rowStyle}>
-                          <td style={{
-                            padding: '6px 8px',
-                            fontWeight: '500',
-                            color: '#1f2937',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0',
-                            fontSize: '10px'
-                          }}>
-                            {test.name}
-                          </td>
-                          <td style={{
-                            padding: '6px 8px',
-                            color: '#6b7280',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0',
-                            fontSize: '10px'
-                          }}>
-                            {test.suite}
-                          </td>
-                          <td style={{
-                            padding: '6px 8px',
-                            border: '1px solid #e5e7eb',
-                            whiteSpace: 'nowrap',
-                            fontSize: '10px'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                              {getStatusIcon(test.status)}
-                              <span style={{
-                                marginLeft: '4px',
-                                color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
-                                fontWeight: '500',
-                                fontSize: '9px'
-                              }}>
-                                {test.status === 'passed' ? 'Passed' : test.status === 'failed' ? 'Failed' : 'Skipped'}
-                              </span>
-                            </div>
-                          </td>
-                          <td style={{
-                            padding: '6px 8px',
-                            color: '#6b7280',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0',
-                            fontSize: '10px'
-                          }}>
-                            {(test as TestCase & { assignee?: string }).assignee || 'Unassigned'}
-                          </td>
-                          <td style={{
-                            padding: '6px 8px',
-                            color: '#6b7280',
-                            border: '1px solid #e5e7eb',
-                            whiteSpace: 'nowrap',
-                            fontSize: '10px'
-                          }}>
-                            {test.time.toFixed(2)}s
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {testsToShow.map((test: TestCase & { suite: string }, i: number) => (
+                      <tr key={`all-${i}`} style={zebraRow(i)}>
+                        <td style={{ ...tdStyle, fontWeight: '500' }}>{test.name}</td>
+                        <td style={tdStyle}>{test.suite}</td>
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {getStatusIcon(test.status)}
+                            <span style={{
+                              marginLeft: '4px',
+                              color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
+                              fontWeight: '500',
+                            }}>
+                              {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{test.time.toFixed(2)}s</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -672,186 +514,85 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
 
       {/* Failure Resolution Progress */}
       {config.includeResolutionProgress && (
-        <div style={{ marginBottom: '20mm', pageBreakInside: 'avoid' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px' }}>
-            {config.includeAllTests ? '5. Failure Resolution Progress' : config.includeFailedTests ? '4. Failure Resolution Progress' : '3. Failure Resolution Progress'}
-          </h2>
+        <div style={{ ...sectionStyle, borderBottom: 'none', ...contentPad }} className="avoid-break">
+          <h2 style={headingStyle}>{resolutionNum}. Failure Resolution Progress</h2>
           {(() => {
-            // Access localStorage safely for PDF generation
             let progressData: Record<string, {
-              status?: string;
-              assignee?: string;
-              name?: string;
-              suite?: string;
-              notes?: string;
+              status?: string; assignee?: string;
+              name?: string; suite?: string; notes?: string;
             }> = {};
             try {
-              const savedProgress = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
-              progressData = savedProgress ? JSON.parse(savedProgress) : {};
+              const saved = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
+              progressData = saved ? JSON.parse(saved) : {};
             } catch (e) {
-              console.warn('Could not access localStorage in PDF context:', e);
+              console.warn('Could not access localStorage:', e);
             }
 
-            const failedTests = Object.values(progressData);
-            const totalTests = failedTests.length;
-            const completedTests = failedTests.filter(test => test.status === 'completed').length;
-            const inProgressTests = failedTests.filter(test => test.status === 'in_progress').length;
+            const progressTests = Object.values(progressData);
+            const completed = progressTests.filter((t) => t.status === 'completed').length;
+            const inProgress = progressTests.filter((t) => t.status === 'in_progress').length;
 
             return (
               <div>
-                {/* Progress Summary Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10mm', marginBottom: '16px' }}>
-                  <div style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#6b7280' }}>Total Failed Tests</span>
-                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937' }}>{totalTests}</span>
-                    </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
+                  <div style={{
+                    backgroundColor: '#f9fafb', padding: '12px 14px', borderRadius: '8px',
+                    border: '1px solid #e5e7eb',
+                  }}>
+                    <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#1f2937' }}>{progressTests.length}</div>
                   </div>
-                  <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#059669' }}>Completed</span>
-                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#047857' }}>{completedTests}</span>
-                    </div>
+                  <div style={{
+                    backgroundColor: '#f0fdf4', padding: '12px 14px', borderRadius: '8px',
+                    border: '1px solid #bbf7d0',
+                  }}>
+                    <div style={{ fontSize: '10px', color: '#059669', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#047857' }}>{completed}</div>
                   </div>
-                  <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#2563eb' }}>In Progress</span>
-                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1d4ed8' }}>{inProgressTests}</span>
-                    </div>
+                  <div style={{
+                    backgroundColor: '#eff6ff', padding: '12px 14px', borderRadius: '8px',
+                    border: '1px solid #bfdbfe',
+                  }}>
+                    <div style={{ fontSize: '10px', color: '#2563eb', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>In Progress</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#1d4ed8' }}>{inProgress}</div>
                   </div>
                 </div>
 
-                {/* Progress Table */}
-                {totalTests > 0 ? (
-                  <table style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: '10px',
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb'
-                  }}>
+                {progressTests.length > 0 ? (
+                  <table style={tableStyle}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f9fafb' }}>
-                        <th style={{
-                          padding: '8px 10px',
-                          textAlign: 'left',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          width: '25%'
-                        }}>
-                          Test Name
-                        </th>
-                        <th style={{
-                          padding: '8px 10px',
-                          textAlign: 'left',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          width: '20%'
-                        }}>
-                          Suite
-                        </th>
-                        <th style={{
-                          padding: '8px 10px',
-                          textAlign: 'left',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          width: '15%'
-                        }}>
-                          Status
-                        </th>
-                        <th style={{
-                          padding: '8px 10px',
-                          textAlign: 'left',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          width: '15%'
-                        }}>
-                          Assignee
-                        </th>
-                        <th style={{
-                          padding: '8px 10px',
-                          textAlign: 'left',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          border: '1px solid #e5e7eb',
-                          width: '25%'
-                        }}>
-                          Notes
-                        </th>
+                      <tr>
+                        <th style={{ ...thStyle, width: '25%' }}>Test Name</th>
+                        <th style={{ ...thStyle, width: '20%' }}>Suite</th>
+                        <th style={{ ...thStyle, width: '15%' }}>Status</th>
+                        <th style={{ ...thStyle, width: '15%' }}>Assignee</th>
+                        <th style={{ ...thStyle, width: '25%' }}>Notes</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {failedTests.map((test, index: number) => (
-                        <tr key={index}>
-                          <td style={{
-                            padding: '8px 10px',
-                            fontWeight: '500',
-                            color: '#1f2937',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0'
-                          }}>
-                            {test.name}
-                          </td>
-                          <td style={{
-                            padding: '8px 10px',
-                            color: '#6b7280',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0'
-                          }}>
-                            {test.suite}
-                          </td>
-                          <td style={{
-                            padding: '8px 10px',
-                            border: '1px solid #e5e7eb',
-                            whiteSpace: 'nowrap'
-                          }}>
+                      {progressTests.map((test, i) => (
+                        <tr key={`progress-${i}`} style={zebraRow(i)}>
+                          <td style={{ ...tdStyle, fontWeight: '500' }}>{test.name}</td>
+                          <td style={tdStyle}>{test.suite}</td>
+                          <td style={tdStyle}>
                             <span style={{
-                              display: 'inline-block',
-                              padding: '2px 6px',
-                              borderRadius: '12px',
-                              fontSize: '9px',
-                              fontWeight: '500',
+                              padding: '2px 8px', borderRadius: '10px', fontSize: '9px', fontWeight: '600',
                               backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : '#fee2e2',
-                              color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : '#991b1b'
+                              color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : '#991b1b',
                             }}>
-                              {test.status ? test.status.replace('_', ' ').charAt(0).toUpperCase() + test.status.slice(1) : 'Not Started'}
+                              {test.status ? test.status.replace('_', ' ') : 'Not started'}
                             </span>
                           </td>
-                          <td style={{
-                            padding: '8px 10px',
-                            color: '#6b7280',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0'
-                          }}>
-                            {test.assignee || '-'}
-                          </td>
-                          <td style={{
-                            padding: '8px 10px',
-                            color: '#6b7280',
-                            border: '1px solid #e5e7eb',
-                            wordWrap: 'break-word',
-                            maxWidth: '0'
-                          }}>
-                            {test.notes || '-'}
-                          </td>
+                          <td style={tdStyle}>{test.assignee || '-'}</td>
+                          <td style={tdStyle}>{test.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 ) : (
                   <div style={{
-                    backgroundColor: '#f3f4f6',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '4px',
-                    padding: '12px',
-                    textAlign: 'center'
+                    backgroundColor: '#f3f4f6', border: '1px solid #d1d5db',
+                    borderRadius: '6px', padding: '14px', textAlign: 'center',
                   }}>
                     <p style={{ color: '#6b7280', margin: '0', fontSize: '12px' }}>
                       No failure resolution progress data available.
@@ -863,6 +604,21 @@ export const PDFPreviewFrame = ({ testData, config }: { testData: TestData; conf
           })()}
         </div>
       )}
+
+      {/* Footer */}
+      <div style={{
+        marginTop: '32px', paddingTop: '16px',
+        borderTop: '2px solid #e5e7eb',
+        textAlign: 'center', fontSize: '10px', color: '#9ca3af',
+        ...contentPad, paddingBottom: '32px',
+      }}>
+        <p style={{ margin: '0 0 4px 0' }}>
+          {config.title} &mdash; {config.projectName || 'Test Results Report'}
+        </p>
+        <p style={{ margin: '0' }}>
+          Generated on {new Date().toLocaleDateString()} {config.author ? `by ${config.author}` : ''}
+        </p>
+      </div>
     </div>
   );
 };
