@@ -576,9 +576,12 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                           <td style={tdStyle}>{test.suite}</td>
                           <td style={{ ...tdStyle, verticalAlign: 'middle' }}>
                             <span style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              padding: '2px 8px', borderRadius: '10px', fontSize: '9px', fontWeight: '600',
-                              lineHeight: '1.4',
+                              display: 'inline-block',
+                              padding: '0px 8px 7px 8px',
+                              borderRadius: '10px', fontSize: '9px', fontWeight: '600',
+                              lineHeight: '1.2',
+                              verticalAlign: 'middle',
+                              textAlign: 'center',
                               backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : '#fee2e2',
                               color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : '#991b1b',
                             }}>
