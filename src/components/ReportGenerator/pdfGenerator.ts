@@ -190,6 +190,32 @@ export const generatePDF = async (
     if (onProgress) onProgress(20);
     if (onProgress) onProgress(30);
 
+    // html2canvas reads getBoundingClientRect() on the LIVE element to
+    // decide what area to capture.  The preview wrapper applies
+    // scale(0.82) which shrinks the visual rect, causing the captured
+    // area to be narrower than the 794 px content – clipping the left
+    // (and right) edges.  We temporarily strip transforms / overflow
+    // constraints from ancestors so the bounding rect is the true
+    // 794 px, then restore them after generation.
+    const savedStyles: { el: HTMLElement; transform: string; webkitTransform: string; overflow: string; maxHeight: string; marginBottom: string }[] = [];
+    let ancestor = reportElement.parentElement;
+    while (ancestor) {
+      savedStyles.push({
+        el: ancestor,
+        transform: ancestor.style.transform,
+        webkitTransform: ancestor.style.webkitTransform,
+        overflow: ancestor.style.overflow,
+        maxHeight: ancestor.style.maxHeight,
+        marginBottom: ancestor.style.marginBottom,
+      });
+      ancestor.style.transform = 'none';
+      ancestor.style.webkitTransform = 'none';
+      ancestor.style.overflow = 'visible';
+      ancestor.style.maxHeight = 'none';
+      ancestor.style.marginBottom = '0px';
+      ancestor = ancestor.parentElement;
+    }
+
     // A4 at 96 DPI = 794px width. Scale 2 for crisp rendering.
     const opt: PDFOptions = {
       margin: [10, 10, 10, 10],
@@ -221,9 +247,19 @@ export const generatePDF = async (
 
     if (onProgress) onProgress(40);
 
-    // Pass the ORIGINAL in-DOM element so html2canvas can properly
-    // compute layout. All modifications happen in onclone above.
     const worker = window.html2pdf().from(reportElement).set(opt);
+
+    if (onProgress) onProgress(60);
+
+    const restoreStyles = () => {
+      for (const s of savedStyles) {
+        s.el.style.transform = s.transform;
+        s.el.style.webkitTransform = s.webkitTransform;
+        s.el.style.overflow = s.overflow;
+        s.el.style.maxHeight = s.maxHeight;
+        s.el.style.marginBottom = s.marginBottom;
+      }
+    };
 
     if (onProgress) onProgress(60);
 
@@ -231,7 +267,11 @@ export const generatePDF = async (
       setTimeout(() => reject(new Error('PDF generation timed out')), 90000),
     );
 
-    await Promise.race([worker.save(), timeout]);
+    try {
+      await Promise.race([worker.save(), timeout]);
+    } finally {
+      restoreStyles();
+    }
 
     if (onProgress) onProgress(100);
   } catch (err) {
