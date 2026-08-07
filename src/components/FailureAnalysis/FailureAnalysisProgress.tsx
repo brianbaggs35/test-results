@@ -1,22 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, MessageSquareIcon } from 'lucide-react';
+import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, MessageSquareIcon, DownloadIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
 import ClearLocalStorageButton from '../Dashboard/ClearLocalStorage';
 import { BulkCommentModal, type BulkCommentResult } from './BulkCommentModal';
 import { FloatingBulkActionsBar } from './FloatingBulkActionsBar';
-import type { TestData, TestCase } from '../../types';
-
-interface FailureProgressItem {
-  id: string;
-  name: string;
-  suite: string;
-  errorMessage?: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  notes?: string;
-  updatedAt?: string;
-  assignee?: string;
-}
+import type { TestData, TestCase, FailureProgressItem } from '../../types';
+import { exportProgressBundle } from '../../utils/exportBundle';
 
 interface FailureAnalysisProgressProps {
   testData: TestData | null;
@@ -286,8 +276,17 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
           Failure Resolution Progress
         </h2>
-        <div className="flex mb-4">
+        <div className="flex items-center justify-between mb-4">
           <ClearLocalStorageButton />
+          <button
+            onClick={() => exportProgressBundle(testData, progressData)}
+            disabled={totalTests === 0}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Download this data plus your progress notes, to merge with a teammate's work later on the Split tab"
+          >
+            <DownloadIcon className="w-4 h-4 mr-2" />
+            Export Progress
+          </button>
         </div>
         <div className="mb-4">
           <p className="text-sm text-gray-500">

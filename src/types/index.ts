@@ -46,3 +46,26 @@ export interface ReportConfig {
   includeAllTests: boolean;
   includeResolutionProgress: boolean;
 }
+
+export interface FailureProgressItem {
+  id: string;
+  name: string;
+  suite: string;
+  errorMessage?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  notes?: string;
+  updatedAt?: string;
+  assignee?: string;
+}
+
+/**
+ * Downloaded from the Progress tab once someone finishes working their half
+ * of a split report. Bundles the split's test data together with their
+ * progress notes so a teammate's export can be merged back with another's
+ * into one combined report (see src/utils/combineResults.ts).
+ */
+export interface ExportBundle {
+  version: 1;
+  testData: TestData;
+  progress: Record<string, FailureProgressItem>;
+}

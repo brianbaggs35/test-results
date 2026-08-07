@@ -1,16 +1,8 @@
 import { useState } from 'react';
 import { XIcon, MessageSquareIcon } from 'lucide-react';
+import type { FailureProgressItem } from '../../types';
 
 type StatusValue = 'pending' | 'in_progress' | 'completed';
-
-interface FailureProgressItem {
-  id: string;
-  name: string;
-  suite: string;
-  status: StatusValue;
-  notes?: string;
-  assignee?: string;
-}
 
 export interface BulkCommentResult {
   comments: Record<string, string>;

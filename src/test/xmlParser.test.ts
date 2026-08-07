@@ -269,8 +269,17 @@ describe('parseJUnitXML', () => {
 <root>
   <data>not junit</data>
 </root>`;
-      
+
       expect(() => parseJUnitXML(xml)).toThrow('Invalid JUnit XML format');
+    });
+
+    it('should return an empty report for a <testsuites/> with no testsuite children', () => {
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><testsuites tests="0"/>';
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.summary).toEqual({ total: 0, passed: 0, failed: 0, skipped: 0, time: 0 });
+      expect(result.suites).toEqual([]);
     });
 
     it('should log console error on parse failure', () => {
