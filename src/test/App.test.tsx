@@ -21,6 +21,9 @@ vi.mock('../components/Layout/Navbar', () => ({
       <button data-testid="publish-tab" onClick={() => setActiveTab('publish')}>
         Publish {activeTab === 'publish' && '(active)'}
       </button>
+      <button data-testid="split-tab" onClick={() => setActiveTab('split')}>
+        Split {activeTab === 'split' && '(active)'}
+      </button>
     </div>
   ),
 }));
@@ -69,6 +72,26 @@ vi.mock('../components/Publish/PublishPage', () => ({
     <div data-testid="publish-page">
       Publish Page
       {xmlContent ? <div data-testid="publish-xml-content">XML content available</div> : null}
+    </div>
+  ),
+}));
+
+vi.mock('../components/Split/SplitPage', () => ({
+  SplitPage: ({
+    xmlContent,
+    onCombined,
+    setActiveTab,
+  }: {
+    xmlContent: string | null;
+    onCombined: (data: unknown) => void;
+    setActiveTab: (tab: string) => void;
+  }) => (
+    <div data-testid="split-page">
+      Split Page
+      {xmlContent ? <div data-testid="split-xml-content">XML content available</div> : null}
+      <button data-testid="combine-and-go-to-report" onClick={() => { onCombined({ combined: true }); setActiveTab('report'); }}>
+        Combine
+      </button>
     </div>
   ),
 }));
@@ -148,6 +171,34 @@ describe('App', () => {
 
     expect(screen.getByTestId('publish-page')).toBeInTheDocument();
     expect(screen.getByText('Publish (active)')).toBeInTheDocument();
+  });
+
+  it('should switch to split tab when clicked', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('split-tab'));
+
+    expect(screen.getByTestId('split-page')).toBeInTheDocument();
+    expect(screen.getByText('Split (active)')).toBeInTheDocument();
+  });
+
+  it('should pass xml content to split page after upload', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('upload-data'));
+    fireEvent.click(screen.getByTestId('split-tab'));
+
+    expect(screen.getByTestId('split-xml-content')).toBeInTheDocument();
+  });
+
+  it('should load combined data and switch to report when split page combines', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('split-tab'));
+    fireEvent.click(screen.getByTestId('combine-and-go-to-report'));
+
+    expect(screen.getByTestId('report-generator')).toBeInTheDocument();
+    expect(screen.getByTestId('report-test-data')).toBeInTheDocument();
   });
 
   it('should pass xml content to publish page after upload', () => {

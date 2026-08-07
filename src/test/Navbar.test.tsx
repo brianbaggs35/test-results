@@ -9,6 +9,7 @@ vi.mock('lucide-react', () => ({
   AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
   ListChecksIcon: () => <div data-testid="list-checks-icon" />,
   SendIcon: () => <div data-testid="send-icon" />,
+  SplitIcon: () => <div data-testid="split-icon" />,
 }));
 
 describe('Navbar', () => {
@@ -31,6 +32,7 @@ describe('Navbar', () => {
     expect(screen.getByText('Failures')).toBeInTheDocument();
     expect(screen.getByText('Progress')).toBeInTheDocument();
     expect(screen.getByText('Report')).toBeInTheDocument();
+    expect(screen.getByText('Split')).toBeInTheDocument();
     expect(screen.getByText('Publish')).toBeInTheDocument();
   });
 
@@ -41,7 +43,23 @@ describe('Navbar', () => {
     expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
     expect(screen.getByTestId('list-checks-icon')).toBeInTheDocument();
     expect(screen.getByTestId('file-text-icon')).toBeInTheDocument();
+    expect(screen.getByTestId('split-icon')).toBeInTheDocument();
     expect(screen.getByTestId('send-icon')).toBeInTheDocument();
+  });
+
+  it('should highlight the active split tab', () => {
+    render(<Navbar activeTab="split" setActiveTab={mockSetActiveTab} />);
+
+    const splitButton = screen.getByText('Split').closest('button');
+    expect(splitButton).toHaveClass('bg-orange-100 text-orange-700');
+  });
+
+  it('should call setActiveTab when split button is clicked', () => {
+    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
+
+    fireEvent.click(screen.getByText('Split'));
+
+    expect(mockSetActiveTab).toHaveBeenCalledWith('split');
   });
 
   it('should highlight the active dashboard tab', () => {

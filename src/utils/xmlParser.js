@@ -8,7 +8,7 @@ export const parseJUnitXML = xmlContent => {
     const result = parser.parse(xmlContent);
     // Process testsuites (multiple suites case)
     if (result.testsuites) {
-      return processTestSuites(result.testsuites.testsuite);
+      return processTestSuites(result.testsuites.testsuite || []);
     }
     // Process single testsuite
     if (result.testsuite) {

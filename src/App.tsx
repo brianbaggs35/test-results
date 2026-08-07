@@ -5,6 +5,7 @@ import { ReportGenerator } from './components/ReportGenerator/ReportGenerator';
 import { FailureAnalysisPage } from './components/FailureAnalysis/FailureAnalysisPage';
 import { FailureAnalysisProgress } from './components/FailureAnalysis/FailureAnalysisProgress';
 import { PublishPage } from './components/Publish/PublishPage';
+import { SplitPage } from './components/Split/SplitPage';
 import type { TestData } from './types';
 
 export function App() {
@@ -32,6 +33,8 @@ export function App() {
         return <ReportGenerator testData={testData} />;
       case 'publish':
         return <PublishPage xmlContent={xmlContent} />;
+      case 'split':
+        return <SplitPage xmlContent={xmlContent} onCombined={handleDataUpload} setActiveTab={setActiveTab} />;
       default:
         return <Dashboard onDataUpload={handleDataUpload} onXmlContent={handleXmlContent} testData={testData} />;
     }

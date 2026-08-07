@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FailureAnalysisProgress } from '../components/FailureAnalysis/FailureAnalysisProgress';
+import * as exportBundleUtil from '../utils/exportBundle';
 
 // Helper function to create test data with failed tests
 function createTestDataWithFailures(numFailedTests: number) {
@@ -362,6 +363,29 @@ describe('FailureAnalysisProgress', () => {
       // Selection should be cleared
       expect(screen.getByText('Select All (0 selected)')).toBeInTheDocument();
       expect(screen.queryByText('Bulk Actions:')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Export Progress', () => {
+    it('should be disabled when there are no failed tests', () => {
+      const testData = createTestDataWithFailures(0);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      expect(screen.getByText('Export Progress').closest('button')).toBeDisabled();
+    });
+
+    it('should export the current testData and progress when clicked', () => {
+      const spy = vi.spyOn(exportBundleUtil, 'exportProgressBundle').mockImplementation(() => {});
+      const testData = createTestDataWithFailures(3);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      fireEvent.click(screen.getByText('Export Progress'));
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const [exportedData, exportedProgress] = spy.mock.calls[0];
+      expect(exportedData).toBe(testData);
+      expect(Object.keys(exportedProgress)).toHaveLength(3);
+      spy.mockRestore();
     });
   });
 
