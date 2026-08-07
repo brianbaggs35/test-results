@@ -9,17 +9,9 @@ import type { TestData, ReportConfig } from '../types';
 const g = globalThis as any;
 if (!g.__pdfMocks) {
   g.__pdfMocks = {
-    canvasCtx: { fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() },
+    // html2canvas is called once per rendered page; this is that page's canvas.
     canvas: {
-      width: 1588,
-      height: 2246,
-      getContext: vi.fn(),
       toDataURL: vi.fn().mockReturnValue('data:image/jpeg;base64,mock'),
-    },
-    pageCanvas: {
-      width: 0, height: 0,
-      getContext: vi.fn(),
-      toDataURL: vi.fn().mockReturnValue('data:image/jpeg;base64,pageSlice'),
     },
     html2canvas: vi.fn(),
     pdf: { addPage: vi.fn(), addImage: vi.fn(), save: vi.fn() },
@@ -30,8 +22,6 @@ if (!g.__pdfMocks) {
 const __mocks: Record<string, any> = g.__pdfMocks;
 
 // Wire up cross-refs
-__mocks.canvas.getContext.mockReturnValue(__mocks.canvasCtx);
-__mocks.pageCanvas.getContext.mockReturnValue(__mocks.canvasCtx);
 __mocks.html2canvas.mockResolvedValue(__mocks.canvas);
 __mocks.JsPDF.mockImplementation(() => __mocks.pdf);
 
@@ -49,25 +39,14 @@ describe('pdfGenerator', () => {
   let mockConfig: ReportConfig;
   let reportEl: HTMLDivElement;
 
-  // Stub only canvas creation – everything else stays real DOM
-  const realCreateElement = document.createElement.bind(document);
-  const stubbedCreateElement = (tag: string) => {
-    if (tag === 'canvas') return __mocks.pageCanvas as unknown as HTMLCanvasElement;
-    return realCreateElement(tag);
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Re-wire after clearAllMocks
-    __mocks.canvas.getContext.mockReturnValue(__mocks.canvasCtx);
-    __mocks.pageCanvas.getContext.mockReturnValue(__mocks.canvasCtx);
     __mocks.html2canvas.mockResolvedValue(__mocks.canvas);
     __mocks.JsPDF.mockImplementation(() => __mocks.pdf);
     __mocks.canvas.toDataURL.mockReturnValue('data:image/jpeg;base64,mock');
-    __mocks.pageCanvas.toDataURL.mockReturnValue('data:image/jpeg;base64,pageSlice');
-    __mocks.canvas.height = 2246;
 
     mockTestData = {
       summary: { total: 100, passed: 75, failed: 20, skipped: 5, time: 120.5 },
@@ -98,10 +77,6 @@ describe('pdfGenerator', () => {
     const indicator = document.createElement('div');
     indicator.className = 'chart-render-complete';
     document.body.appendChild(indicator);
-
-    // Stub createElement for canvas slicing
-    vi.spyOn(document, 'createElement')
-      .mockImplementation(stubbedCreateElement as typeof document.createElement);
 
     // Mock requestAnimationFrame
     vi.spyOn(window, 'requestAnimationFrame')
@@ -176,11 +151,137 @@ describe('pdfGenerator', () => {
   });
 
   it('should handle multi-page content', async () => {
-    __mocks.canvas.height = 2246 * 3;
-    const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
-    await generatePDF(mockTestData, mockConfig);
-    expect(__mocks.pdf.addPage).toHaveBeenCalledTimes(2);
-    expect(__mocks.pdf.addImage).toHaveBeenCalledTimes(3);
+    // jsdom doesn't run layout, so simulate a clone three A4 pages tall by
+    // stubbing scrollHeight (page breaks are computed from this before any
+    // canvas is created).
+    const A4_HEIGHT_PX = 1123;
+    const originalDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight');
+    Object.defineProperty(Element.prototype, 'scrollHeight', {
+      configurable: true,
+      get: () => A4_HEIGHT_PX * 3,
+    });
+
+    try {
+      const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+      await generatePDF(mockTestData, mockConfig);
+      expect(__mocks.html2canvas).toHaveBeenCalledTimes(3);
+      expect(__mocks.pdf.addPage).toHaveBeenCalledTimes(2);
+      expect(__mocks.pdf.addImage).toHaveBeenCalledTimes(3);
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(Element.prototype, 'scrollHeight', originalDescriptor);
+      }
+    }
+  });
+
+  it('should render each page from its own crop of the clone, not one giant canvas', async () => {
+    // Regression test: PDF generation must never request one canvas for the
+    // whole report — that silently produces a blank canvas once the report
+    // is large enough to exceed the browser's max canvas dimensions.
+    const A4_HEIGHT_PX = 1123;
+    const originalDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight');
+    Object.defineProperty(Element.prototype, 'scrollHeight', {
+      configurable: true,
+      get: () => A4_HEIGHT_PX * 3,
+    });
+
+    try {
+      const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+      await generatePDF(mockTestData, mockConfig);
+
+      const calls = __mocks.html2canvas.mock.calls as Array<[unknown, { y: number; height: number }]>;
+      expect(calls).toHaveLength(3);
+      // Each call captures one page-sized slice, not the full report height.
+      calls.forEach(([, opts]) => {
+        expect(opts.height).toBeLessThanOrEqual(A4_HEIGHT_PX);
+      });
+      // Slices advance down the document rather than all capturing from the top.
+      expect(calls[0][1].y).toBe(0);
+      expect(calls[1][1].y).toBeGreaterThan(calls[0][1].y);
+      expect(calls[2][1].y).toBeGreaterThan(calls[1][1].y);
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(Element.prototype, 'scrollHeight', originalDescriptor);
+      }
+    }
+  });
+
+  // Both tests below simulate real layout by stubbing getBoundingClientRect /
+  // scrollHeight per-element via data-sim* attributes — jsdom never runs
+  // layout, so these are the only way to exercise the pagination math against
+  // known element positions. Attributes survive cloneNode, so they carry
+  // over from #report-preview onto the internal clone pdfGenerator measures.
+  const withSimulatedLayout = async (run: () => Promise<void>) => {
+    const originalGBCR = Element.prototype.getBoundingClientRect;
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight');
+
+    Element.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      if (this.hasAttribute('data-simtop')) {
+        const top = Number(this.getAttribute('data-simtop'));
+        const bottom = Number(this.getAttribute('data-simbottom'));
+        return { top, bottom, height: bottom - top, left: 0, right: 794, width: 794, x: 0, y: top, toJSON() {} } as DOMRect;
+      }
+      return originalGBCR.call(this);
+    };
+    Object.defineProperty(Element.prototype, 'scrollHeight', {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.hasAttribute('data-simscrollheight')
+          ? Number(this.getAttribute('data-simscrollheight'))
+          : originalScrollHeight!.get!.call(this);
+      },
+    });
+
+    try {
+      await run();
+    } finally {
+      Element.prototype.getBoundingClientRect = originalGBCR;
+      if (originalScrollHeight) {
+        Object.defineProperty(Element.prototype, 'scrollHeight', originalScrollHeight);
+      }
+    }
+  };
+
+  it('should push a short avoid-break block to the next page instead of splitting it', async () => {
+    reportEl.setAttribute('data-simscrollheight', '1400');
+    reportEl.innerHTML = `
+      <div class="avoid-break" data-simtop="900" data-simbottom="1150">
+        <div data-simtop="900" data-simbottom="950">Total Tests</div>
+        <div data-simtop="950" data-simbottom="1150">3594</div>
+      </div>
+    `;
+
+    await withSimulatedLayout(async () => {
+      const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+      await generatePDF(mockTestData, mockConfig);
+
+      const calls = __mocks.html2canvas.mock.calls as Array<[unknown, { y: number; height: number }]>;
+      // Without the fix, page 1 would end at the ideal 1123px line, right
+      // through the middle of the 900-1150 block. It should end at 900
+      // instead, carrying the whole block onto page 2.
+      expect(calls[0][1]).toMatchObject({ y: 0, height: 900 });
+      expect(calls[1][1]).toMatchObject({ y: 900, height: 500 });
+    });
+  });
+
+  it('should force a page-break-before section onto a fresh page', async () => {
+    reportEl.setAttribute('data-simscrollheight', '1500');
+    reportEl.innerHTML = `
+      <div class="page-break-before" data-simtop="600" data-simbottom="1500">
+        All Test Cases
+      </div>
+    `;
+
+    await withSimulatedLayout(async () => {
+      const { generatePDF } = await import('../components/ReportGenerator/pdfGenerator');
+      await generatePDF(mockTestData, mockConfig);
+
+      const calls = __mocks.html2canvas.mock.calls as Array<[unknown, { y: number; height: number }]>;
+      // The forced break should end page 1 at 600, well short of the ideal
+      // 1123px line, so the marked section starts clean on page 2.
+      expect(calls[0][1]).toMatchObject({ y: 0, height: 600 });
+      expect(calls[1][1]).toMatchObject({ y: 600, height: 900 });
+    });
   });
 
   it('should clean up offscreen clone after generation', async () => {
