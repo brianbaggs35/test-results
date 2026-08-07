@@ -15,22 +15,26 @@ const A4_HEIGHT_PX = 1123;  // 297mm at 96 DPI
 const SCALE = 2;             // hi-DPI canvas scale
 
 /**
- * Walk the rendered clone and collect the Y positions (in *canvas* pixels)
- * of element boundaries that make good page-break candidates — section
- * dividers, table-row gaps, headings, etc.
+ * Walk the rendered clone and collect the Y positions (in CSS pixels,
+ * relative to the clone's top) of element boundaries that make good
+ * page-break candidates — section dividers, table-row gaps, headings, etc.
+ *
+ * Deliberately narrow: only elements that are safe to cut *between* (table
+ * rows, section boundaries, headings). A broader selector like `div[style]`
+ * would also match things like a stat card's label and its value — both are
+ * plain styled divs — so the nearest-break search could slice between a
+ * label and its own number and strand them on different pages.
  */
-function findBreakPoints(clone: HTMLElement, _a4HeightPx: number, scale: number): number[] {
-  const cloneRect = clone.getBoundingClientRect();
-  const offY = cloneRect.top;
+function findBreakPoints(clone: HTMLElement): number[] {
+  const offY = clone.getBoundingClientRect().top;
   const points: number[] = [];
 
-  // Collect bottom edges of sections, table rows, avoid-break elements
-  const selectors = 'tr, .avoid-break, .page-break-before, h2, h3, div[style]';
+  const selectors = 'tr, .avoid-break, .page-break-before, h2, h3';
   clone.querySelectorAll(selectors).forEach((el) => {
     const r = el.getBoundingClientRect();
     // Top and bottom of each element are potential break points
-    points.push(Math.round((r.top - offY) * scale));
-    points.push(Math.round((r.bottom - offY) * scale));
+    points.push(Math.round(r.top - offY));
+    points.push(Math.round(r.bottom - offY));
   });
 
   // Deduplicate and sort
@@ -38,7 +42,38 @@ function findBreakPoints(clone: HTMLElement, _a4HeightPx: number, scale: number)
 }
 
 /**
- * Given sorted break points and an ideal page-end Y in canvas pixels,
+ * Top/bottom Y spans (CSS px, relative to the clone) of elements marked
+ * `.avoid-break` — content that should stay on one page whenever it's
+ * short enough to fit on a fresh page by itself (a summary card row, a
+ * heading with its body). Sections too tall to ever fit a single page
+ * (e.g. a table with hundreds of rows) fall back to slicing at their own
+ * `tr` break points instead — this only protects blocks that fitting them
+ * whole would actually help.
+ */
+function getProtectedRanges(clone: HTMLElement): Array<{ top: number; bottom: number }> {
+  const offY = clone.getBoundingClientRect().top;
+  const ranges = Array.from(clone.querySelectorAll('.avoid-break')).map((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: Math.round(r.top - offY), bottom: Math.round(r.bottom - offY) };
+  });
+  return ranges.sort((a, b) => a.top - b.top);
+}
+
+/**
+ * Y positions (CSS px) where a page break is mandatory regardless of how
+ * much room is left on the current page — elements marked
+ * `.page-break-before`, mirroring the same intent as their print-CSS rule.
+ */
+function getForcedBreakPoints(clone: HTMLElement): number[] {
+  const offY = clone.getBoundingClientRect().top;
+  const points = Array.from(clone.querySelectorAll('.page-break-before')).map(
+    (el) => Math.round(el.getBoundingClientRect().top - offY),
+  );
+  return [...new Set(points)].sort((a, b) => a - b);
+}
+
+/**
+ * Given sorted break points and an ideal page-end Y in CSS pixels,
  * find the nearest safe break point. Prefer a break that is above the
  * ideal line (so content isn't cut) within a tolerance margin.
  */
@@ -72,6 +107,7 @@ export const generatePDF = async (
   _config: ReportConfig,
   onProgress?: (progress: number) => void,
 ): Promise<void> => {
+  let wrapper: HTMLDivElement | null = null;
   try {
     if (onProgress) onProgress(5);
 
@@ -98,7 +134,7 @@ export const generatePDF = async (
     if (onProgress) onProgress(10);
 
     // ── 1. Build a clean off-screen clone ────────────────────────────
-    const wrapper = document.createElement('div');
+    wrapper = document.createElement('div');
     wrapper.style.cssText =
       'position:fixed;left:0;top:0;width:794px;z-index:-9999;' +
       'pointer-events:none;overflow:visible;background:white;';
@@ -132,85 +168,94 @@ export const generatePDF = async (
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
 
-    // Let the browser lay out the clone so html2canvas gets correct geometry
+    // Let the browser lay out the clone so measurements below are correct
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     if (onProgress) onProgress(20);
 
-    // ── 2. Capture the clone with html2canvas ────────────────────────
-    const canvas = await html2canvas(clone, {
-      scale: SCALE,
-      useCORS: true,
-      logging: false,
-      allowTaint: true,
-      width: A4_WIDTH_PX,
-      windowWidth: A4_WIDTH_PX,
-      x: 0,
-      y: 0,
-      scrollX: 0,
-      scrollY: 0,
-      backgroundColor: '#ffffff',
-    });
+    // ── 2. Compute smart page breaks from the live clone's layout ────
+    // Done in CSS pixels, from the DOM, before any canvas is created.
+    const totalHeightPx = clone.scrollHeight;
+    const breakPoints = findBreakPoints(clone);
+    const protectedRanges = getProtectedRanges(clone);
+    const forcedBreaks = getForcedBreakPoints(clone);
 
-    // ── 3. Compute smart page breaks ─────────────────────────────────
-    // Scan clone's child elements to find good break points so we don't
-    // slice through table rows or sections.
-    const breakPoints = findBreakPoints(clone, A4_HEIGHT_PX, SCALE);
-
-    // Remove off-screen element immediately
-    wrapper.remove();
-
-    if (onProgress) onProgress(60);
-
-    // ── 4. Slice the canvas into A4 pages and build the PDF ──────────
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-
-    const canvasWidthPx = canvas.width;   // A4_WIDTH_PX * SCALE
-    const canvasHeightPx = canvas.height;
-    const pageHeightPx = A4_HEIGHT_PX * SCALE; // one page's worth of canvas pixels
-
-    // Build page boundaries using smart break points
     const pageBreaks: number[] = [0]; // start at top
     let cursor = 0;
-    while (cursor < canvasHeightPx) {
-      const idealEnd = cursor + pageHeightPx;
-      if (idealEnd >= canvasHeightPx) {
+    while (cursor < totalHeightPx) {
+      const idealEnd = cursor + A4_HEIGHT_PX;
+      if (idealEnd >= totalHeightPx) {
         break; // remaining content fits on current page
       }
-      // Find a break point near the ideal page end (prefer slightly earlier)
-      const bestBreak = findNearestBreak(breakPoints, idealEnd, pageHeightPx);
+
+      // A `.page-break-before` section (e.g. "All Test Cases") always
+      // starts on a fresh page, even if there's room left on this one.
+      const nextForced = forcedBreaks.find((f) => f > cursor);
+
+      // A `.avoid-break` block that starts fresh on this page but won't
+      // fully fit before the ideal cut gets pushed whole to the next page,
+      // instead of being sliced through the middle — as long as it's short
+      // enough to actually fit a full page by itself. Longer blocks (a
+      // table with hundreds of rows) fall back to slicing at their own row
+      // boundaries below.
+      const splitBlock = protectedRanges.find(
+        (r) => r.top > cursor && r.top < idealEnd && r.bottom > idealEnd,
+      );
+
+      let bestBreak: number;
+      if (nextForced !== undefined && nextForced <= idealEnd) {
+        bestBreak = nextForced;
+      } else if (splitBlock && splitBlock.bottom - splitBlock.top <= A4_HEIGHT_PX) {
+        bestBreak = splitBlock.top;
+      } else {
+        // Find a break point near the ideal page end (prefer slightly earlier)
+        bestBreak = findNearestBreak(breakPoints, idealEnd, A4_HEIGHT_PX);
+      }
+
       pageBreaks.push(bestBreak);
       cursor = bestBreak;
     }
 
     const totalPages = pageBreaks.length;
 
+    // ── 3. Render and add each page independently ────────────────────
+    // Capturing one A4 page at a time (via html2canvas's own x/y/width/height
+    // crop) instead of one canvas for the whole report keeps every canvas
+    // comfortably under the browser's maximum canvas dimensions. A report
+    // with thousands of tests can be tens of thousands of pixels tall,
+    // which silently produces a blank canvas if captured in one shot.
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+
     for (let page = 0; page < totalPages; page++) {
       if (page > 0) pdf.addPage();
 
-      // Slice this page's strip from the full canvas
       const srcY = pageBreaks[page];
-      const nextY = page + 1 < totalPages ? pageBreaks[page + 1] : canvasHeightPx;
-      const srcH = nextY - srcY;
+      const nextY = page + 1 < totalPages ? pageBreaks[page + 1] : totalHeightPx;
+      const srcH = Math.max(1, nextY - srcY);
 
-      const pageCanvas = document.createElement('canvas');
-      pageCanvas.width = canvasWidthPx;
-      pageCanvas.height = srcH;
-      const ctx = pageCanvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvasWidthPx, srcH);
-        ctx.drawImage(canvas, 0, srcY, canvasWidthPx, srcH, 0, 0, canvasWidthPx, srcH);
-      }
+      const pageCanvas = await html2canvas(clone, {
+        scale: SCALE,
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        width: A4_WIDTH_PX,
+        windowWidth: A4_WIDTH_PX,
+        height: srcH,
+        x: 0,
+        y: srcY,
+        scrollX: 0,
+        scrollY: 0,
+        backgroundColor: '#ffffff',
+      });
 
       const imgData = pageCanvas.toDataURL('image/jpeg', 0.98);
-      const imgHeightMm = (srcH / canvasWidthPx) * A4_WIDTH_MM;
+      const imgHeightMm = (srcH / A4_WIDTH_PX) * A4_WIDTH_MM;
 
       // Place image at (0, 0) filling full page width – content's own
       // 40 px internal padding provides the visual margins.
       pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, imgHeightMm);
 
-      if (onProgress) onProgress(60 + Math.round(((page + 1) / totalPages) * 30));
+      if (onProgress) onProgress(20 + Math.round(((page + 1) / totalPages) * 70));
     }
 
     // ── 4. Save ──────────────────────────────────────────────────────
@@ -231,5 +276,7 @@ export const generatePDF = async (
     } else {
       throw new Error('Failed to generate PDF due to an unknown error. Please try again.');
     }
+  } finally {
+    wrapper?.remove();
   }
 };
