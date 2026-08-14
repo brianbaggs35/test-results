@@ -656,6 +656,39 @@ describe('FailureAnalysisProgress', () => {
       expect(screen.getByText('Individual note X')).toBeInTheDocument();
     });
 
+    it('should apply assignee only (no note, no status) and show it in the UI', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(2);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const checkboxes = screen.getAllByRole('checkbox');
+      await user.click(checkboxes[0]); // select all
+
+      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.type(screen.getByTestId('bulk-assignee-input'), 'Jane Smith');
+      await user.click(screen.getByTestId('apply-comments-btn'));
+
+      expect(screen.queryByTestId('bulk-comment-modal')).not.toBeInTheDocument();
+      expect(screen.getAllByText('Jane Smith').length).toBe(2);
+    });
+
+    it('should apply status and assignee together with no note and show the assignee in the UI', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(2);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const checkboxes = screen.getAllByRole('checkbox');
+      await user.click(checkboxes[0]); // select all
+
+      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.selectOptions(screen.getByTestId('bulk-status-select'), 'completed');
+      await user.type(screen.getByTestId('bulk-assignee-input'), 'Alex Rivera');
+      await user.click(screen.getByTestId('apply-comments-btn'));
+
+      expect(screen.queryByTestId('bulk-comment-modal')).not.toBeInTheDocument();
+      expect(screen.getAllByText('Alex Rivera').length).toBe(2);
+    });
+
     it('should clear selection after applying bulk comments', async () => {
       const user = userEvent.setup();
       const testData = createTestDataWithFailures(3);

@@ -471,10 +471,10 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                       <textarea id={`notes-${safeId}`} name={`notes-${safeId}`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add any notes about the fix..." className="w-full px-3 py-2 border border-gray-300 rounded-md" rows={3} />
                     </div>
                   </div>}
-                {!selectedTest && test.notes && <div className="mt-2 text-sm text-gray-600">
-                    <p>
+                {!selectedTest && (test.notes || test.assignee) && <div className="mt-2 text-sm text-gray-600">
+                    {test.notes && <p>
                       <strong>Notes:</strong> {test.notes}
-                    </p>
+                    </p>}
                     {test.assignee && <p>
                         <strong>Assignee:</strong> {test.assignee}
                       </p>}
