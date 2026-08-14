@@ -1,0 +1,19 @@
+<testsuites tests="7" failures="2" errors="0" skipped="0" time="3.500">
+  <testsuite name="Suite A" tests="3" failures="1" errors="0" skipped="0" time="1.500">
+    <testcase name="test1" classname="SuiteA.TestClass1" time="0.5"></testcase>
+    <testcase name="test3" classname="SuiteA.TestClass3" time="0.5">
+      <failure message="Another failure" type="AssertionError">Second failure in Suite A</failure>
+    </testcase>
+    <testcase name="test4" classname="SuiteA.TestClass4" time="0.5"></testcase>
+  </testsuite>
+  <testsuite name="Suite B" tests="2" failures="0" errors="0" skipped="0" time="1.000">
+    <testcase name="test1" classname="SuiteB.TestClass1" time="0.5"></testcase>
+    <testcase name="test3" classname="SuiteB.TestClass3" time="0.5"></testcase>
+  </testsuite>
+  <testsuite name="Suite C" tests="2" failures="1" errors="0" skipped="0" time="1.000">
+    <testcase name="test1" classname="SuiteC.TestClass1" time="0.5">
+      <failure message="Failed in Suite C" type="AssertionError">Failure in Suite C</failure>
+    </testcase>
+    <testcase name="test2" classname="SuiteC.TestClass2" time="0.5"></testcase>
+  </testsuite>
+</testsuites>
