@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "testData": {
+    "summary": {
+      "total": 7,
+      "passed": 5,
+      "failed": 2,
+      "skipped": 0,
+      "time": 3.5
+    },
+    "suites": [
+      {
+        "name": "Suite A",
+        "tests": 3,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "time": 1.5,
+        "timestamp": "2026-08-14T18:45:44.021Z",
+        "testcases": [
+          {
+            "name": "test1",
+            "classname": "SuiteA.TestClass1",
+            "time": 0.5,
+            "status": "passed",
+            "errorMessage": null,
+            "failureDetails": null
+          },
+          {
+            "name": "test3",
+            "classname": "SuiteA.TestClass3",
+            "time": 0.5,
+            "status": "failed",
+            "errorMessage": "Another failure",
+            "failureDetails": {
+              "message": "Another failure",
+              "type": "AssertionError",
+              "stackTrace": "Second failure in Suite A"
+            }
+          },
+          {
+            "name": "test4",
+            "classname": "SuiteA.TestClass4",
+            "time": 0.5,
+            "status": "passed",
+            "errorMessage": null,
+            "failureDetails": null
+          }
+        ]
+      },
+      {
+        "name": "Suite B",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "time": 1,
+        "timestamp": "2026-08-14T18:45:44.021Z",
+        "testcases": [
+          {
+            "name": "test1",
+            "classname": "SuiteB.TestClass1",
+            "time": 0.5,
+            "status": "passed",
+            "errorMessage": null,
+            "failureDetails": null
+          },
+          {
+            "name": "test3",
+            "classname": "SuiteB.TestClass3",
+            "time": 0.5,
+            "status": "passed",
+            "errorMessage": null,
+            "failureDetails": null
+          }
+        ]
+      },
+      {
+        "name": "Suite C",
+        "tests": 2,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "time": 1,
+        "timestamp": "2026-08-14T18:45:44.021Z",
+        "testcases": [
+          {
+            "name": "test1",
+            "classname": "SuiteC.TestClass1",
+            "time": 0.5,
+            "status": "failed",
+            "errorMessage": "Failed in Suite C",
+            "failureDetails": {
+              "message": "Failed in Suite C",
+              "type": "AssertionError",
+              "stackTrace": "Failure in Suite C"
+            }
+          },
+          {
+            "name": "test2",
+            "classname": "SuiteC.TestClass2",
+            "time": 0.5,
+            "status": "passed",
+            "errorMessage": null,
+            "failureDetails": null
+          }
+        ]
+      }
+    ]
+  },
+  "progress": {
+    "Suite A-test3": {
+      "id": "Suite A-test3",
+      "name": "test3",
+      "suite": "Suite A",
+      "errorMessage": "Another failure",
+      "status": "completed",
+      "notes": "Test3 Fixed",
+      "updatedAt": "2026-08-14T18:45:57.423Z",
+      "assignee": "Tester B"
+    },
+    "Suite C-test1": {
+      "id": "Suite C-test1",
+      "name": "test1",
+      "suite": "Suite C",
+      "errorMessage": "Failed in Suite C",
+      "status": "completed",
+      "notes": "Test1 Fixed",
+      "updatedAt": "2026-08-14T18:46:04.625Z",
+      "assignee": "Tester B"
+    }
+  }
+}
