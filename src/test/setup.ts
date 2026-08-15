@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest'
 
 // Suppress expected console messages in tests
 const originalConsoleError = console.error;
@@ -6,7 +6,7 @@ const originalConsoleWarn = console.warn;
 
 console.error = (...args: unknown[]) => {
   const message = args.join(' ');
-  
+
   // Filter out expected test error messages
   if (
     message.includes('Error parsing XML:') ||
@@ -20,13 +20,13 @@ console.error = (...args: unknown[]) => {
   ) {
     return;
   }
-  
+
   originalConsoleError(...args);
 };
 
 console.warn = (...args: unknown[]) => {
   const message = args.join(' ');
-  
+
   // Filter out expected test warning messages
   if (
     message.includes('PDF preview frame not found, falling back to regular preview') ||
@@ -36,7 +36,7 @@ console.warn = (...args: unknown[]) => {
   ) {
     return;
   }
-  
+
   originalConsoleWarn(...args);
 };
 
