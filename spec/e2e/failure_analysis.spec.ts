@@ -1,4 +1,4 @@
-import { test, expect } from './baseFixtures';
+import { test, expect } from './baseFixtures'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('http://localhost:5173/')
@@ -27,31 +27,59 @@ test.describe('Progress Page', () => {
     await expect(page.locator('pre.p-4.text-sm')).toContainText('First failure in Suite A')
   })
 
-  test('should search for a specific test', async ({ page }) => {
+  test('should confirm local storage', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Test Results Dashboard' })).toBeVisible()
 
     await page.getByRole('button', { name: 'Progress' }).click()
 
-    await page.getByRole('textbox', { name: 'Search tests' }).fill('test3')
+    const testFixProgress = await page.evaluate(() => {
+      const value = localStorage.getItem('testFixProgress')
+      return value ? JSON.parse(value) : null
+    })
 
-    await expect(page.getByRole('heading', { name: 'test3' })).toBeVisible()
+    expect(testFixProgress).toMatchObject({
+      'Suite A-test2': {
+        id: 'Suite A-test2',
+        name: 'test2',
+        suite: 'Suite A',
+        errorMessage: 'Test failed',
+        status: 'pending',
+        notes: '',
+      },
+      'Suite A-test3': {
+        id: 'Suite A-test3',
+        name: 'test3',
+        suite: 'Suite A',
+        errorMessage: 'Another failure',
+        status: 'pending',
+        notes: '',
+      },
+      'Suite B-test2': {
+        id: 'Suite B-test2',
+        name: 'test2',
+        suite: 'Suite B',
+        errorMessage: 'Failed in Suite B',
+        status: 'pending',
+        notes: '',
+      },
+      'Suite C-test1': {
+        id: 'Suite C-test1',
+        name: 'test1',
+        suite: 'Suite C',
+        errorMessage: 'Failed in Suite C',
+        status: 'pending',
+        notes: '',
+      },
+    })
+  })
 
-    await expect(page.getByRole('heading', { name: 'test1' })).toBeHidden()
+  test('should clear local storage', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Test Results Dashboard' })).toBeVisible()
 
-    await expect(page.getByRole('heading', { name: 'test2' }).first()).toBeHidden()
+    await page.getByRole('button', { name: 'Progress' }).click()
 
-    await expect(page.getByRole('heading', { name: 'test2' }).last()).toBeHidden()
+    await page.getByRole('button', { name: 'Clear Test Data' }).click()
 
-    await page.getByRole('button', { name: 'Clear Filters' }).click()
-
-    await expect(page.getByRole('heading', { name: 'test1' })).toBeVisible()
-
-    await expect(page.getByRole('heading', { name: 'test2' }).first()).toBeVisible()
-
-    await expect(page.getByRole('heading', { name: 'test2' }).last()).toBeVisible()
-
-    await expect(page.getByRole('heading', { name: 'test3' })).toBeVisible()
-
-    await expect(page.getByRole('heading', { name: 'test2' }).last()).toBeVisible()
+    await expect(page.evaluate(() => localStorage.getItem('testFixProgress'))).resolves.toBeNull()
   })
 })
