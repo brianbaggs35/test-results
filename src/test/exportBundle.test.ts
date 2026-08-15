@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { buildExportBundle, exportProgressBundle, readExportBundle } from '../utils/exportBundle';
 import type { TestData } from '../types';
 
@@ -27,15 +27,15 @@ describe('buildExportBundle', () => {
 });
 
 describe('exportProgressBundle', () => {
-  let createObjectURLSpy: ReturnType<typeof vi.fn>;
-  let revokeObjectURLSpy: ReturnType<typeof vi.fn>;
-  let clickSpy: ReturnType<typeof vi.fn>;
+  let createObjectURLSpy: Mock<(obj: Blob | MediaSource) => string>;
+  let revokeObjectURLSpy: Mock<(url: string) => void>;
+  let clickSpy: Mock<() => void>;
 
   beforeEach(() => {
-    createObjectURLSpy = vi.fn(() => 'blob:mock-url');
-    revokeObjectURLSpy = vi.fn();
+    createObjectURLSpy = vi.fn<(obj: Blob | MediaSource) => string>(() => 'blob:mock-url');
+    revokeObjectURLSpy = vi.fn<(url: string) => void>();
     vi.stubGlobal('URL', { ...URL, createObjectURL: createObjectURLSpy, revokeObjectURL: revokeObjectURLSpy });
-    clickSpy = vi.fn();
+    clickSpy = vi.fn<() => void>();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(clickSpy);
   });
 

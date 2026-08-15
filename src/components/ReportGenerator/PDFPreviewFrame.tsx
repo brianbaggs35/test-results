@@ -1,5 +1,5 @@
 import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, type PieLabelRenderProps } from 'recharts';
 import { formatDuration } from '../../utils/formatting';
 import { TestData, ReportConfig, TestCase } from '../../types';
 import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
@@ -96,12 +96,8 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
   };
 
   const renderCustomizedLabel = ({
-    cx, cy, midAngle, innerRadius, outerRadius, percent, value,
-  }: {
-    cx: number; cy: number; midAngle: number;
-    innerRadius: number; outerRadius: number;
-    percent: number; value: number;
-  }) => {
+    cx, cy, midAngle = 0, innerRadius, outerRadius, percent = 0, value,
+  }: PieLabelRenderProps) => {
     if (percent < 0.02) return null;
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;

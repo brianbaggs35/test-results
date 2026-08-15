@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BulkCommentModal } from '../components/FailureAnalysis/BulkCommentModal';
+import { BulkCommentModal, type BulkCommentResult } from '../components/FailureAnalysis/BulkCommentModal';
 
 // --- Mock selected items ---
 const makeItems = (n: number) =>
@@ -18,12 +18,12 @@ const twoItems = makeItems(2);
 const fiveItems = makeItems(5);
 
 describe('BulkCommentModal', () => {
-  let onApply: ReturnType<typeof vi.fn>;
-  let onClose: ReturnType<typeof vi.fn>;
+  let onApply: Mock<(result: BulkCommentResult) => void>;
+  let onClose: Mock<() => void>;
 
   beforeEach(() => {
-    onApply = vi.fn();
-    onClose = vi.fn();
+    onApply = vi.fn<(result: BulkCommentResult) => void>();
+    onClose = vi.fn<() => void>();
   });
 
   describe('Rendering', () => {
