@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 
 // Suppress expected console messages in tests
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error
+const originalConsoleWarn = console.warn
 
 console.error = (...args: unknown[]) => {
-  const message = args.join(' ');
+  const message = args.join(' ')
 
   // Filter out expected test error messages
   if (
@@ -18,14 +18,14 @@ console.error = (...args: unknown[]) => {
     message.includes('An update to Animate inside a test was not wrapped in act(') ||
     message.includes('In HTML, <button> cannot be a descendant of <button>')
   ) {
-    return;
+    return
   }
 
-  originalConsoleError(...args);
-};
+  originalConsoleError(...args)
+}
 
 console.warn = (...args: unknown[]) => {
-  const message = args.join(' ');
+  const message = args.join(' ')
 
   // Filter out expected test warning messages
   if (
@@ -34,11 +34,11 @@ console.warn = (...args: unknown[]) => {
     message.includes('Very large dataset detected') ||
     message.includes('The width(0) and height(0) of chart should be greater than 0')
   ) {
-    return;
+    return
   }
 
-  originalConsoleWarn(...args);
-};
+  originalConsoleWarn(...args)
+}
 
 // Global test configuration
 Object.defineProperty(window, 'matchMedia', {
@@ -47,31 +47,56 @@ Object.defineProperty(window, 'matchMedia', {
     matches: false,
     media: query,
     onchange: null,
-    addListener: () => { /* mock implementation */ },
-    removeListener: () => { /* mock implementation */ },
-    addEventListener: () => { /* mock implementation */ },
-    removeEventListener: () => { /* mock implementation */ },
-    dispatchEvent: () => { /* mock implementation */ },
+    addListener: () => {
+      // Mock implementation
+    },
+    removeListener: () => {
+      // Mock implementation
+    },
+    addEventListener: () => {
+      // Mock implementation
+    },
+    removeEventListener: () => {
+      // Mock implementation
+    },
+    dispatchEvent: () => {
+      // Mock implementation
+    },
   }),
-});
+})
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-  observe() { /* mock implementation */ }
-  unobserve() { /* mock implementation */ }
-  disconnect() { /* mock implementation */ }
-};
+  observe() {
+    // Mock implementation
+  }
+
+  unobserve() {
+    // Mock implementation
+  }
+
+  disconnect() {
+    // Mock implementation
+  }
+}
 
 // Mock localStorage
 const localStorageMock = {
   getItem: () => null,
-  setItem: () => { /* mock implementation */ },
-  removeItem: () => { /* mock implementation */ },
-  clear: () => { /* mock implementation */ },
-};
+  setItem: () => {
+    // Mock implementation
+  },
+  removeItem: () => {
+    // Mock implementation
+  },
+  clear: () => {
+    // Mock implementation
+  },
+}
+
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
-});
+})
 
 // Mock getBoundingClientRect to provide default dimensions for chart containers
 Element.prototype.getBoundingClientRect = () => ({
@@ -84,4 +109,4 @@ Element.prototype.getBoundingClientRect = () => ({
   x: 0,
   y: 0,
   toJSON: () => ({}),
-});
+})
