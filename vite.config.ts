@@ -1,19 +1,23 @@
-/// <reference types="vitest" />
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import IstanbulPlugin from 'vite-plugin-istanbul';
-import { publishPlugin } from './server/publishPlugin';
+import IstanbulPlugin from 'vite-plugin-istanbul'
+import { publishPlugin } from './server/publishPlugin'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   build: {
-    sourcemap: true,
+    sourcemap: true
   },
-  plugins: [react(), publishPlugin(), IstanbulPlugin({
-    include: 'src/*',
-    exclude: ['node_modules', 'test/', 'src/test/**', '.history/**'],
-    extension: [ '.js', '.ts','.tsx' ],
-  })],
+  plugins: [
+    react(),
+    publishPlugin(),
+    IstanbulPlugin({
+      include: 'src/*',
+      exclude: ['node_modules', 'test/', 'src/test/**', '.history/**'],
+      extension: ['.js', '.ts', '.tsx']
+    })
+  ],
   test: {
     globals: true,
     environment: 'jsdom',
@@ -23,7 +27,7 @@ export default defineConfig({
       'spec/e2e/**',
       '**/build/**',
       '**/coverage/**',
-      '.history/**',
+      '.history/**'
     ],
     coverage: {
       provider: 'v8',
@@ -43,7 +47,7 @@ export default defineConfig({
         'tailwind.config.js',
         'postcss.config.js',
         'src/index.tsx',
-        'src/types/**',
+        'src/types/**'
       ],
       thresholds: {
         global: {
