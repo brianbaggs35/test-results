@@ -42,7 +42,7 @@ test.describe('XML e2e tests', () => {
   })
 
   test('should show the pie chart with correct percentages', async ({ page }) => {
-    await expect(page.getByRole('img').filter({ hasText: '5 (55.6%)4 (44.4%)' })).toBeVisible()
+    await expect(page.getByRole('application')).toContainText('5 (55.6%)4 (44.4%)')
   })
 
   test('test results should show up correctly', async ({ page }) => {
