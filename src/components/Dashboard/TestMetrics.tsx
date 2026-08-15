@@ -1,4 +1,4 @@
-import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer, type PieLabelRenderProps } from 'recharts';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { formatDuration } from '../../utils/formatting';
 import type { TestData } from '../../types';
@@ -62,20 +62,12 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
   const renderCustomizedLabel = ({
     cx,
     cy,
-    midAngle,
+    midAngle = 0,
     innerRadius,
     outerRadius,
-    percent,
+    percent = 0,
     value
-  }: {
-    cx: number;
-    cy: number;
-    midAngle: number;
-    innerRadius: number;
-    outerRadius: number;
-    percent: number;
-    value: number;
-  }) => {
+  }: PieLabelRenderProps) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
