@@ -1,12 +1,12 @@
-import { useEffect, useState, useMemo } from 'react';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, MessageSquareIcon, DownloadIcon } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, AlertCircleIcon, MessageSquareIcon, DownloadIcon, UploadIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
 import ClearLocalStorageButton from '../Dashboard/ClearLocalStorage';
 import { BulkCommentModal, type BulkCommentResult } from './BulkCommentModal';
 import { FloatingBulkActionsBar } from './FloatingBulkActionsBar';
 import type { TestData, TestCase, FailureProgressItem } from '../../types';
-import { exportProgressBundle } from '../../utils/exportBundle';
+import { exportProgressBundle, importProgressBundle } from '../../utils/exportBundle';
 
 interface FailureAnalysisProgressProps {
   testData: TestData | null;
@@ -35,6 +35,11 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   // Bulk actions state
   const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set());
   const [showBulkCommentModal, setShowBulkCommentModal] = useState(false);
+
+  // Import progress state
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!testData) return;
 
@@ -116,6 +121,33 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     localStorage.setItem('testFixProgress', JSON.stringify(updatedProgress));
     setShowBulkCommentModal(false);
     setSelectedTests(new Set());
+  };
+
+  // Import progress handler
+  const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !testData) return;
+    setImportError(null);
+    setImportSummary(null);
+    try {
+      const { progress, matchedCount, skippedCount } = await importProgressBundle(file, testData, progressData);
+      setProgressData(progress);
+      localStorage.setItem('testFixProgress', JSON.stringify(progress));
+      setSelectedTest(null);
+      setNotes('');
+      setAssignee('');
+      setSelectedTests(new Set());
+      setCurrentPage(1);
+      setImportSummary(
+        `Imported progress for ${matchedCount} test${matchedCount !== 1 ? 's' : ''}.` +
+          (skippedCount > 0
+            ? ` ${skippedCount} ${skippedCount !== 1 ? 'entries' : 'entry'} in the file didn't match a test in the currently loaded results and ${skippedCount !== 1 ? 'were' : 'was'} skipped.`
+            : '')
+      );
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : `Failed to import "${file.name}".`);
+    }
   };
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -278,16 +310,49 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
         </h2>
         <div className="flex items-center justify-between mb-4">
           <ClearLocalStorageButton />
-          <button
-            onClick={() => exportProgressBundle(testData, progressData)}
-            disabled={totalTests === 0}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Download this data plus your progress notes, to merge with a teammate's work later on the Split tab"
-          >
-            <DownloadIcon className="w-4 h-4 mr-2" />
-            Export Progress
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              id="import-progress-upload"
+              name="importProgressUpload"
+              type="file"
+              ref={importInputRef}
+              onChange={handleImportFileChange}
+              accept=".json"
+              className="hidden"
+              aria-label="Upload progress export file"
+            />
+            <button
+              onClick={() => importInputRef.current?.click()}
+              disabled={totalTests === 0}
+              className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Load a previously exported progress JSON file to restore your notes, status, and assignees"
+            >
+              <UploadIcon className="w-4 h-4 mr-2" />
+              Import Progress
+            </button>
+            <button
+              onClick={() => exportProgressBundle(testData, progressData)}
+              disabled={totalTests === 0}
+              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download this data plus your progress notes, to merge with a teammate's work later on the Split tab"
+            >
+              <DownloadIcon className="w-4 h-4 mr-2" />
+              Export Progress
+            </button>
+          </div>
         </div>
+        {importError && (
+          <div className="flex items-center text-red-600 text-sm mb-4" data-testid="import-progress-error">
+            <AlertCircleIcon className="w-4 h-4 mr-2 shrink-0" />
+            {importError}
+          </div>
+        )}
+        {importSummary && (
+          <div className="flex items-center text-green-700 text-sm mb-4" data-testid="import-progress-summary">
+            <CheckCircleIcon className="w-4 h-4 mr-2 shrink-0" />
+            {importSummary}
+          </div>
+        )}
         <div className="mb-4">
           <p className="text-sm text-gray-500">
             {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''} tracked

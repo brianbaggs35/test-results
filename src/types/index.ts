@@ -68,4 +68,12 @@ export interface ExportBundle {
   version: 1;
   testData: TestData;
   progress: Record<string, FailureProgressItem>;
+  /**
+   * Fingerprint of the suite/test names in `testData` (see computeStructureHash in
+   * exportBundle.ts), used on import to confirm the currently loaded XML is the same
+   * suite this export came from. Deliberately excludes status/time/timestamps, which
+   * differ between reruns of the same suite. Optional so exports from before this
+   * field existed still import (see importProgressBundle's overlap-based fallback).
+   */
+  structureHash?: string;
 }
