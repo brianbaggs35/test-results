@@ -155,4 +155,96 @@ line 2 with &amp; special &gt; chars</failure></testcase>
   it('throws for XML with neither testsuite nor testsuites', () => {
     expect(() => splitJUnitXml('<root></root>')).toThrow('Invalid JUnit XML format');
   });
+
+  it('drops a suite with zero testcases from both output files', () => {
+    const xml = buildXml(`
+      <testsuite name="HasFailure" tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="t1" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+      <testsuite name="Empty" tests="0" failures="0" errors="0" skipped="0" time="0"/>
+    `);
+
+    const result = splitJUnitXml(xml);
+    const dataA = parseJUnitXML(result.fileAXml);
+    const dataB = parseJUnitXML(result.fileBXml);
+
+    expect(dataA.suites.map((s) => s.name)).not.toContain('Empty');
+    expect(dataB.suites.map((s) => s.name)).not.toContain('Empty');
+  });
+
+  it('treats a missing or non-numeric testcase time as 0 when summing suite time', () => {
+    const xml = buildXml(`
+      <testsuite name="Suite" tests="2" failures="2" errors="0" skipped="0" time="0">
+        <testcase name="t1" classname="C"><failure message="m" type="E">x</failure></testcase>
+        <testcase name="t2" classname="C" time="not-a-number"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+    `);
+
+    const result = splitJUnitXml(xml);
+
+    expect(result.totalFailed).toBe(2);
+    const dataA = parseJUnitXML(result.fileAXml);
+    const dataB = parseJUnitXML(result.fileBXml);
+    expect(dataA.suites[0].time).toBe(0);
+    expect(dataB.suites[0].time).toBe(0);
+  });
+
+  it('splits a suite with no name attribute without crashing', () => {
+    const xml = buildXml(`
+      <testsuite tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="t1" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+    `);
+
+    const result = splitJUnitXml(xml);
+
+    expect(result.totalFailed).toBe(1);
+    expect(result.countA + result.countB).toBe(1);
+  });
+
+  it('falls back to empty strings when a failed testcase has no classname or name', () => {
+    const xml = buildXml(`
+      <testsuite name="Suite" tests="2" failures="2" errors="0" skipped="0" time="2">
+        <testcase time="1"><failure message="m" type="E">x</failure></testcase>
+        <testcase classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+    `);
+
+    const result = splitJUnitXml(xml);
+
+    expect(result.totalFailed).toBe(2);
+    expect(result.countA + result.countB).toBe(2);
+  });
+
+  it('sorts failures whose keys are already in descending order', () => {
+    const xml = buildXml(`
+      <testsuite name="Suite" tests="2" failures="2" errors="0" skipped="0" time="2">
+        <testcase name="zzz" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+        <testcase name="aaa" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+    `);
+
+    const result = splitJUnitXml(xml);
+
+    expect(result.totalFailed).toBe(2);
+    expect(result.countA + result.countB).toBe(2);
+  });
+
+  it('breaks ties deterministically when two suites produce identical sort keys', () => {
+    const xml = buildXml(`
+      <testsuite name="Dup" tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="same" classname="C" time="1"><failure message="m1" type="E">x</failure></testcase>
+      </testsuite>
+      <testsuite name="Dup" tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="same" classname="C" time="1"><failure message="m2" type="E">x</failure></testcase>
+      </testsuite>
+    `);
+
+    const first = splitJUnitXml(xml);
+    const second = splitJUnitXml(xml);
+
+    expect(first.countA + first.countB).toBe(2);
+    expect(second.fileAXml).toBe(first.fileAXml);
+    expect(second.fileBXml).toBe(first.fileBXml);
+  });
 });

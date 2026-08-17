@@ -154,6 +154,42 @@ describe('useChartRenderComplete', () => {
     chartContainer.remove();
   });
 
+  it('should ignore mutations that are neither childList nor attributes', () => {
+    // Add a mock chart container to the DOM
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'recharts-responsive-container';
+    document.body.appendChild(chartContainer);
+
+    renderHook(() => useChartRenderComplete([]));
+
+    // Remove the indicator added by the initial synchronous check
+    document.querySelector('.chart-render-complete')?.remove();
+
+    const mockMutations: MutationRecord[] = [
+      {
+        type: 'characterData',
+        target: chartContainer,
+        addedNodes: document.createDocumentFragment().childNodes,
+        removedNodes: document.createDocumentFragment().childNodes,
+        previousSibling: null,
+        nextSibling: null,
+        attributeName: null,
+        attributeNamespace: null,
+        oldValue: null
+      }
+    ];
+
+    act(() => {
+      mockMutationCallback(mockMutations, null as unknown as MutationObserver);
+    });
+
+    // A characterData mutation should not trigger the indicator to be (re-)added
+    expect(document.querySelector('.chart-render-complete')).toBeNull();
+
+    // Clean up
+    chartContainer.remove();
+  });
+
   it('should not add duplicate chart-render-complete elements', () => {
     // Pre-add a chart-render-complete element
     const existing = document.createElement('div');
