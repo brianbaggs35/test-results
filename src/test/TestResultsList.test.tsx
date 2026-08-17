@@ -15,32 +15,44 @@ vi.mock('../components/Dashboard/TestDetailsModal', () => ({
 }));
 
 vi.mock('../components/Dashboard/FilterControls', () => ({
-  FilterControls: ({ 
-    searchTerm, 
-    setSearchTerm, 
-    statusFilter, 
+  FilterControls: ({
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
     setStatusFilter,
+    suiteFilter,
+    setSuiteFilter,
+    classNameFilter,
+    setClassNameFilter,
     showFilters,
     setShowFilters,
+    suites,
+    classNames,
     resetFilters
   }: {
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     statusFilter: string;
     setStatusFilter: (status: string) => void;
+    suiteFilter: string;
+    setSuiteFilter: (suite: string) => void;
+    classNameFilter: string;
+    setClassNameFilter: (className: string) => void;
     showFilters: boolean;
     setShowFilters: (show: boolean) => void;
+    suites: string[];
+    classNames: string[];
     resetFilters: () => void;
   }) => (
     <div data-testid="filter-controls">
-      <input 
-        value={searchTerm} 
+      <input
+        value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         placeholder="Search tests..."
         data-testid="search-input"
       />
-      <select 
-        value={statusFilter} 
+      <select
+        value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         data-testid="status-filter"
       >
@@ -48,6 +60,20 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
         <option value="passed">Passed</option>
         <option value="failed">Failed</option>
         <option value="skipped">Skipped</option>
+      </select>
+      <select
+        value={suiteFilter}
+        onChange={(e) => setSuiteFilter(e.target.value)}
+        data-testid="suite-filter"
+      >
+        {suites.map((suite) => <option key={suite} value={suite}>{suite}</option>)}
+      </select>
+      <select
+        value={classNameFilter}
+        onChange={(e) => setClassNameFilter(e.target.value)}
+        data-testid="classname-filter"
+      >
+        {classNames.map((className) => <option key={className} value={className}>{className}</option>)}
       </select>
       <button onClick={() => setShowFilters(!showFilters)} data-testid="toggle-filters">
         Toggle Filters
@@ -257,8 +283,9 @@ describe('TestResultsList', () => {
   it('should display suite information for each test', () => {
     render(<TestResultsList testData={mockTestData} />);
 
-    expect(screen.getAllByText('Auth Suite')).toHaveLength(3);
-    expect(screen.getAllByText('API Suite')).toHaveLength(3);
+    // 3 table rows plus 1 option in the suite filter dropdown
+    expect(screen.getAllByText('Auth Suite')).toHaveLength(4);
+    expect(screen.getAllByText('API Suite')).toHaveLength(4);
   });
 
   it('should display test duration', () => {
@@ -330,8 +357,9 @@ describe('TestResultsList', () => {
   it('should display class names when available', () => {
     render(<TestResultsList testData={mockTestData} />);
 
-    expect(screen.getAllByText('AuthTests')).toHaveLength(3);
-    expect(screen.getAllByText('APITests')).toHaveLength(3);
+    // 3 table rows plus 1 option in the class name filter dropdown
+    expect(screen.getAllByText('AuthTests')).toHaveLength(4);
+    expect(screen.getAllByText('APITests')).toHaveLength(4);
   });
 
   it('should handle complex search with classname matching', async () => {
@@ -392,6 +420,41 @@ describe('TestResultsList', () => {
 
     // Tests should be sorted by classname
     expect(screen.getByText('Login Test')).toBeInTheDocument();
+  });
+
+  it('should filter results by suite', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    await user.selectOptions(screen.getByTestId('suite-filter'), 'Auth Suite');
+
+    expect(screen.getByText('Login Test')).toBeInTheDocument();
+    expect(screen.queryByText('GET Test')).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 3 of 6 tests')).toBeInTheDocument();
+  });
+
+  it('should filter results by classname', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    await user.selectOptions(screen.getByTestId('classname-filter'), 'APITests');
+
+    expect(screen.getByText('GET Test')).toBeInTheDocument();
+    expect(screen.queryByText('Login Test')).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 3 of 6 tests')).toBeInTheDocument();
+  });
+
+  it('should reverse sort direction when clicking the suite, class name, status, and duration headers twice', async () => {
+    const user = userEvent.setup();
+    render(<TestResultsList testData={mockTestData} />);
+
+    for (const label of ['Suite', 'Class Name', 'Status', 'Duration']) {
+      const header = screen.getByText(label);
+      await user.click(header);
+      await user.click(header);
+    }
+
+    expect(screen.getByText('Showing 6 of 6 tests')).toBeInTheDocument();
   });
 
   it('should reverse sort when clicking same header twice', async () => {

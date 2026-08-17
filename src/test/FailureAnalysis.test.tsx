@@ -198,6 +198,41 @@ describe('FailureAnalysis', () => {
     expect(screen.getByText('Expected 5 but got 3')).toBeInTheDocument();
   });
 
+  it('should show a fallback message when a failed test has no error message', () => {
+    const testData: TestData = {
+      summary: {
+        total: 1,
+        passed: 0,
+        failed: 1,
+        skipped: 0,
+        time: 15.0
+      },
+      suites: [
+        {
+          name: 'Suite 1',
+          tests: 1,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 15.0,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [
+            {
+              name: 'Failed Test',
+              status: 'failed',
+              suite: 'Suite 1',
+              time: 15.0
+            }
+          ]
+        }
+      ]
+    };
+
+    render(<FailureAnalysis testData={testData} />);
+
+    expect(screen.getByText('No error message provided')).toBeInTheDocument();
+  });
+
   it('should display classname when available', () => {
     const testData: TestData = {
       summary: {

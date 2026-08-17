@@ -352,10 +352,97 @@ describe('parseJUnitXML', () => {
 <testsuite name="Test Suite" tests="1" failures="0" errors="0" time="0.123">
   <testcase classname="TestClass" time="0.1"/>
 </testsuite>`;
-      
+
       const result = parseJUnitXML(xml);
-      
+
       expect(result.suites[0].testcases[0].name).toBe('Unnamed Test');
+    });
+  });
+
+  describe('missing optional sub-fields', () => {
+    it('should default failure message and use fallback empty string for missing failure message', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="1" errors="0" time="0.123">
+  <testcase name="test1" classname="TestClass" time="0.1">
+    <failure type="AssertionError">Some details</failure>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].errorMessage).toBe('Test failed');
+      expect(result.suites[0].testcases[0].failureDetails).toEqual({
+        message: '',
+        type: 'AssertionError',
+        stackTrace: 'Some details'
+      });
+    });
+
+    it('should default failure type and stack trace when only a message is present', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="1" errors="0" time="0.123">
+  <testcase name="test1" classname="TestClass" time="0.1">
+    <failure message="Boom"/>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].failureDetails).toEqual({
+        message: 'Boom',
+        type: '',
+        stackTrace: ''
+      });
+    });
+
+    it('should default error message and use fallback empty string for missing error message', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="1" time="0.123">
+  <testcase name="test1" classname="TestClass" time="0.1">
+    <error type="RuntimeError">Some details</error>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].errorMessage).toBe('Test error');
+      expect(result.suites[0].testcases[0].failureDetails).toEqual({
+        message: '',
+        type: 'RuntimeError',
+        stackTrace: 'Some details'
+      });
+    });
+
+    it('should default error type and stack trace when only a message is present', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="1" time="0.123">
+  <testcase name="test1" classname="TestClass" time="0.1">
+    <error message="Boom"/>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].failureDetails).toEqual({
+        message: 'Boom',
+        type: '',
+        stackTrace: ''
+      });
+    });
+
+    it('should default classname and time when a testcase omits them entirely', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Test Suite" tests="1" failures="0" errors="0" time="0">
+  <testcase name="test1"/>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0]).toMatchObject({
+        name: 'test1',
+        classname: '',
+        time: 0
+      });
     });
   });
 });

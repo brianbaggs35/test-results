@@ -101,6 +101,43 @@ describe('combineExportBundles', () => {
     expect(testData.suites[0].testcases[0].status).toBe('failed');
   });
 
+  it('falls back to an empty classname when deduplicating testcases by key', () => {
+    const a = bundle([
+      suite({ name: 'S', testcases: [tc({ name: 'x', status: 'passed', classname: undefined })] }),
+    ]);
+    const b = bundle([
+      suite({ name: 'S', testcases: [tc({ name: 'x', status: 'passed', classname: undefined })] }),
+    ]);
+
+    const { testData } = combineExportBundles(a, b);
+
+    expect(testData.suites[0].testcases).toHaveLength(1);
+  });
+
+  it('keeps the existing entry when the conflicting testcase from the other file is not the failed one', () => {
+    const a = bundle([suite({ name: 'S', testcases: [tc({ name: 'flaky', status: 'failed' })] })]);
+    const b = bundle([suite({ name: 'S', testcases: [tc({ name: 'flaky', status: 'passed' })] })]);
+
+    const { testData, warnings } = combineExportBundles(a, b);
+
+    expect(warnings).toContainEqual(expect.stringMatching(/different status/i));
+    expect(testData.suites[0].testcases).toHaveLength(1);
+    expect(testData.suites[0].testcases[0].status).toBe('failed');
+  });
+
+  it('falls back to a generated timestamp when neither side has one for a merged suite', () => {
+    const a = bundle([
+      suite({ name: 'NoTs', testcases: [tc({ name: 'a', status: 'passed' })], timestamp: undefined }),
+    ]);
+    const b = bundle([
+      suite({ name: 'NoTs', testcases: [tc({ name: 'b', status: 'passed' })], timestamp: undefined }),
+    ]);
+
+    const { testData } = combineExportBundles(a, b);
+
+    expect(Number.isNaN(new Date(testData.suites[0].timestamp).getTime())).toBe(false);
+  });
+
   it('sums failures/errors from each side rather than re-deriving them from testcase status', () => {
     const a = bundle([
       { ...suite({ name: 'S', testcases: [tc({ name: 'e1', status: 'failed' })] }), failures: 0, errors: 1 },

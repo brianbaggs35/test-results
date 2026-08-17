@@ -44,8 +44,8 @@ export default defineConfig({
         'eslint.config.cjs',
         'vite.config.ts',
         'playwright.config.ts',
-        'tailwind.config.js',
-        'postcss.config.js',
+        'tailwind.config.ts',
+        'postcss.config.ts',
         'src/index.tsx',
         'src/types/**'
       ],

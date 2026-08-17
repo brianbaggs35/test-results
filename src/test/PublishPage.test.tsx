@@ -399,6 +399,35 @@ describe('PublishPage', () => {
     expect(callBody.xmlContent).toBe('<testsuites><testsuite name="s1"></testsuite></testsuites>');
   });
 
+  it('should ignore a file input change when no file was selected', async () => {
+    render(<PublishPage xmlContent={null} />);
+
+    const fileInput = screen.getByTestId('xml-file-input');
+    fireEvent.change(fileInput, { target: { files: [] } });
+
+    // No file name should be displayed since the selection was cancelled
+    expect(screen.queryByText('Change File')).not.toBeInTheDocument();
+  });
+
+  it('should fall back to stderr for successful output when stdout is empty', async () => {
+    const user = userEvent.setup();
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true, stdout: '', stderr: 'warnings: none' }),
+    });
+    global.fetch = mockFetch;
+
+    render(<PublishPage xmlContent="<test>xml</test>" />);
+
+    await user.type(screen.getByLabelText('Run Name'), 'Run');
+    await user.type(screen.getByLabelText('Title'), 'Title');
+
+    fireEvent.click(screen.getByText('Publish'));
+
+    await waitFor(() => {
+      expect(screen.getByText('warnings: none')).toBeInTheDocument();
+    });
+  });
+
   it('should use error message from API result when no specific error', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({

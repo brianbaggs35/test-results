@@ -1,11 +1,48 @@
 import { XMLParser } from 'fast-xml-parser';
-export const parseJUnitXML = xmlContent => {
+import type { TestData, TestSuite, TestCase } from '../types';
+
+interface RawFailureOrError {
+  message?: string;
+  type?: string;
+  '#text'?: string;
+}
+
+interface RawTestCase {
+  name?: string;
+  classname?: string;
+  time?: string;
+  failure?: string | RawFailureOrError;
+  error?: string | RawFailureOrError;
+  skipped?: string;
+}
+
+interface RawTestSuite {
+  name?: string;
+  tests?: string;
+  failures?: string;
+  errors?: string;
+  skipped?: string;
+  time?: string;
+  timestamp?: string;
+  testcase?: RawTestCase | RawTestCase[];
+}
+
+interface RawTestSuites {
+  testsuite?: RawTestSuite | RawTestSuite[];
+}
+
+interface RawJUnitXML {
+  testsuites?: RawTestSuites;
+  testsuite?: RawTestSuite;
+}
+
+export const parseJUnitXML = (xmlContent: string): TestData => {
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: ''
   });
   try {
-    const result = parser.parse(xmlContent);
+    const result: RawJUnitXML = parser.parse(xmlContent);
     // Process testsuites (multiple suites case)
     if (result.testsuites) {
       return processTestSuites(result.testsuites.testsuite || []);
@@ -20,7 +57,8 @@ export const parseJUnitXML = xmlContent => {
     throw error;
   }
 };
-const processTestSuites = suites => {
+
+const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
   // Ensure suites is an array
   const suitesArray = Array.isArray(suites) ? suites : [suites];
   let totalTests = 0;
@@ -28,15 +66,15 @@ const processTestSuites = suites => {
   let totalFailed = 0;
   let totalSkipped = 0;
   let totalTime = 0;
-  const processedSuites = suitesArray.map(suite => {
+  const processedSuites: TestSuite[] = suitesArray.map(suite => {
     // Extract basic suite info
-    const suiteInfo = {
+    const suiteInfo: TestSuite = {
       name: suite.name || 'Unknown Suite',
-      tests: parseInt(suite.tests || 0),
-      failures: parseInt(suite.failures || 0),
-      errors: parseInt(suite.errors || 0),
-      skipped: parseInt(suite.skipped || 0),
-      time: parseFloat(suite.time || 0),
+      tests: parseInt(suite.tests || '0'),
+      failures: parseInt(suite.failures || '0'),
+      errors: parseInt(suite.errors || '0'),
+      skipped: parseInt(suite.skipped || '0'),
+      time: parseFloat(suite.time || '0'),
       timestamp: suite.timestamp || new Date().toISOString(),
       testcases: []
     };
@@ -48,10 +86,10 @@ const processTestSuites = suites => {
     // Process testcases if available
     if (suite.testcase) {
       const testcases = Array.isArray(suite.testcase) ? suite.testcase : [suite.testcase];
-      suiteInfo.testcases = testcases.map(testcase => {
-        let status = 'passed';
-        let errorMessage = null;
-        let failureDetails = null;
+      suiteInfo.testcases = testcases.map((testcase): TestCase => {
+        let status: 'passed' | 'failed' | 'skipped' = 'passed';
+        let errorMessage: string | null = null;
+        let failureDetails: { message: string; type: string; stackTrace: string } | null = null;
         if (testcase.failure) {
           status = 'failed';
           // Handle both string and object failure messages

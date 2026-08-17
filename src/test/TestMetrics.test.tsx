@@ -32,7 +32,7 @@ interface LegendEntry {
 }
 
 type PieLabelFunction = (props: PieLabelProps) => React.ReactNode | null;
-type TooltipContentFunction = (props: TooltipProps) => React.ReactNode | null;
+type TooltipContentElement = React.ReactElement<TooltipProps>;
 type LegendFormatterFunction = (value: string, entry: LegendEntry) => React.ReactNode;
 
 // Mock recharts components
@@ -66,9 +66,12 @@ vi.mock('recharts', () => ({
   XAxis: ({ dataKey }: { dataKey?: string }) => <div data-testid="x-axis" data-key={dataKey} />,
   YAxis: () => <div data-testid="y-axis" />,
   CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: ({ content }: { content?: TooltipContentFunction }) => {
-    // Call the content function if provided to trigger CustomTooltip
-    if (content && typeof content === 'function') {
+  Tooltip: ({ content }: { content?: TooltipContentElement }) => {
+    // recharts accepts `content` as an element (not just a function), which is how
+    // TestMetrics.tsx passes it (`<Tooltip content={<CustomTooltip />} />`). Cloning it
+    // with different props actually renders the real CustomTooltip closure under test,
+    // rather than a function-call shape that never matches how it's really invoked.
+    if (content) {
       const mockPayload = [{
         payload: {
           name: 'Passed',
@@ -76,15 +79,12 @@ vi.mock('recharts', () => ({
           description: '85 tests passed successfully'
         }
       }];
-      const result1 = content({ active: true, payload: mockPayload });
-      const result2 = content({ active: false });
-      const result3 = content({ active: true, payload: [] });
-      // Render any returned content to ensure functions are executed
       return (
         <div data-testid="tooltip">
-          {result1}
-          {result2}
-          {result3}
+          {React.cloneElement(content, { active: true, payload: mockPayload })}
+          {React.cloneElement(content, { active: false })}
+          {React.cloneElement(content, { active: true, payload: [] })}
+          {React.cloneElement(content, { active: true })}
         </div>
       );
     }
@@ -173,10 +173,11 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={mockTestData} />);
 
     const passedElements = screen.getAllByText('85');
-    const passedLabel = screen.getByText('Passed');
-    
+    // Appears in the legend/summary label plus the (now correctly exercised) tooltip preview
+    const passedLabels = screen.getAllByText('Passed');
+
     expect(passedElements.length).toBeGreaterThan(0);
-    expect(passedLabel).toBeInTheDocument();
+    expect(passedLabels.length).toBeGreaterThan(0);
   });
 
   it('should display failed tests count and label', () => {
