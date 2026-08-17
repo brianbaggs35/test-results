@@ -375,7 +375,7 @@ describe('FailureAnalysisProgress', () => {
     });
 
     it('should export the current testData and progress when clicked', () => {
-      const spy = vi.spyOn(exportBundleUtil, 'exportProgressBundle').mockImplementation(() => {});
+      const spy = vi.spyOn(exportBundleUtil, 'exportProgressBundle').mockImplementation(async () => {});
       const testData = createTestDataWithFailures(3);
       render(<FailureAnalysisProgress testData={testData} />);
 
@@ -386,6 +386,130 @@ describe('FailureAnalysisProgress', () => {
       expect(exportedData).toBe(testData);
       expect(Object.keys(exportedProgress)).toHaveLength(3);
       spy.mockRestore();
+    });
+  });
+
+  describe('Import Progress', () => {
+    it('should be disabled when there are no failed tests', () => {
+      const testData = createTestDataWithFailures(0);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      expect(screen.getByText('Import Progress').closest('button')).toBeDisabled();
+    });
+
+    it('should restore status, notes, and assignee from an imported file for a matching test', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const testId = 'TestSuite1-test0_0';
+      const bundle = {
+        version: 1,
+        testData,
+        progress: {
+          [testId]: {
+            id: testId,
+            name: 'test0_0',
+            suite: 'TestSuite1',
+            status: 'completed',
+            notes: 'Fixed the flaky assertion',
+            assignee: 'Jane Doe',
+            updatedAt: '2024-03-01T00:00:00Z',
+          },
+        },
+      };
+      const file = new File([JSON.stringify(bundle)], 'export.json', { type: 'application/json' });
+
+      await user.upload(screen.getByLabelText('Upload progress export file'), file);
+
+      expect(await screen.findByText(/Imported progress for 1 test/)).toBeInTheDocument();
+      expect(screen.getByText('Fixed the flaky assertion')).toBeInTheDocument();
+      expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+    });
+
+    it('should report entries in the file that no longer match a currently loaded test', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const testId = 'TestSuite1-test0_0';
+      const bundle = {
+        version: 1,
+        testData,
+        progress: {
+          [testId]: { id: testId, name: 'test0_0', suite: 'TestSuite1', status: 'completed' },
+          'TestSuite1-longGone': { id: 'TestSuite1-longGone', name: 'longGone', suite: 'TestSuite1', status: 'completed' },
+        },
+      };
+      const file = new File([JSON.stringify(bundle)], 'export.json', { type: 'application/json' });
+
+      await user.upload(screen.getByLabelText('Upload progress export file'), file);
+
+      expect(await screen.findByText(/Imported progress for 1 test/)).toBeInTheDocument();
+      expect(screen.getByText(/1 entry in the file didn't match a test in the currently loaded results/)).toBeInTheDocument();
+    });
+
+    it('should show an error when the imported file is not valid JSON', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const file = new File(['not json'], 'bad.json', { type: 'application/json' });
+      await user.upload(screen.getByLabelText('Upload progress export file'), file);
+
+      expect(await screen.findByText(/not valid JSON/)).toBeInTheDocument();
+    });
+
+    it('should reject a file exported from a different XML with no overlapping tests', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const otherTestData = createTestDataWithFailures(1);
+      otherTestData.suites[0].name = 'CompletelyDifferentSuite';
+      otherTestData.suites[0].testcases[0].name = 'completelyDifferentTest';
+      const bundle = {
+        version: 1,
+        testData: otherTestData,
+        progress: {
+          'CompletelyDifferentSuite-completelyDifferentTest': {
+            id: 'CompletelyDifferentSuite-completelyDifferentTest',
+            name: 'completelyDifferentTest',
+            suite: 'CompletelyDifferentSuite',
+            status: 'completed',
+          },
+        },
+      };
+      const file = new File([JSON.stringify(bundle)], 'export-a.json', { type: 'application/json' });
+
+      await user.upload(screen.getByLabelText('Upload progress export file'), file);
+
+      expect(await screen.findByText(/doesn't match the currently loaded results/)).toBeInTheDocument();
+      // Nothing should have been imported - the original pending status is untouched.
+      expect(screen.queryByText(/Imported progress for/)).not.toBeInTheDocument();
+    });
+
+    it('should persist imported progress to localStorage', async () => {
+      const setItemSpy = vi.spyOn(window.localStorage, 'setItem');
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      const testId = 'TestSuite1-test0_0';
+      const bundle = {
+        version: 1,
+        testData,
+        progress: {
+          [testId]: { id: testId, name: 'test0_0', suite: 'TestSuite1', status: 'in_progress', assignee: 'Sam' },
+        },
+      };
+      const file = new File([JSON.stringify(bundle)], 'export.json', { type: 'application/json' });
+
+      await user.upload(screen.getByLabelText('Upload progress export file'), file);
+      await screen.findByText(/Imported progress for 1 test/);
+
+      expect(setItemSpy).toHaveBeenCalledWith('testFixProgress', expect.stringContaining('"assignee":"Sam"'));
+      setItemSpy.mockRestore();
     });
   });
 

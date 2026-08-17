@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "testData": {
+    "summary": {
+      "total": 9,
+      "passed": 5,
+      "failed": 4,
+      "skipped": 0,
+      "time": 4.5
+    },
+    "suites": [
+      {
+        "name": "Suite A",
+        "tests": 4,
+        "failures": 2,
+        "errors": 0,
+        "skipped": 0,
+        "time": 2.0,
+        "timestamp": "2026-08-14T00:00:00Z",
+        "testcases": [
+          { "name": "test1", "classname": "SuiteA.TestClass1", "time": 0.5, "status": "passed", "errorMessage": null, "failureDetails": null },
+          { "name": "test2", "classname": "SuiteA.TestClass2", "time": 0.5, "status": "failed", "errorMessage": "Test failed", "failureDetails": { "message": "Test failed", "type": "AssertionError", "stackTrace": "First failure in Suite A" } },
+          { "name": "test3", "classname": "SuiteA.TestClass3", "time": 0.5, "status": "failed", "errorMessage": "Another failure", "failureDetails": { "message": "Another failure", "type": "AssertionError", "stackTrace": "Second failure in Suite A" } },
+          { "name": "test4", "classname": "SuiteA.TestClass4", "time": 0.5, "status": "passed", "errorMessage": null, "failureDetails": null }
+        ]
+      },
+      {
+        "name": "Suite B",
+        "tests": 3,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "time": 1.5,
+        "timestamp": "2026-08-14T00:00:00Z",
+        "testcases": [
+          { "name": "test1", "classname": "SuiteB.TestClass1", "time": 0.5, "status": "passed", "errorMessage": null, "failureDetails": null },
+          { "name": "test2", "classname": "SuiteB.TestClass2", "time": 0.5, "status": "failed", "errorMessage": "Failed in Suite B", "failureDetails": { "message": "Failed in Suite B", "type": "AssertionError", "stackTrace": "Failure in Suite B" } },
+          { "name": "test3", "classname": "SuiteB.TestClass3", "time": 0.5, "status": "passed", "errorMessage": null, "failureDetails": null }
+        ]
+      },
+      {
+        "name": "Suite C",
+        "tests": 2,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "time": 1.0,
+        "timestamp": "2026-08-14T00:00:00Z",
+        "testcases": [
+          { "name": "test1", "classname": "SuiteC.TestClass1", "time": 0.5, "status": "failed", "errorMessage": "Failed in Suite C", "failureDetails": { "message": "Failed in Suite C", "type": "AssertionError", "stackTrace": "Failure in Suite C" } },
+          { "name": "test2", "classname": "SuiteC.TestClass2", "time": 0.5, "status": "passed", "errorMessage": null, "failureDetails": null }
+        ]
+      }
+    ]
+  },
+  "progress": {
+    "Suite A-test2": {
+      "id": "Suite A-test2",
+      "name": "test2",
+      "suite": "Suite A",
+      "errorMessage": "Test failed",
+      "status": "completed",
+      "notes": "Fixed the null pointer issue",
+      "assignee": "Dana",
+      "updatedAt": "2026-08-15T00:00:00Z"
+    },
+    "Suite A-test3": {
+      "id": "Suite A-test3",
+      "name": "test3",
+      "suite": "Suite A",
+      "errorMessage": "Another failure",
+      "status": "in_progress",
+      "notes": "Investigating",
+      "assignee": "Sam",
+      "updatedAt": "2026-08-15T00:00:00Z"
+    },
+    "Suite Z-testX": {
+      "id": "Suite Z-testX",
+      "name": "testX",
+      "suite": "Suite Z",
+      "status": "pending"
+    }
+  }
+}

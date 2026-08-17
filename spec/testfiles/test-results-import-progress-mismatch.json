@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "testData": {
+    "summary": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "time": 0.5
+    },
+    "suites": [
+      {
+        "name": "Unrelated Suite",
+        "tests": 1,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "time": 0.5,
+        "timestamp": "2026-08-01T00:00:00Z",
+        "testcases": [
+          { "name": "unrelatedTest", "classname": "Unrelated.TestClass", "time": 0.5, "status": "failed", "errorMessage": "Boom", "failureDetails": { "message": "Boom", "type": "Error", "stackTrace": "boom" } }
+        ]
+      }
+    ]
+  },
+  "progress": {
+    "Unrelated Suite-unrelatedTest": {
+      "id": "Unrelated Suite-unrelatedTest",
+      "name": "unrelatedTest",
+      "suite": "Unrelated Suite",
+      "status": "completed"
+    }
+  }
+}
