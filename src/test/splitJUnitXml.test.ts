@@ -230,6 +230,30 @@ line 2 with &amp; special &gt; chars</failure></testcase>
     expect(result.countA + result.countB).toBe(2);
   });
 
+  it('splits 1000 failures into exactly 500/500 with zero overlap between the two files', () => {
+    let testcases = '';
+    for (let i = 0; i < 1000; i++) {
+      testcases += `<testcase name="test${i}" classname="C${i % 7}" time="1"><failure message="m" type="E">x</failure></testcase>\n`;
+    }
+    const xml = buildXml(
+      `<testsuite name="Big" tests="1000" failures="1000" errors="0" skipped="0" time="1000">${testcases}</testsuite>`,
+    );
+
+    const result = splitJUnitXml(xml);
+
+    expect(result.totalFailed).toBe(1000);
+    expect(result.countA).toBe(500);
+    expect(result.countB).toBe(500);
+
+    const dataA = parseJUnitXML(result.fileAXml);
+    const dataB = parseJUnitXML(result.fileBXml);
+    const namesA = dataA.suites.flatMap((s) => s.testcases.map((t) => `${s.name}/${t.classname}/${t.name}`));
+    const namesB = dataB.suites.flatMap((s) => s.testcases.map((t) => `${s.name}/${t.classname}/${t.name}`));
+
+    expect(namesA.filter((n) => namesB.includes(n))).toEqual([]);
+    expect(new Set([...namesA, ...namesB]).size).toBe(1000);
+  });
+
   it('breaks ties deterministically when two suites produce identical sort keys', () => {
     const xml = buildXml(`
       <testsuite name="Dup" tests="1" failures="1" errors="0" skipped="0" time="1">

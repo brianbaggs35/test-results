@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { combineExportBundles } from '../utils/combineResults';
+import { testIdentityKey } from '../utils/testIdentity';
 import type { ExportBundle, TestCase, TestSuite } from '../types';
 
 function tc(overrides: Partial<TestCase> & Pick<TestCase, 'name' | 'status'>): TestCase {
@@ -151,5 +152,64 @@ describe('combineExportBundles', () => {
     expect(testData.suites[0].failures).toBe(1);
     expect(testData.suites[0].errors).toBe(1);
     expect(testData.summary.failed).toBe(2);
+  });
+
+  it('keeps two failed tests distinct when they share a name but differ by classname', () => {
+    // Regression test: the old testcaseKey ignored classname, so a suite
+    // with two same-named failures from different classes would silently
+    // dedupe down to one.
+    const a = bundle([
+      suite({ name: 'S', testcases: [tc({ name: 'test1', classname: 'ClassA', status: 'failed' })] }),
+    ]);
+    const b = bundle([
+      suite({ name: 'S', testcases: [tc({ name: 'test1', classname: 'ClassB', status: 'failed' })] }),
+    ]);
+
+    const { testData } = combineExportBundles(a, b);
+
+    expect(testData.suites[0].testcases).toHaveLength(2);
+    expect(testData.summary.failed).toBe(2);
+  });
+
+  it('merges progress entries for two different tests that happen to share a name across classes', () => {
+    // Regression test: progress ids that ignore classname collide here,
+    // silently overwriting one teammate's notes/status with the other's.
+    const idA = testIdentityKey('S', 'ClassA', 'test1');
+    const idB = testIdentityKey('S', 'ClassB', 'test1');
+    const a = bundle(
+      [suite({ name: 'S', testcases: [tc({ name: 'test1', classname: 'ClassA', status: 'failed' })] })],
+      { [idA]: { id: idA, name: 'test1', suite: 'S', status: 'completed', notes: 'Alice fixed this' } },
+    );
+    const b = bundle(
+      [suite({ name: 'S', testcases: [tc({ name: 'test1', classname: 'ClassB', status: 'failed' })] })],
+      { [idB]: { id: idB, name: 'test1', suite: 'S', status: 'in_progress', notes: 'Bob investigating' } },
+    );
+
+    const { progress } = combineExportBundles(a, b);
+
+    expect(Object.keys(progress)).toHaveLength(2);
+    expect(progress[idA].notes).toBe('Alice fixed this');
+    expect(progress[idB].notes).toBe('Bob investigating');
+  });
+
+  it('does not drop testcases when a suite name is duplicated and both duplicates land in the same half', () => {
+    // Regression test: the old suite lookup used .find(), which only reads
+    // the first suite matching a name and silently drops any others.
+    const a = bundle([
+      suite({ name: 'Dup', testcases: [tc({ name: 'alpha', status: 'failed' })] }),
+      suite({ name: 'Dup', testcases: [tc({ name: 'charlie', status: 'failed' })] }),
+    ]);
+    const b = bundle([
+      suite({ name: 'Dup', testcases: [tc({ name: 'bravo', status: 'failed' })] }),
+      suite({ name: 'Dup', testcases: [tc({ name: 'delta', status: 'failed' })] }),
+    ]);
+
+    const { testData } = combineExportBundles(a, b);
+
+    const dupNames = testData.suites
+      .filter((s) => s.name === 'Dup')
+      .flatMap((s) => s.testcases.map((t) => t.name));
+    expect(new Set(dupNames)).toEqual(new Set(['alpha', 'bravo', 'charlie', 'delta']));
+    expect(testData.summary.failed).toBe(4);
   });
 });

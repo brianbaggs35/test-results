@@ -114,6 +114,47 @@ describe('buildExportBundle', () => {
 
     expect(bundleABtestC.structureHash).not.toBe(bundleAtestBC.structureHash);
   });
+
+  it('produces a different structureHash for two tests that share a name but differ by classname', async () => {
+    // Regression test: the hash used to fingerprint only (suite, test name),
+    // so a suite with two same-named tests from different classes looked
+    // structurally identical to one with only a single test of that name.
+    const oneClass: TestData = {
+      summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+      suites: [
+        {
+          name: 'S',
+          tests: 1,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 1,
+          timestamp: '2024-01-01T00:00:00Z',
+          testcases: [{ name: 'test1', classname: 'ClassA', status: 'failed', time: 1 }],
+        },
+      ],
+    };
+    const otherClass: TestData = {
+      summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+      suites: [
+        {
+          name: 'S',
+          tests: 1,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 1,
+          timestamp: '2024-01-01T00:00:00Z',
+          testcases: [{ name: 'test1', classname: 'ClassB', status: 'failed', time: 1 }],
+        },
+      ],
+    };
+
+    const bundleA = await buildExportBundle(oneClass, {});
+    const bundleB = await buildExportBundle(otherClass, {});
+
+    expect(bundleA.structureHash).not.toBe(bundleB.structureHash);
+  });
 });
 
 describe('exportProgressBundle', () => {

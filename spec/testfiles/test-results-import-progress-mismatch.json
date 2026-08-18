@@ -24,8 +24,8 @@
     ]
   },
   "progress": {
-    "Unrelated Suite-unrelatedTest": {
-      "id": "Unrelated Suite-unrelatedTest",
+    "[\"Unrelated Suite\",\"Unrelated.TestClass\",\"unrelatedTest\"]": {
+      "id": "[\"Unrelated Suite\",\"Unrelated.TestClass\",\"unrelatedTest\"]",
       "name": "unrelatedTest",
       "suite": "Unrelated Suite",
       "status": "completed"

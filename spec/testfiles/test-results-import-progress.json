@@ -54,8 +54,8 @@
     ]
   },
   "progress": {
-    "Suite A-test2": {
-      "id": "Suite A-test2",
+    "[\"Suite A\",\"SuiteA.TestClass2\",\"test2\"]": {
+      "id": "[\"Suite A\",\"SuiteA.TestClass2\",\"test2\"]",
       "name": "test2",
       "suite": "Suite A",
       "errorMessage": "Test failed",
@@ -64,8 +64,8 @@
       "assignee": "Dana",
       "updatedAt": "2026-08-15T00:00:00Z"
     },
-    "Suite A-test3": {
-      "id": "Suite A-test3",
+    "[\"Suite A\",\"SuiteA.TestClass3\",\"test3\"]": {
+      "id": "[\"Suite A\",\"SuiteA.TestClass3\",\"test3\"]",
       "name": "test3",
       "suite": "Suite A",
       "errorMessage": "Another failure",
@@ -74,8 +74,8 @@
       "assignee": "Sam",
       "updatedAt": "2026-08-15T00:00:00Z"
     },
-    "Suite Z-testX": {
-      "id": "Suite Z-testX",
+    "[\"Suite Z\",\"\",\"testX\"]": {
+      "id": "[\"Suite Z\",\"\",\"testX\"]",
       "name": "testX",
       "suite": "Suite Z",
       "status": "pending"

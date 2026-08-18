@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FailureAnalysisProgress } from '../components/FailureAnalysis/FailureAnalysisProgress';
 import * as exportBundleUtil from '../utils/exportBundle';
+import { testIdentityKey } from '../utils/testIdentity';
 
 // Helper function to create test data with failed tests
 function createTestDataWithFailures(numFailedTests: number) {
@@ -402,7 +403,7 @@ describe('FailureAnalysisProgress', () => {
       const testData = createTestDataWithFailures(1);
       render(<FailureAnalysisProgress testData={testData} />);
 
-      const testId = 'TestSuite1-test0_0';
+      const testId = testIdentityKey('TestSuite1', 'Class0_0', 'test0_0');
       const bundle = {
         version: 1,
         testData,
@@ -432,13 +433,14 @@ describe('FailureAnalysisProgress', () => {
       const testData = createTestDataWithFailures(1);
       render(<FailureAnalysisProgress testData={testData} />);
 
-      const testId = 'TestSuite1-test0_0';
+      const testId = testIdentityKey('TestSuite1', 'Class0_0', 'test0_0');
+      const longGoneId = testIdentityKey('TestSuite1', 'Class0_0', 'longGone');
       const bundle = {
         version: 1,
         testData,
         progress: {
           [testId]: { id: testId, name: 'test0_0', suite: 'TestSuite1', status: 'completed' },
-          'TestSuite1-longGone': { id: 'TestSuite1-longGone', name: 'longGone', suite: 'TestSuite1', status: 'completed' },
+          [longGoneId]: { id: longGoneId, name: 'longGone', suite: 'TestSuite1', status: 'completed' },
         },
       };
       const file = new File([JSON.stringify(bundle)], 'export.json', { type: 'application/json' });
@@ -468,12 +470,13 @@ describe('FailureAnalysisProgress', () => {
       const otherTestData = createTestDataWithFailures(1);
       otherTestData.suites[0].name = 'CompletelyDifferentSuite';
       otherTestData.suites[0].testcases[0].name = 'completelyDifferentTest';
+      const otherId = testIdentityKey('CompletelyDifferentSuite', 'Class0_0', 'completelyDifferentTest');
       const bundle = {
         version: 1,
         testData: otherTestData,
         progress: {
-          'CompletelyDifferentSuite-completelyDifferentTest': {
-            id: 'CompletelyDifferentSuite-completelyDifferentTest',
+          [otherId]: {
+            id: otherId,
             name: 'completelyDifferentTest',
             suite: 'CompletelyDifferentSuite',
             status: 'completed',
@@ -495,7 +498,7 @@ describe('FailureAnalysisProgress', () => {
       const testData = createTestDataWithFailures(1);
       render(<FailureAnalysisProgress testData={testData} />);
 
-      const testId = 'TestSuite1-test0_0';
+      const testId = testIdentityKey('TestSuite1', 'Class0_0', 'test0_0');
       const bundle = {
         version: 1,
         testData,

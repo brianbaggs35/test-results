@@ -1,10 +1,11 @@
 import type { ExportBundle, FailureProgressItem, TestData } from '../types';
 import { downloadFile, readFileAsText } from './download';
+import { testIdentityKey } from './testIdentity';
 
 function testcaseIds(data: TestData): string[] {
   const ids: string[] = [];
   data.suites.forEach((suite) => {
-    suite.testcases.forEach((tc) => ids.push(`${suite.name}-${tc.name}`));
+    suite.testcases.forEach((tc) => ids.push(testIdentityKey(suite.name, tc.classname, tc.name)));
   });
   return ids;
 }
@@ -13,19 +14,21 @@ function testcaseIds(data: TestData): string[] {
  * Fingerprints the *shape* of a test run — which suites and tests exist — while
  * ignoring outcome data (status, time, timestamps, pass/fail counts) that legitimately
  * differs between two runs of the exact same suite, and that many test runs otherwise
- * share (e.g. always "12 passed, 2 failed"). Each (suite, test) pair is JSON-encoded
- * before hashing so names containing punctuation can't be confused with a different
- * pair (e.g. suite "A-B" + test "C" would otherwise collide with suite "A" + test
- * "B-C" under naive string concatenation), the list is sorted so test order doesn't
- * matter, and real SHA-256 (Web Crypto) is used so two genuinely different suites —
- * even same-sized ones — have a negligible chance of ever fingerprinting the same.
- * Returns undefined if SubtleCrypto isn't available (e.g. a non-HTTPS, non-localhost
- * deployment); callers fall back to the looser overlap check in that case.
+ * share (e.g. always "12 passed, 2 failed"). Each (suite, class, test) triple uses the
+ * shared testIdentityKey so two different tests that happen to share a name across
+ * classes are never fingerprinted as the same identity, and so names containing
+ * punctuation can't be confused with a different triple under naive string
+ * concatenation (e.g. suite "A-B" + test "C" vs suite "A" + test "B-C"). The list is
+ * sorted so test order doesn't matter, and real SHA-256 (Web Crypto) is used so two
+ * genuinely different suites — even same-sized ones — have a negligible chance of
+ * ever fingerprinting the same. Returns undefined if SubtleCrypto isn't available
+ * (e.g. a non-HTTPS, non-localhost deployment); callers fall back to the looser
+ * overlap check in that case.
  */
 async function computeStructureHash(data: TestData): Promise<string | undefined> {
   if (typeof crypto === 'undefined' || !crypto.subtle) return undefined;
   const identities = data.suites
-    .flatMap((suite) => suite.testcases.map((tc) => JSON.stringify([suite.name, tc.name])))
+    .flatMap((suite) => suite.testcases.map((tc) => testIdentityKey(suite.name, tc.classname, tc.name)))
     .sort();
   const bytes = new TextEncoder().encode(identities.join('\n'));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -87,7 +90,7 @@ export interface ImportProgressResult {
  * XML's values, so stack traces keep coming from that XML rather than a stale export.
  *
  * Rejects the file outright if it doesn't appear to come from the currently loaded XML:
- * first by comparing `structureHash` (an exact fingerprint of suite/test names, ignoring
+ * first by comparing `structureHash` (an exact fingerprint of suite/class/test names, ignoring
  * outcome data that varies between reruns of the same suite), falling back to "do any of
  * its tests exist here at all" for exports made before that field existed. Without this,
  * importing progress from an unrelated file couldn't do anything useful, and any stack
