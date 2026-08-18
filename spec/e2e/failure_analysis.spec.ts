@@ -38,32 +38,32 @@ test.describe('Progress Page', () => {
     })
 
     expect(testFixProgress).toMatchObject({
-      'Suite A-test2': {
-        id: 'Suite A-test2',
+      '["Suite A","SuiteA.TestClass2","test2"]': {
+        id: '["Suite A","SuiteA.TestClass2","test2"]',
         name: 'test2',
         suite: 'Suite A',
         errorMessage: 'Test failed',
         status: 'pending',
         notes: '',
       },
-      'Suite A-test3': {
-        id: 'Suite A-test3',
+      '["Suite A","SuiteA.TestClass3","test3"]': {
+        id: '["Suite A","SuiteA.TestClass3","test3"]',
         name: 'test3',
         suite: 'Suite A',
         errorMessage: 'Another failure',
         status: 'pending',
         notes: '',
       },
-      'Suite B-test2': {
-        id: 'Suite B-test2',
+      '["Suite B","SuiteB.TestClass2","test2"]': {
+        id: '["Suite B","SuiteB.TestClass2","test2"]',
         name: 'test2',
         suite: 'Suite B',
         errorMessage: 'Failed in Suite B',
         status: 'pending',
         notes: '',
       },
-      'Suite C-test1': {
-        id: 'Suite C-test1',
+      '["Suite C","SuiteC.TestClass1","test1"]': {
+        id: '["Suite C","SuiteC.TestClass1","test1"]',
         name: 'test1',
         suite: 'Suite C',
         errorMessage: 'Failed in Suite C',
@@ -107,12 +107,12 @@ test.describe('Progress Page', () => {
       return value ? JSON.parse(value) : null
     })
 
-    expect(testFixProgress['Suite A-test2']).toMatchObject({
+    expect(testFixProgress['["Suite A","SuiteA.TestClass2","test2"]']).toMatchObject({
       status: 'completed',
       notes: 'Fixed the null pointer issue',
       assignee: 'Dana',
     })
-    expect(testFixProgress['Suite A-test3']).toMatchObject({
+    expect(testFixProgress['["Suite A","SuiteA.TestClass3","test3"]']).toMatchObject({
       status: 'in_progress',
       assignee: 'Sam',
     })
@@ -140,6 +140,6 @@ test.describe('Progress Page', () => {
       return value ? JSON.parse(value) : null
     })
 
-    expect(testFixProgress['Suite A-test2']).toMatchObject({ status: 'pending' })
+    expect(testFixProgress['["Suite A","SuiteA.TestClass2","test2"]']).toMatchObject({ status: 'pending' })
   })
 })

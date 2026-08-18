@@ -109,8 +109,8 @@
     ]
   },
   "progress": {
-    "Suite A-test2": {
-      "id": "Suite A-test2",
+    "[\"Suite A\",\"SuiteA.TestClass2\",\"test2\"]": {
+      "id": "[\"Suite A\",\"SuiteA.TestClass2\",\"test2\"]",
       "name": "test2",
       "suite": "Suite A",
       "errorMessage": "Test failed",
@@ -119,8 +119,8 @@
       "updatedAt": "2026-08-14T18:45:17.062Z",
       "assignee": "Tester A"
     },
-    "Suite B-test2": {
-      "id": "Suite B-test2",
+    "[\"Suite B\",\"SuiteB.TestClass2\",\"test2\"]": {
+      "id": "[\"Suite B\",\"SuiteB.TestClass2\",\"test2\"]",
       "name": "test2",
       "suite": "Suite B",
       "errorMessage": "Failed in Suite B",

@@ -7,6 +7,7 @@ import { BulkCommentModal, type BulkCommentResult } from './BulkCommentModal';
 import { FloatingBulkActionsBar } from './FloatingBulkActionsBar';
 import type { TestData, TestCase, FailureProgressItem } from '../../types';
 import { exportProgressBundle, importProgressBundle } from '../../utils/exportBundle';
+import { testIdentityKey } from '../../utils/testIdentity';
 
 interface FailureAnalysisProgressProps {
   testData: TestData | null;
@@ -52,7 +53,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
       const initialProgress: { [key: string]: FailureProgressItem } = {};
       testData.suites.forEach(suite => {
         suite.testcases.filter(test => test.status === 'failed').forEach(test => {
-          const id = `${suite.name}-${test.name}`;
+          const id = testIdentityKey(suite.name, test.classname, test.name);
           initialProgress[id] = {
             id,
             name: test.name,
