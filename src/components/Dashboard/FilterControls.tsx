@@ -59,7 +59,7 @@ export const FilterControls = ({
               <label htmlFor="filter-status" className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-              <select id="filter-status" name="filterStatus" className="w-full border border-gray-300 rounded-md px-3 py-2" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <select id="filter-status" name="filterStatus" className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                 {statusOptions ? (
                   statusOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -80,7 +80,7 @@ export const FilterControls = ({
               <label htmlFor="filter-suite" className="block text-sm font-medium text-gray-700 mb-1">
                 Test Suite
               </label>
-              <select id="filter-suite" name="filterSuite" className="w-full border border-gray-300 rounded-md px-3 py-2" value={suiteFilter} onChange={e => setSuiteFilter(e.target.value)}>
+              <select id="filter-suite" name="filterSuite" className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white" value={suiteFilter} onChange={e => setSuiteFilter(e.target.value)}>
                 {suites.map(suite => <option key={suite} value={suite}>
                     {suite === 'all' ? 'All Suites' : suite}
                   </option>)}
@@ -90,7 +90,7 @@ export const FilterControls = ({
               <label htmlFor="filter-classname" className="block text-sm font-medium text-gray-700 mb-1">
                 Class Name
               </label>
-              <select id="filter-classname" name="filterClassName" className="w-full border border-gray-300 rounded-md px-3 py-2" value={classNameFilter} onChange={e => setClassNameFilter(e.target.value)}>
+              <select id="filter-classname" name="filterClassName" className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white" value={classNameFilter} onChange={e => setClassNameFilter(e.target.value)}>
                 {classNames.map(className => <option key={className} value={className}>
                     {className === 'all' ? 'All Classes' : className}
                   </option>)}

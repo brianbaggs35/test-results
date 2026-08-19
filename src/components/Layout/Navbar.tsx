@@ -9,7 +9,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab
 }) => {
-  return <nav className="bg-white shadow-sm">
+  return <nav className="bg-white shadow-xs">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">

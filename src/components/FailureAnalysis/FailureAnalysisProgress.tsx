@@ -528,13 +528,13 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                       <label htmlFor={`assignee-${safeId}`} className="block text-sm font-medium text-gray-700 mb-1">
                         Assignee
                       </label>
-                      <input id={`assignee-${safeId}`} name={`assignee-${safeId}`} type="text" value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Who is working on this?" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+                      <input id={`assignee-${safeId}`} name={`assignee-${safeId}`} type="text" value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Who is working on this?" className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white" />
                     </div>
                     <div>
                       <label htmlFor={`notes-${safeId}`} className="block text-sm font-medium text-gray-700 mb-1">
                         Notes
                       </label>
-                      <textarea id={`notes-${safeId}`} name={`notes-${safeId}`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add any notes about the fix..." className="w-full px-3 py-2 border border-gray-300 rounded-md" rows={3} />
+                      <textarea id={`notes-${safeId}`} name={`notes-${safeId}`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add any notes about the fix..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white" rows={3} />
                     </div>
                   </div>}
                 {!selectedTest && (test.notes || test.assignee) && <div className="mt-2 text-sm text-gray-600">
