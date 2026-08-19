@@ -1,7 +1,7 @@
 import { test, expect } from './baseFixtures';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('http://localhost:5173/')
+  await page.goto('http://localhost:5190/')
 
   const [fileUpload] = await Promise.all([
     page.waitForEvent('filechooser'),

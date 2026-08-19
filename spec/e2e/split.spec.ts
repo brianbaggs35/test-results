@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises';
 import { test, expect } from './baseFixtures';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('http://localhost:5173/')
+  await page.goto('http://localhost:5190/')
 })
 
 test.describe('Split E2E Tests', () => {
@@ -36,7 +36,7 @@ test.describe('Split E2E Tests', () => {
     await expect(fileDownloadA.suggestedFilename()).toBe('test-results-split-a.xml')
 
     const filePath = await fileDownloadA.path()
-    await expect(stat(filePath!)).resolves.toMatchObject({ size: 1153 })
+    await expect(stat(filePath!)).resolves.toMatchObject({ size: 1158 })
 
     const [fileDownloadB] = await Promise.all([
       page.waitForEvent('download'),
@@ -46,6 +46,6 @@ test.describe('Split E2E Tests', () => {
     await expect(fileDownloadB.suggestedFilename()).toBe('test-results-split-b.xml')
 
     const filePathB = await fileDownloadB.path()
-    await expect(stat(filePathB!)).resolves.toMatchObject({ size: 1158 })
+    await expect(stat(filePathB!)).resolves.toMatchObject({ size: 1153 })
   })
 })
