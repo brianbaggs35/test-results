@@ -198,7 +198,7 @@ export const BulkCommentModal = ({
               onClick={() => setMode('same')}
               className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
                 mode === 'same'
-                  ? 'bg-white text-blue-700 shadow-sm'
+                  ? 'bg-white text-blue-700 shadow-xs'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
               data-testid="mode-same"
@@ -209,7 +209,7 @@ export const BulkCommentModal = ({
               onClick={() => setMode('individual')}
               className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
                 mode === 'individual'
-                  ? 'bg-white text-blue-700 shadow-sm'
+                  ? 'bg-white text-blue-700 shadow-xs'
                   : 'text-gray-600 hover:text-gray-800'
               }`}
               data-testid="mode-individual"
