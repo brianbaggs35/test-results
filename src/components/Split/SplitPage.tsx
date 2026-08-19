@@ -89,9 +89,11 @@ export const SplitPage: React.FC<SplitPageProps> = ({ xmlContent, onCombined, se
           <h2 className="text-2xl font-bold text-gray-800">Split a report for your team</h2>
         </div>
         <p className="text-gray-600 mb-4">
-          Divides the failed/errored tests roughly in half across two new JUnit XML files — every passed
-          and skipped test stays in both. The split is deterministic: running it on the same file
-          produces the same two files no matter who runs it or on which machine.
+          Divides the failed/errored tests across two new JUnit XML files, keeping every test suite's
+          failures together in just one of the two — so two people working from file A and file B never
+          end up editing tests in the same suite. Every passed and skipped test stays in both. The split
+          is deterministic: running it on the same file produces the same two files no matter who runs
+          it or on which machine, though the two halves won't always come out perfectly even.
         </p>
 
         <div className="flex items-center gap-3 mb-4">

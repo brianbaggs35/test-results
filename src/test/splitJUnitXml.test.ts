@@ -1,13 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { splitJUnitXml } from '../utils/splitJUnitXml';
 import { parseJUnitXML } from '../utils/xmlParser';
+import type { TestData } from '../types';
 
 function buildXml(suites: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><testsuites>${suites}</testsuites>`;
 }
 
+/** Names of suites that have at least one failed testcase in this file. */
+function suiteNamesWithFailures(data: TestData): Set<string> {
+  return new Set(
+    data.suites.filter((s) => s.testcases.some((t) => t.status === 'failed')).map((s) => s.name),
+  );
+}
+
 describe('splitJUnitXml', () => {
-  it('splits failed tests roughly in half and keeps all passed/skipped in both files', () => {
+  it('splits two same-size suites one per file and keeps all passed/skipped in both', () => {
     const xml = buildXml(`
       <testsuite name="Suite A" tests="4" failures="2" errors="0" skipped="0" time="4">
         <testcase name="passes1" classname="C" time="1" />
@@ -38,17 +46,24 @@ describe('splitJUnitXml', () => {
     // on passed+skipped together rather than on 'skipped' specifically.
     expect(dataA.summary.passed + dataA.summary.skipped).toBe(2);
     expect(dataB.summary.passed + dataB.summary.skipped).toBe(2);
+
+    // Suite A's two failures land in exactly one of the two files, never both.
+    const namesA = suiteNamesWithFailures(dataA);
+    const namesB = suiteNamesWithFailures(dataB);
+    expect(namesA.has('Suite A')).not.toBe(namesB.has('Suite A'));
   });
 
   it('is fully deterministic across repeated runs on the same input', () => {
     const xml = buildXml(`
-      <testsuite name="Suite" tests="6" failures="6" errors="0" skipped="0" time="6">
+      <testsuite name="File1.spec.ts" tests="3" failures="3" errors="0" skipped="0" time="3">
         <testcase name="t1" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
         <testcase name="t2" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
         <testcase name="t3" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
-        <testcase name="t4" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
-        <testcase name="t5" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
-        <testcase name="t6" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+      <testsuite name="File2.spec.ts" tests="3" failures="3" errors="0" skipped="0" time="3">
+        <testcase name="t1" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+        <testcase name="t2" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
+        <testcase name="t3" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
       </testsuite>
     `);
 
@@ -61,7 +76,7 @@ describe('splitJUnitXml', () => {
     expect(second.countB).toBe(first.countB);
   });
 
-  it('handles an odd number of failures by splitting as evenly as possible', () => {
+  it('keeps a lone suite entirely on one side rather than splitting it, even though that makes the split uneven', () => {
     const xml = buildXml(`
       <testsuite name="Suite" tests="3" failures="3" errors="0" skipped="0" time="3">
         <testcase name="t1" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
@@ -72,8 +87,10 @@ describe('splitJUnitXml', () => {
 
     const result = splitJUnitXml(xml);
 
+    // One suite is one atomic unit: all 3 failures go to a single file
+    // (3/0), never divided between the two outputs (e.g. 2/1).
     expect(result.countA + result.countB).toBe(3);
-    expect(Math.abs(result.countA - result.countB)).toBe(1);
+    expect([result.countA, result.countB].sort((a, b) => a - b)).toEqual([0, 3]);
   });
 
   it('drops a suite entirely from one file if all its content went to the other half', () => {
@@ -174,8 +191,10 @@ line 2 with &amp; special &gt; chars</failure></testcase>
 
   it('treats a missing or non-numeric testcase time as 0 when summing suite time', () => {
     const xml = buildXml(`
-      <testsuite name="Suite" tests="2" failures="2" errors="0" skipped="0" time="0">
+      <testsuite name="Suite1" tests="1" failures="1" errors="0" skipped="0" time="0">
         <testcase name="t1" classname="C"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+      <testsuite name="Suite2" tests="1" failures="1" errors="0" skipped="0" time="0">
         <testcase name="t2" classname="C" time="not-a-number"><failure message="m" type="E">x</failure></testcase>
       </testsuite>
     `);
@@ -216,45 +235,9 @@ line 2 with &amp; special &gt; chars</failure></testcase>
     expect(result.countA + result.countB).toBe(2);
   });
 
-  it('sorts failures whose keys are already in descending order', () => {
-    const xml = buildXml(`
-      <testsuite name="Suite" tests="2" failures="2" errors="0" skipped="0" time="2">
-        <testcase name="zzz" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
-        <testcase name="aaa" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>
-      </testsuite>
-    `);
-
-    const result = splitJUnitXml(xml);
-
-    expect(result.totalFailed).toBe(2);
-    expect(result.countA + result.countB).toBe(2);
-  });
-
-  it('splits 1000 failures into exactly 500/500 with zero overlap between the two files', () => {
-    let testcases = '';
-    for (let i = 0; i < 1000; i++) {
-      testcases += `<testcase name="test${i}" classname="C${i % 7}" time="1"><failure message="m" type="E">x</failure></testcase>\n`;
-    }
-    const xml = buildXml(
-      `<testsuite name="Big" tests="1000" failures="1000" errors="0" skipped="0" time="1000">${testcases}</testsuite>`,
-    );
-
-    const result = splitJUnitXml(xml);
-
-    expect(result.totalFailed).toBe(1000);
-    expect(result.countA).toBe(500);
-    expect(result.countB).toBe(500);
-
-    const dataA = parseJUnitXML(result.fileAXml);
-    const dataB = parseJUnitXML(result.fileBXml);
-    const namesA = dataA.suites.flatMap((s) => s.testcases.map((t) => `${s.name}/${t.classname}/${t.name}`));
-    const namesB = dataB.suites.flatMap((s) => s.testcases.map((t) => `${s.name}/${t.classname}/${t.name}`));
-
-    expect(namesA.filter((n) => namesB.includes(n))).toEqual([]);
-    expect(new Set([...namesA, ...namesB]).size).toBe(1000);
-  });
-
-  it('breaks ties deterministically when two suites produce identical sort keys', () => {
+  it('treats two suites that share a name as the same file, so their failures move together', () => {
+    // A file re-run under two projects/browsers produces two <testsuite>
+    // blocks with the same name — they must still be treated as one file.
     const xml = buildXml(`
       <testsuite name="Dup" tests="1" failures="1" errors="0" skipped="0" time="1">
         <testcase name="same" classname="C" time="1"><failure message="m1" type="E">x</failure></testcase>
@@ -267,8 +250,69 @@ line 2 with &amp; special &gt; chars</failure></testcase>
     const first = splitJUnitXml(xml);
     const second = splitJUnitXml(xml);
 
-    expect(first.countA + first.countB).toBe(2);
+    // Both "Dup" suites move together: 2/0, never 1/1.
+    expect([first.countA, first.countB].sort((a, b) => a - b)).toEqual([0, 2]);
     expect(second.fileAXml).toBe(first.fileAXml);
     expect(second.fileBXml).toBe(first.fileBXml);
+  });
+
+  it('never puts one suite/file\'s failures in both output files, at scale', () => {
+    // 7 "files" of ~equal size, 1000 failures total — enough for the greedy
+    // balancer to have real choices to make, while still proving the core
+    // guarantee: no file's failures ever end up on both sides.
+    const sizes = [143, 143, 143, 143, 143, 143, 142];
+    let suitesXml = '';
+    sizes.forEach((size, f) => {
+      let testcases = '';
+      for (let i = 0; i < size; i++) {
+        testcases += `<testcase name="test${i}" classname="C" time="1"><failure message="m" type="E">x</failure></testcase>\n`;
+      }
+      suitesXml += `<testsuite name="File${f}.spec.ts" tests="${size}" failures="${size}" errors="0" skipped="0" time="${size}">${testcases}</testsuite>\n`;
+    });
+    const xml = buildXml(suitesXml);
+
+    const result = splitJUnitXml(xml);
+
+    expect(result.totalFailed).toBe(1000);
+    expect(result.countA + result.countB).toBe(1000);
+    expect(result.countA).toBeGreaterThan(0);
+    expect(result.countB).toBeGreaterThan(0);
+
+    const dataA = parseJUnitXML(result.fileAXml);
+    const dataB = parseJUnitXML(result.fileBXml);
+    const namesA = suiteNamesWithFailures(dataA);
+    const namesB = suiteNamesWithFailures(dataB);
+
+    for (const name of namesA) expect(namesB.has(name)).toBe(false);
+    expect(namesA.size + namesB.size).toBe(sizes.length);
+  });
+
+  it('never merges two files that merely share a basename in different directories', () => {
+    const xml = buildXml(`
+      <testsuite name="spec/playwright/e2e/policies/show/owner/comments.spec.ts" tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="owner can comment" classname="comments.spec.ts" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+      <testsuite name="spec/playwright/e2e/policies/show/admin/comments.spec.ts" tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="admin can comment" classname="comments.spec.ts" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+      <testsuite name="spec/playwright/e2e/policies/show/member/comments.spec.ts" tests="1" failures="1" errors="0" skipped="0" time="1">
+        <testcase name="member can comment" classname="comments.spec.ts" time="1"><failure message="m" type="E">x</failure></testcase>
+      </testsuite>
+    `);
+
+    const result = splitJUnitXml(xml);
+
+    // Three distinct files (same basename, different directories): each is
+    // its own group, never collapsed together just because the basename matches.
+    expect(result.totalFailed).toBe(3);
+    expect(result.countA + result.countB).toBe(3);
+
+    const dataA = parseJUnitXML(result.fileAXml);
+    const dataB = parseJUnitXML(result.fileBXml);
+    const namesA = suiteNamesWithFailures(dataA);
+    const namesB = suiteNamesWithFailures(dataB);
+
+    for (const name of namesA) expect(namesB.has(name)).toBe(false);
+    expect(namesA.size + namesB.size).toBe(3);
   });
 });

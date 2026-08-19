@@ -70,10 +70,12 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
+  /* Run your local dev server before starting the tests, on its own port so
+   * it never collides with a `npm run dev` you're already running on the
+   * default Vite port (5173) to use the app yourself. */
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: 'npm run dev -- --port 5190',
+    url: 'http://localhost:5190',
     reuseExistingServer: !process.env.CI,
     env: {
       USE_BABEL_PLUGIN_ISTANBUL: '1',
