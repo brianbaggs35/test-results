@@ -187,6 +187,27 @@ describe('pdfGenerator', () => {
     document.documentElement.style.removeProperty('--primary')
   })
 
+  it('should pin dark-theme hex fallbacks (not the light map) while the page is in dark mode, so the live page does not flash to light mode during capture', async () => {
+    document.documentElement.classList.add('dark')
+    let backgroundDuringCapture: string | null = null
+    __mocks.html2canvas.mockImplementationOnce(async () => {
+      backgroundDuringCapture = document.documentElement.style.getPropertyValue('--background')
+      return __mocks.canvas
+    })
+
+    const { generatePDF } = await import(
+      '../components/ReportGenerator/pdfGenerator'
+    )
+
+    await generatePDF(mockTestData, mockConfig)
+
+    expect(backgroundDuringCapture).toBe('#18181b')
+    // Restored afterwards, same as the light-mode case above
+    expect(document.documentElement.style.getPropertyValue('--background')).toBe('')
+
+    document.documentElement.classList.remove('dark')
+  })
+
   it('should call html2canvas with correct options', async () => {
     const { generatePDF } = await import(
       '../components/ReportGenerator/pdfGenerator'

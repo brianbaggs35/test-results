@@ -126,42 +126,40 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
       </CardHeader>
       <CardContent>
         <FilterControls searchTerm={searchTerm} setSearchTerm={setSearchTerm} statusFilter={statusFilter} setStatusFilter={setStatusFilter} suiteFilter={suiteFilter} setSuiteFilter={setSuiteFilter} classNameFilter={classNameFilter} setClassNameFilter={setClassNameFilter} showFilters={showFilters} setShowFilters={setShowFilters} suites={suites} classNames={classNames} resetFilters={resetFilters} />
-        <div ref={tableScrollRef} className="rounded-lg border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{sortableHeader('name', 'Test Name')}</TableHead>
-                <TableHead>{sortableHeader('suite', 'Suite')}</TableHead>
-                <TableHead>{sortableHeader('classname', 'Class Name')}</TableHead>
-                <TableHead className="w-32">{sortableHeader('status', 'Status')}</TableHead>
-                <TableHead className="w-32">{sortableHeader('time', 'Duration')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedTests.length > 0 ? paginatedTests.map((test, index) => <TableRow key={index} onClick={() => setSelectedTest(test)} className={test.status === 'failed' ? 'bg-destructive/5 cursor-pointer' : 'cursor-pointer'}>
-                    <TableCell className="font-medium text-foreground">
-                      {test.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {test.suite}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {test.classname || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={test.status} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {test.time.toFixed(2)}s
-                    </TableCell>
-                  </TableRow>) : <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No test results match your filters.
+        <Table wrapperRef={tableScrollRef} wrapperClassName="rounded-lg border">
+          <TableHeader>
+            <TableRow>
+              <TableHead>{sortableHeader('name', 'Test Name')}</TableHead>
+              <TableHead>{sortableHeader('suite', 'Suite')}</TableHead>
+              <TableHead>{sortableHeader('classname', 'Class Name')}</TableHead>
+              <TableHead className="w-32">{sortableHeader('status', 'Status')}</TableHead>
+              <TableHead className="w-32">{sortableHeader('time', 'Duration')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedTests.length > 0 ? paginatedTests.map((test, index) => <TableRow key={index} onClick={() => setSelectedTest(test)} className={test.status === 'failed' ? 'bg-destructive/5 cursor-pointer' : 'cursor-pointer'}>
+                  <TableCell className="font-medium text-foreground">
+                    {test.name}
                   </TableCell>
-                </TableRow>}
-            </TableBody>
-          </Table>
-        </div>
+                  <TableCell className="text-muted-foreground">
+                    {test.suite}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {test.classname || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={test.status} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {test.time.toFixed(2)}s
+                  </TableCell>
+                </TableRow>) : <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  No test results match your filters.
+                </TableCell>
+              </TableRow>}
+          </TableBody>
+        </Table>
         <div className="mt-4 text-sm text-muted-foreground">
           Showing {filteredTests.length} of {testData.summary.total} tests
         </div>

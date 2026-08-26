@@ -8,17 +8,17 @@ interface FloatingScrollbarProps {
 }
 
 /**
- * A slim horizontal scrollbar pinned to the bottom of the viewport, shown only while the
- * target's own native scrollbar (at the target's bottom edge) is scrolled out of view — so a
- * wide table can be scrolled sideways without first scrolling all the way down to reach it.
+ * A slim horizontal scrollbar pinned to the bottom of the browser viewport, matching the
+ * target's own horizontal position and width, shown whenever the target has horizontal
+ * overflow — regardless of vertical scroll position — so a wide table can always be scrolled
+ * sideways without hunting for its own (possibly off-screen) native scrollbar.
  */
 export function FloatingScrollbar({ targetRef, className }: FloatingScrollbarProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const syncingFrom = useRef<'target' | 'track' | null>(null);
   const [scrollWidth, setScrollWidth] = useState(0);
-  const [visible, setVisible] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const [rect, setRect] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
     const target = targetRef.current;
@@ -27,24 +27,38 @@ export function FloatingScrollbar({ targetRef, className }: FloatingScrollbarPro
     const measure = () => {
       setScrollWidth(target.scrollWidth);
       setHasOverflow(target.scrollWidth > target.clientWidth + 1);
+      const r = target.getBoundingClientRect();
+      setRect({ left: r.left, width: r.width });
     };
     measure();
 
+    // Watching just the target's own box isn't enough: it's an `overflow: auto` container
+    // whose own size is fixed by its parent's layout (e.g. `w-full`) regardless of how wide
+    // its scrollable content grows, so its box never actually resizes when a table gains
+    // columns/rows — only the content inside it does. Watch that content directly too.
     const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(target);
+    if (target.firstElementChild) resizeObserver.observe(target.firstElementChild);
 
-    // A 1px sentinel right after the target: while it's on-screen, the target's own
-    // bottom edge (and thus its native scrollbar) is reachable, so the floating bar hides.
-    const sentinel = document.createElement('div');
-    sentinel.style.height = '1px';
-    target.insertAdjacentElement('afterend', sentinel);
-    sentinelRef.current = sentinel;
+    // The initial synchronous measure() above can land before the target's real content has
+    // settled — e.g. a table whose rows populate via a follow-up effect in its own parent, one
+    // or more ticks after this one first mounts, starts out at its empty/placeholder width. How
+    // long that takes scales with dataset size (parsing thousands of rows before pagination
+    // slices them down takes measurably longer than dozens), so re-measure on any actual DOM
+    // change inside the target rather than guessing a fixed delay.
+    const mutationObserver = new MutationObserver(measure);
+    mutationObserver.observe(target, { childList: true, subtree: true });
 
-    const intersectionObserver = new IntersectionObserver(
-      ([entry]) => setVisible(!entry.isIntersecting),
-      { rootMargin: '0px' }
-    );
-    intersectionObserver.observe(sentinel);
+    // The target's left/width can change independently of its own size — a sidebar toggling,
+    // the window resizing, or the page's own layout reflowing all shift where the table sits
+    // without necessarily changing the table's dimensions, so track window resize explicitly
+    // too rather than relying solely on the observers above.
+    window.addEventListener('resize', measure);
+
+    // Belt-and-suspenders: re-measure on a short interval as well, so a change that manages to
+    // slip past every observer above (e.g. a layout shift with no associated DOM mutation or
+    // resize event) still gets picked up quickly rather than never.
+    const pollId = window.setInterval(measure, 500);
 
     const onTargetScroll = () => {
       if (syncingFrom.current === 'track') return;
@@ -56,8 +70,9 @@ export function FloatingScrollbar({ targetRef, className }: FloatingScrollbarPro
 
     return () => {
       resizeObserver.disconnect();
-      intersectionObserver.disconnect();
-      sentinel.remove();
+      mutationObserver.disconnect();
+      window.removeEventListener('resize', measure);
+      window.clearInterval(pollId);
       target.removeEventListener('scroll', onTargetScroll);
     };
   }, [targetRef]);
@@ -70,14 +85,16 @@ export function FloatingScrollbar({ targetRef, className }: FloatingScrollbarPro
     syncingFrom.current = null;
   };
 
-  if (!hasOverflow || !visible) return null;
+  if (!hasOverflow) return null;
 
   return (
     <div
       className={cn(
-        'fixed inset-x-0 bottom-0 z-40 overflow-x-auto border-t bg-background/95 backdrop-blur-sm [&::-webkit-scrollbar]:h-3',
+        'fixed bottom-0 z-40 overflow-x-auto border-t-2 border-primary/40 bg-muted shadow-[0_-2px_8px_rgba(0,0,0,0.15)]',
+        '[&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/70 [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-muted',
         className
       )}
+      style={{ left: rect.left, width: rect.width }}
       ref={trackRef}
       onScroll={handleTrackScroll}
       aria-hidden="true"

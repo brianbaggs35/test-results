@@ -38,17 +38,19 @@ type LegendFormatterFunction = (value: string, entry: LegendEntry) => React.Reac
 // Mock recharts components
 vi.mock('recharts', () => ({
   PieChart: ({ children }: { children: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>,
-  Pie: ({ data, dataKey, label }: { 
-    data?: Array<{ name: string; value: number }>; 
+  Pie: ({ data, dataKey, label }: {
+    data?: Array<{ name: string; value: number }>;
     dataKey: string;
     label?: PieLabelFunction;
   }) => {
-    // Call the label function if provided to trigger renderCustomizedLabel
-    if (label && typeof label === 'function') {
-      // Call with sample data to trigger the function
-      label({ cx: 100, cy: 100, midAngle: 45, innerRadius: 60, outerRadius: 90, percent: 0.85, value: 85 });
-      label({ cx: 100, cy: 100, midAngle: 135, innerRadius: 60, outerRadius: 90, percent: 0.01, value: 1 });
-    }
+    // Render whatever the label function returns (rather than just calling it and discarding
+    // the result) so tests can assert on the label's actual output, not just exercise the code.
+    const labels = label && typeof label === 'function'
+      ? [
+          label({ cx: 100, cy: 100, midAngle: 45, innerRadius: 60, outerRadius: 90, percent: 0.85, value: 85 }),
+          label({ cx: 100, cy: 100, midAngle: 135, innerRadius: 60, outerRadius: 90, percent: 0.01, value: 1 }),
+        ]
+      : null;
     return (
       <div data-testid="pie" data-key={dataKey}>
         {data?.map((item: { name: string; value: number }, index: number) => (
@@ -56,6 +58,7 @@ vi.mock('recharts', () => ({
             {item.name}: {item.value}
           </div>
         ))}
+        {labels}
       </div>
     );
   },
@@ -611,7 +614,16 @@ describe('TestMetrics', () => {
   it('should handle CustomTooltip with no payload data', () => {
     // Test that the component renders correctly when tooltip has no payload
     render(<TestMetrics testData={mockTestData} />);
-    
+
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
   });
+
+  it('should give the pie label a theme-aware color instead of a hardcoded hex value', () => {
+    render(<TestMetrics testData={mockTestData} />);
+
+    const label = screen.getByText('85 (85.0%)');
+    expect(label).toHaveAttribute('fill', 'currentColor');
+    expect(label).toHaveClass('text-foreground');
+  });
+
 });
