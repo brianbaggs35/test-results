@@ -17,25 +17,25 @@ test.describe('Combine split E2E Tests', () => {
 
     const [fileUpload] = await Promise.all([
       page.waitForEvent('filechooser'),
-      page.locator('span.text-sm.font-medium.text-gray-700.mb-2').filter({ hasText: 'Export A' }).click()
+      page.getByText('Export A', { exact: true }).click()
     ])
 
     await fileUpload.setFiles('./spec/testfiles/test-results-export-a.json')
 
-    await expect(page.locator('span.text-xs.text-gray-500').filter({ hasText: 'test-results-export-a.json' })).toBeVisible()
+    await expect(page.getByText('test-results-export-a.json')).toBeVisible()
 
     const [fileUploadB] = await Promise.all([
       page.waitForEvent('filechooser'),
-      page.locator('span.text-sm.font-medium.text-gray-700.mb-2').filter({ hasText: 'Export B' }).click()
+      page.getByText('Export B', { exact: true }).click()
     ])
 
     await fileUploadB.setFiles('./spec/testfiles/test-results-export-b.json')
 
-    await expect(page.locator('span.text-xs.text-gray-500').filter({ hasText: 'test-results-export-b.json' })).toBeVisible()
+    await expect(page.getByText('test-results-export-b.json')).toBeVisible()
 
     await page.getByRole('button', { name: 'Combine' }).click()
 
-    await expect(page.locator('div.flex.items-center.text-green-700.mb-2').filter({ hasText: 'Combined 9 tests (4 failed) with all resolution progress merged.' })).toBeVisible()
+    await expect(page.getByTestId('combine-result')).toContainText('Combined 9 tests (4 failed) with all resolution progress merged.')
 
     await page.getByRole('button', { name: 'Continue to Report' }).click()
 

@@ -214,7 +214,9 @@ test.describe('Filter tests', () => {
 
     await expect(page.getByRole('main').filter({ hasText: 'test1Suite: Suite C' })).toBeHidden()
 
-    await expect(page.locator('div.border.rounded-lg.overflow-hidden.bg-red-50.border-red-200')).toHaveCount(2)
+    // All tests are freshly-loaded (still "pending") in this scenario, so the plain
+    // card-wrapper selector alone already scopes to exactly the visible test cards.
+    await expect(page.locator('div.border.rounded-lg.overflow-hidden')).toHaveCount(2)
 
     await page.locator('button').filter({ hasText: 'Clear Filters' }).click()
 

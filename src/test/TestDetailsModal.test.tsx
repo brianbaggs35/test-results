@@ -4,15 +4,18 @@ import userEvent from '@testing-library/user-event';
 import { TestDetailsModal } from '../components/Dashboard/TestDetailsModal';
 import { TestCase } from '../types';
 
-// Mock lucide-react icons
+// Mock lucide-react icons used directly by TestDetailsModal, StatusBadge, and the shadcn Dialog it renders
 vi.mock('lucide-react', () => ({
-  XIcon: () => <div data-testid="x-icon" />,
+  X: () => <div data-testid="x-icon" />,
   ClockIcon: () => <div data-testid="clock-icon" />,
-  CheckCircleIcon: () => <div data-testid="check-circle-icon" />,
-  AlertCircleIcon: () => <div data-testid="alert-circle-icon" />,
-  XCircleIcon: () => <div data-testid="x-circle-icon" />,
   FileTextIcon: () => <div data-testid="file-text-icon" />,
-  CodeIcon: () => <div data-testid="code-icon" />
+  CodeIcon: () => <div data-testid="code-icon" />,
+  CopyIcon: () => <div data-testid="copy-icon" />,
+  CheckIcon: () => <div data-testid="check-icon" />,
+  CheckCircleIcon: () => <div data-testid="check-circle-icon" />,
+  XCircleIcon: () => <div data-testid="x-circle-icon" />,
+  AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
+  TerminalIcon: () => <div data-testid="terminal-icon" />,
 }));
 
 describe('TestDetailsModal', () => {
@@ -36,6 +39,7 @@ describe('TestDetailsModal', () => {
     expect(screen.getByText('Auth Suite')).toBeInTheDocument();
     expect(screen.getByText('2.50 seconds')).toBeInTheDocument();
     expect(screen.getByTestId('check-circle-icon')).toBeInTheDocument();
+    expect(screen.getByText('Passed')).toBeInTheDocument();
   });
 
   it('should render modal with failed test details', () => {
@@ -69,7 +73,7 @@ describe('TestDetailsModal', () => {
     expect(screen.getByText('Integration Test')).toBeInTheDocument();
     expect(screen.getByText('Integration Suite')).toBeInTheDocument();
     expect(screen.getByText('0.00 seconds')).toBeInTheDocument();
-    expect(screen.getByTestId('alert-circle-icon')).toBeInTheDocument();
+    expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
   });
 
   it('should call onClose when close button is clicked', async () => {
@@ -85,10 +89,10 @@ describe('TestDetailsModal', () => {
 
     // Find the close button more specifically
     const closeButtons = screen.getAllByRole('button');
-    const closeButton = closeButtons.find(button => 
+    const closeButton = closeButtons.find(button =>
       button.querySelector('[data-testid="x-icon"]')
     );
-    
+
     if (closeButton) {
       await user.click(closeButton);
     }
@@ -194,7 +198,8 @@ describe('TestDetailsModal', () => {
     // Should not crash with empty details
   });
 
-  it('should escape key close the modal', () => {
+  it('should close the modal on escape key', async () => {
+    const user = userEvent.setup();
     const test: TestCase = {
       name: 'Test',
       status: 'passed',
@@ -204,9 +209,9 @@ describe('TestDetailsModal', () => {
 
     render(<TestDetailsModal test={test} onClose={mockOnClose} />);
 
-    // For now, just test that the modal renders and the function exists
-    // The actual escape key functionality might not be implemented
-    expect(screen.getByText('Test')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    expect(mockOnClose).toHaveBeenCalled();
   });
 
   it('should display correct status styling for passed test', () => {
@@ -269,5 +274,24 @@ describe('TestDetailsModal', () => {
     expect(screen.getByText('Class Name')).toBeInTheDocument();
     expect(screen.getByText('com.example.TestClass')).toBeInTheDocument();
     expect(screen.getByTestId('code-icon')).toBeInTheDocument();
+  });
+
+  it('should wrap long unbroken suite and classname values instead of overflowing the modal', () => {
+    const longValueTest: TestCase = {
+      name: 'Test With Long Paths',
+      status: 'passed',
+      suite: 'e2e/audit_manager/show/admin/cloud_scanning.spec.ts',
+      classname: 'e2e.audit_manager.show.admin.cloud_scanning_spec.CloudScanningAdminPanel',
+      time: 1.5
+    };
+
+    render(<TestDetailsModal test={longValueTest} onClose={mockOnClose} />);
+
+    const suiteValue = screen.getByText('e2e/audit_manager/show/admin/cloud_scanning.spec.ts');
+    const classnameValue = screen.getByText('e2e.audit_manager.show.admin.cloud_scanning_spec.CloudScanningAdminPanel');
+    expect(suiteValue).toHaveClass('break-all');
+    expect(classnameValue).toHaveClass('break-all');
+    expect(suiteValue.parentElement).toHaveClass('min-w-0');
+    expect(classnameValue.parentElement).toHaveClass('min-w-0');
   });
 });

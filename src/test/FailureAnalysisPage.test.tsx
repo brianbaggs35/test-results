@@ -105,6 +105,8 @@ vi.mock('lucide-react', () => ({
   SearchIcon: () => <div data-testid="search-icon" />,
   FilterIcon: () => <div data-testid="filter-icon" />,
   CheckIcon: () => <div data-testid="check-icon" />,
+  ChevronLeftIcon: () => <div data-testid="chevron-left-icon" />,
+  ChevronRightIcon: () => <div data-testid="chevron-right-icon" />,
 }));
 
 describe('FailureAnalysisPage', () => {

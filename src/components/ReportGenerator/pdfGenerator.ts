@@ -14,6 +14,26 @@ const A4_WIDTH_PX = 794;   // 210mm at 96 DPI
 const A4_HEIGHT_PX = 1123;  // 297mm at 96 DPI
 const SCALE = 2;             // hi-DPI canvas scale
 
+// Plain-hex re-declarations of the app theme's (oklch-based) CSS variables, for html2canvas —
+// see the comment where this is applied in generatePDF for why it's needed.
+const CSS_VAR_HEX_FALLBACKS: Record<string, string> = {
+  '--background': '#ffffff', '--foreground': '#1e1e2e',
+  '--card': '#ffffff', '--card-foreground': '#1e1e2e',
+  '--popover': '#ffffff', '--popover-foreground': '#1e1e2e',
+  '--primary': '#2563eb', '--primary-foreground': '#eff6ff',
+  '--secondary': '#f4f4f5', '--secondary-foreground': '#27272a',
+  '--muted': '#f4f4f5', '--muted-foreground': '#71717a',
+  '--accent': '#f4f4f5', '--accent-foreground': '#27272a',
+  '--destructive': '#dc2626', '--destructive-foreground': '#fef2f2',
+  '--success': '#16a34a', '--success-foreground': '#f0fdf4',
+  '--warning': '#d97706', '--warning-foreground': '#fffbeb',
+  '--border': '#e4e4e7', '--input': '#e4e4e7', '--ring': '#2563eb',
+};
+
+const cssVarFallbackDeclarations = Object.entries(CSS_VAR_HEX_FALLBACKS)
+  .map(([name, value]) => `${name}:${value};`)
+  .join('');
+
 /**
  * Walk the rendered clone and collect the Y positions (in CSS pixels,
  * relative to the clone's top) of element boundaries that make good
@@ -108,6 +128,17 @@ export const generatePDF = async (
   onProgress?: (progress: number) => void,
 ): Promise<void> => {
   let wrapper: HTMLDivElement | null = null;
+  const root = document.documentElement;
+  // html2canvas cannot parse oklch() colors. The app theme's CSS variables are defined in
+  // oklch on :root/.dark, and html2canvas walks up past the cloned report content to real
+  // ancestors (documentElement/body) when resolving computed colors — so redeclaring the
+  // fallbacks on the clone alone (below) isn't enough. Temporarily pin plain-hex values on
+  // the real <html> element for the duration of the capture, then restore whatever was
+  // there before (nothing, normally — this is the only place that sets inline vars on it).
+  const previousRootVars = Object.keys(CSS_VAR_HEX_FALLBACKS).map(
+    (name) => [name, root.style.getPropertyValue(name)] as const,
+  );
+  Object.entries(CSS_VAR_HEX_FALLBACKS).forEach(([name, value]) => root.style.setProperty(name, value));
   try {
     if (onProgress) onProgress(5);
 
@@ -144,7 +175,10 @@ export const generatePDF = async (
     clone.style.cssText =
       'width:794px;max-width:794px;padding:0;margin:0;' +
       'box-sizing:border-box;background:white;overflow:visible;' +
-      'transform:none;position:static;';
+      'transform:none;position:static;' +
+      // Belt-and-suspenders: also redeclare the fallbacks directly on the clone (see the
+      // documentElement override above for why this alone isn't sufficient).
+      cssVarFallbackDeclarations;
 
     // Strip interactive elements
     ['.recharts-tooltip-wrapper', 'button', '.print-hide', 'input', 'select'].forEach((s) =>
@@ -278,5 +312,9 @@ export const generatePDF = async (
     }
   } finally {
     wrapper?.remove();
+    previousRootVars.forEach(([name, value]) => {
+      if (value) root.style.setProperty(name, value);
+      else root.style.removeProperty(name);
+    });
   }
 };

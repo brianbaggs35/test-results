@@ -1,13 +1,31 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FileTextIcon, EyeIcon } from 'lucide-react';
 import { ReportPreview } from './ReportPreview';
 import { TestData } from '../../types';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+
+interface ReportGeneratorProps {
+  testData: TestData | null;
+  setActiveTab?: (tab: string) => void;
+}
+
+const CONTENT_OPTIONS = [
+  { key: 'includeExecutiveSummary', label: 'Include Executive Summary' },
+  { key: 'includeTestMetrics', label: 'Include Test Metrics and Charts' },
+  { key: 'includeFailedTests', label: 'Include Failed Tests Details' },
+  { key: 'includeAllTests', label: 'Include All Test Cases' },
+  { key: 'includeResolutionProgress', label: 'Include Failure Resolution Progress' },
+] as const;
 
 export const ReportGenerator = ({
-  testData
-}: {
-  testData: TestData | null;
-}) => {
+  testData,
+  setActiveTab
+}: ReportGeneratorProps) => {
   const [reportConfig, setReportConfig] = useState({
     title: 'Automated Test Results Report',
     author: '',
@@ -22,111 +40,91 @@ export const ReportGenerator = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const {
       name,
-      value,
-      type,
-      checked
+      value
     } = e.target;
     setReportConfig({
       ...reportConfig,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
+    });
+  };
+  const handleCheckboxChange = (key: keyof typeof reportConfig, checked: boolean) => {
+    setReportConfig({
+      ...reportConfig,
+      [key]: checked
     });
   };
   const generateReport = () => {
     setShowPreview(true);
   };
   if (!testData) {
-    return <div className="bg-white p-8 rounded-lg shadow text-center">
-        <FileTextIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          No Test Data Available
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Please upload a JUnit XML file from the Dashboard to generate a
-          report.
-        </p>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors" onClick={() => window.location.reload()}>
-          Go to Dashboard
-        </button>
-      </div>;
+    return (
+      <EmptyState
+        icon={FileTextIcon}
+        title="No Test Data Available"
+        description="Please upload a JUnit XML file from the Dashboard to generate a report."
+        action={
+          <Button onClick={() => setActiveTab?.('dashboard')}>
+            Go to Dashboard
+          </Button>
+        }
+      />
+    );
   }
   if (showPreview) {
     return <ReportPreview testData={testData} config={reportConfig} onBack={() => setShowPreview(false)} />;
   }
   return <div className="space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          Report Generator
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
-              Report Configuration
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Report Title
-                </label>
-                <input type="text" id="title" name="title" value={reportConfig.title} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Report Generator</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Report Configuration
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="title">Report Title</Label>
+                  <Input type="text" id="title" name="title" value={reportConfig.title} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="author">Author</Label>
+                  <Input type="text" id="author" name="author" value={reportConfig.author} onChange={handleInputChange} placeholder="Your name or organization" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="projectName">Project Name</Label>
+                  <Input type="text" id="projectName" name="projectName" value={reportConfig.projectName} onChange={handleInputChange} placeholder="Name of the tested project" />
+                </div>
               </div>
-              <div>
-                <label htmlFor="author" className="block text-sm font-medium text-gray-700 mb-1">
-                  Author
-                </label>
-                <input type="text" id="author" name="author" value={reportConfig.author} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Your name or organization" />
-              </div>
-              <div>
-                <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Project Name
-                </label>
-                <input type="text" id="projectName" name="projectName" value={reportConfig.projectName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Name of the tested project" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Content Options
+              </h3>
+              <div className="space-y-3">
+                {CONTENT_OPTIONS.map(({ key, label }) => (
+                  <Label key={key} htmlFor={key} className="flex items-center gap-2 font-normal">
+                    <Checkbox
+                      id={key}
+                      name={key}
+                      checked={reportConfig[key]}
+                      onCheckedChange={(checked) => handleCheckboxChange(key, checked === true)}
+                    />
+                    {label}
+                  </Label>
+                ))}
               </div>
             </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
-              Content Options
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <input type="checkbox" id="includeExecutiveSummary" name="includeExecutiveSummary" checked={reportConfig.includeExecutiveSummary} onChange={handleInputChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                <label htmlFor="includeExecutiveSummary" className="ml-2 block text-sm text-gray-700">
-                  Include Executive Summary
-                </label>
-              </div>
-              <div className="flex items-center">
-                <input type="checkbox" id="includeTestMetrics" name="includeTestMetrics" checked={reportConfig.includeTestMetrics} onChange={handleInputChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                <label htmlFor="includeTestMetrics" className="ml-2 block text-sm text-gray-700">
-                  Include Test Metrics and Charts
-                </label>
-              </div>
-              <div className="flex items-center">
-                <input type="checkbox" id="includeFailedTests" name="includeFailedTests" checked={reportConfig.includeFailedTests} onChange={handleInputChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                <label htmlFor="includeFailedTests" className="ml-2 block text-sm text-gray-700">
-                  Include Failed Tests Details
-                </label>
-              </div>
-              <div className="flex items-center">
-                <input type="checkbox" id="includeAllTests" name="includeAllTests" checked={reportConfig.includeAllTests} onChange={handleInputChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                <label htmlFor="includeAllTests" className="ml-2 block text-sm text-gray-700">
-                  Include All Test Cases
-                </label>
-              </div>
-              <div className="flex items-center">
-                <input type="checkbox" id="includeResolutionProgress" name="includeResolutionProgress" checked={reportConfig.includeResolutionProgress} onChange={handleInputChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                <label htmlFor="includeResolutionProgress" className="ml-2 block text-sm text-gray-700">
-                  Include Failure Resolution Progress
-                </label>
-              </div>
-            </div>
+          <div className="mt-8">
+            <Button onClick={generateReport}>
+              <EyeIcon className="size-4" />
+              Preview Report
+            </Button>
           </div>
-        </div>
-        <div className="mt-8 flex space-x-4">
-          <button onClick={generateReport} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-            <EyeIcon className="w-5 h-5 mr-2" />
-            Preview Report
-          </button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>;
 };

@@ -16,29 +16,29 @@ test.beforeEach(async ({ page }) => {
 test.describe('XML e2e tests', () => {
 
   test('should show the correct number of passed tests', async ({ page }) => {
-    await expect(page.locator('div.bg-green-50.rounded-lg.p-4')).toContainText('5Passed')
+    await expect(page.getByTestId('stat-passed')).toContainText('5Passed')
 
-    await expect(page.locator('div.bg-green-50.rounded-lg.p-4').locator('.lucide-circle-check-big')).toBeVisible()
+    await expect(page.getByTestId('stat-passed').locator('.lucide-circle-check-big')).toBeVisible()
   })
 
   test('should show the correct number of failed tests', async ({ page }) => {
-    await expect(page.locator('div.bg-red-50.rounded-lg.p-4')).toContainText('4Failed')
+    await expect(page.getByTestId('stat-failed')).toContainText('4Failed')
 
-    await expect(page.locator('div.bg-red-50.rounded-lg.p-4').locator('.lucide-circle-x')).toBeVisible()
+    await expect(page.getByTestId('stat-failed').locator('.lucide-circle-x')).toBeVisible()
   })
 
   test('should show the correct number of skipped tests', async ({ page }) => {
-    await expect(page.locator('div.bg-yellow-50.rounded-lg.p-4')).toContainText('0Skipped')
+    await expect(page.getByTestId('stat-skipped')).toContainText('0Skipped')
 
-    await expect(page.locator('div.bg-yellow-50.rounded-lg.p-4').locator('.lucide-triangle-alert')).toBeVisible()
+    await expect(page.getByTestId('stat-skipped').locator('.lucide-triangle-alert')).toBeVisible()
   })
 
   test('should show the correct duration', async ({ page }) => {
-    await expect(page.locator('p.text-lg.font-bold.text-blue-600.mt-1').first()).toContainText('4s')
+    await expect(page.locator('p.text-lg.font-bold.text-foreground').first()).toContainText('4s')
   })
 
   test('should show the correct success rate', async ({ page }) => {
-    await expect(page.locator('p.text-lg.font-bold.text-blue-600.mt-1').last()).toContainText('55.6%')
+    await expect(page.locator('p.text-lg.font-bold.text-foreground').last()).toContainText('55.6%')
   })
 
   test('should show the pie chart with correct percentages', async ({ page }) => {
@@ -48,7 +48,7 @@ test.describe('XML e2e tests', () => {
   test('test results should show up correctly', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Test Results', exact: true })).toBeVisible()
 
-    await expect(page.locator('div.mt-4.text-sm.text-gray-500')).toContainText('Showing 9 of 9 tests')
+    await expect(page.locator('div.mt-4.text-sm.text-muted-foreground')).toContainText('Showing 9 of 9 tests')
   })
 
   test('should be able to search for a test', async ({ page }) => {
@@ -56,7 +56,7 @@ test.describe('XML e2e tests', () => {
 
     await expect(page.getByRole('row', { name: 'test4' })).toBeVisible()
 
-        await expect(page.locator('div.mt-4.text-sm.text-gray-500')).toContainText('Showing 1 of 9 tests')
+        await expect(page.locator('div.mt-4.text-sm.text-muted-foreground')).toContainText('Showing 1 of 9 tests')
   })
 
   test('modal should open when you click a row', async ({ page }) => {

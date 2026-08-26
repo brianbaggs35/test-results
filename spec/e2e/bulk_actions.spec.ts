@@ -30,7 +30,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (0 selected)' })).toBeVisible()
 
-    await expect(page.locator('.text-green-500')).toHaveCount(2)
+    await expect(page.locator('.status-badge.text-success')).toHaveCount(2)
   })
 
   test('should bulk in progress failure analysis items', async ({ page }) => {
@@ -48,7 +48,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (0 selected)' })).toBeVisible()
 
-    await expect(page.locator('.text-blue-500')).toHaveCount(2)
+    await expect(page.locator('.status-badge.text-primary')).toHaveCount(2)
   })
 
   test('should bulk comment on failure analysis items', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (2 selected)' })).toBeVisible()
 
-    await page.getByTestId('bulk-comment-btn').click()
+    await page.getByTestId('floating-bulk-comment-btn').click()
 
     await expect(page.getByTestId('mode-same')).toBeEnabled()
 
@@ -88,7 +88,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (2 selected)' })).toBeVisible()
 
-    await page.getByTestId('bulk-comment-btn').click()
+    await page.getByTestId('floating-bulk-comment-btn').click()
 
     await page.getByTestId('bulk-status-select').selectOption('completed')
 
@@ -100,7 +100,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (0 selected)' })).toBeVisible()
 
-    await expect(page.locator('.text-green-500')).toHaveCount(2)
+    await expect(page.locator('.status-badge.text-success')).toHaveCount(2)
 
     await expect(page.locator('div.p-4').filter({ hasText: 'Notes: All resolved.' })).toHaveCount(2)
 
@@ -118,7 +118,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (2 selected)' })).toBeVisible()
 
-    await page.getByTestId('bulk-comment-btn').click()
+    await page.getByTestId('floating-bulk-comment-btn').click()
 
     await page.getByTestId('mode-individual').click()
 
@@ -157,7 +157,7 @@ test.describe('Progress Bulk Actions', () => {
 
     await expect(page.getByRole('checkbox', { name: 'Select All (2 selected)' })).toBeVisible()
 
-    await page.getByTestId('bulk-comment-btn').click()
+    await page.getByTestId('floating-bulk-comment-btn').click()
 
     await page.getByTestId('mode-individual').click()
 
@@ -171,7 +171,7 @@ test.describe('Progress Bulk Actions', () => {
     await expect(page.getByRole('checkbox', { name: 'Select All (0 selected)' })).toBeVisible()
 
     // First item should be green (completed), last should be blue (in_progress)
-    await expect(page.locator('.text-green-500')).toHaveCount(1)
-    await expect(page.locator('.text-blue-500')).toHaveCount(1)
+    await expect(page.locator('.status-badge.text-success')).toHaveCount(1)
+    await expect(page.locator('.status-badge.text-primary')).toHaveCount(1)
   })
 })

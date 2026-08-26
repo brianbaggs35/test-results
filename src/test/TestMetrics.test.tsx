@@ -107,6 +107,7 @@ vi.mock('lucide-react', () => ({
   XCircleIcon: () => <div data-testid="x-circle-icon" />,
   ClockIcon: () => <div data-testid="clock-icon" />,
   AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
+  TrendingUpIcon: () => <div data-testid="trending-up-icon" />,
 }));
 
 // Mock formatDuration utility
@@ -173,7 +174,7 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={mockTestData} />);
 
     const passedElements = screen.getAllByText('85');
-    // Appears in the legend/summary label plus the (now correctly exercised) tooltip preview
+    // Appears in the stat tile, the breakdown list row, and the tooltip preview
     const passedLabels = screen.getAllByText('Passed');
 
     expect(passedElements.length).toBeGreaterThan(0);
@@ -236,7 +237,8 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={emptyTestData} />);
 
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
-    expect(screen.getAllByText('0')).toHaveLength(3); // passed, failed, skipped all show 0
+    // passed, failed, skipped stat tiles, plus the donut chart's center total (also 0)
+    expect(screen.getAllByText('0')).toHaveLength(4);
   });
 
   it('should handle test data with no testcases in suites', () => {
@@ -265,7 +267,8 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={noTestCasesData} />);
 
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
-    expect(screen.getAllByText('0')).toHaveLength(3);
+    // passed, failed, skipped stat tiles, plus the donut chart's center total (also 0)
+    expect(screen.getAllByText('0')).toHaveLength(4);
   });
 
   it('should process test suites and create module data', () => {
@@ -340,11 +343,11 @@ describe('TestMetrics', () => {
     expect(tooltip).toBeInTheDocument();
   });
 
-  it('should render legend with custom formatter', () => {
+  it('should show the total test count in the center of the donut chart', () => {
     render(<TestMetrics testData={mockTestData} />);
-    
-    // Legend should be present
-    expect(screen.getByTestId('legend')).toBeInTheDocument();
+
+    expect(screen.getByText('100')).toBeInTheDocument();
+    expect(screen.getByText('tests')).toBeInTheDocument();
   });
 
   it('should render pie chart with custom elements', () => {
@@ -363,11 +366,11 @@ describe('TestMetrics', () => {
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
   });
 
-  it('should render tooltip and legend components', () => {
+  it('should render the tooltip alongside the chart', () => {
     render(<TestMetrics testData={mockTestData} />);
 
     expect(screen.getByTestId('tooltip')).toBeInTheDocument();
-    expect(screen.getByTestId('legend')).toBeInTheDocument();
+    expect(screen.getByTestId('pie-chart')).toBeInTheDocument();
   });
 
   it('should render Test Status Distribution heading', () => {
@@ -390,7 +393,8 @@ describe('TestMetrics', () => {
 
     render(<TestMetrics testData={allFailedData} />);
 
-    expect(screen.getByText('20')).toBeInTheDocument(); // Failed count
+    // Failed stat tile, plus the donut chart's center total (also 20, since every test failed)
+    expect(screen.getAllByText('20')).toHaveLength(2);
     expect(screen.getAllByText('0')).toHaveLength(2); // Passed and skipped both 0
     expect(screen.getByText('0.0%')).toBeInTheDocument(); // 0% success rate
   });
@@ -409,7 +413,8 @@ describe('TestMetrics', () => {
 
     render(<TestMetrics testData={allSkippedData} />);
 
-    expect(screen.getByText('15')).toBeInTheDocument(); // Skipped count
+    // Skipped stat tile, plus the donut chart's center total (also 15, since every test was skipped)
+    expect(screen.getAllByText('15')).toHaveLength(2);
     expect(screen.getAllByText('0')).toHaveLength(2); // Passed and failed both 0
     expect(screen.getByText('0.0%')).toBeInTheDocument(); // 0% success rate
   });

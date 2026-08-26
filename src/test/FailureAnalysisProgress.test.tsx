@@ -127,10 +127,6 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
   ),
 }));
 
-vi.mock('../components/FailureAnalysis/FloatingBulkActionsBar', () => ({
-  FloatingBulkActionsBar: () => <div data-testid="floating-bulk-actions-bar" />,
-}));
-
 describe('FailureAnalysisProgress', () => {
   beforeEach(() => {
     // Clear localStorage before each test
@@ -246,6 +242,17 @@ describe('FailureAnalysisProgress', () => {
       // Reset filters
       const resetButton = screen.getByTestId('reset-filters');
       fireEvent.click(resetButton);
+
+      expect(screen.getByText('10 tests tracked')).toBeInTheDocument();
+    });
+
+    it('should keep tests that match a non-"all" status filter', () => {
+      const testData = createTestDataWithFailures(10);
+
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      // Every test starts out 'pending', so filtering to 'pending' should keep them all.
+      fireEvent.change(screen.getByTestId('status-filter'), { target: { value: 'pending' } });
 
       expect(screen.getByText('10 tests tracked')).toBeInTheDocument();
     });
@@ -514,6 +521,92 @@ describe('FailureAnalysisProgress', () => {
       expect(setItemSpy).toHaveBeenCalledWith('testFixProgress', expect.stringContaining('"assignee":"Sam"'));
       setItemSpy.mockRestore();
     });
+
+    it('should do nothing when the file picker is dismissed without selecting a file', async () => {
+      const testData = createTestDataWithFailures(1);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      fireEvent.change(screen.getByLabelText('Upload progress export file'), { target: { files: [] } });
+
+      expect(screen.queryByTestId('import-progress-summary')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('import-progress-error')).not.toBeInTheDocument();
+    });
+
+    it('should pluralize both counts when no entries match and several are skipped', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(2);
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      // Same testData (so the structure-hash gate passes), but progress ids for tests
+      // that don't exist in it, so every entry is skipped rather than matched.
+      const bogusId1 = testIdentityKey('TestSuite1', 'Class0_0', 'bogus1');
+      const bogusId2 = testIdentityKey('TestSuite1', 'Class0_1', 'bogus2');
+      const bundle = {
+        version: 1,
+        testData,
+        progress: {
+          [bogusId1]: { id: bogusId1, name: 'bogus1', suite: 'TestSuite1', status: 'completed' },
+          [bogusId2]: { id: bogusId2, name: 'bogus2', suite: 'TestSuite1', status: 'completed' },
+        },
+      };
+      const file = new File([JSON.stringify(bundle)], 'export.json', { type: 'application/json' });
+
+      await user.upload(screen.getByLabelText('Upload progress export file'), file);
+
+      expect(await screen.findByText(/Imported progress for 0 tests/)).toBeInTheDocument();
+      expect(screen.getByText(/2 entries in the file didn't match a test in the currently loaded results and were skipped/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Restoring saved progress from localStorage', () => {
+    it('should restore a previously saved status and open the stack trace modal for a matching test', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      const matchingId = testIdentityKey('TestSuite1', 'Class0_0', 'test0_0');
+      const getItemSpy = vi.spyOn(window.localStorage, 'getItem').mockReturnValue(JSON.stringify({
+        [matchingId]: {
+          id: matchingId,
+          name: 'test0_0',
+          suite: 'TestSuite1',
+          status: 'completed',
+          notes: 'Already fixed',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      }));
+
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      expect(screen.getByText('Already fixed')).toBeInTheDocument();
+
+      await user.click(screen.getByText('View Stack Trace'));
+
+      expect(screen.getByTestId('test-details-modal')).toBeInTheDocument();
+      expect(screen.getByText('Test: test0_0')).toBeInTheDocument();
+      getItemSpy.mockRestore();
+    });
+
+    it('should do nothing when the stack trace is requested for a test no longer in the current results', async () => {
+      const user = userEvent.setup();
+      const testData = createTestDataWithFailures(1);
+      const staleId = testIdentityKey('OldSuite', 'OldClass', 'oldTest');
+      const getItemSpy = vi.spyOn(window.localStorage, 'getItem').mockReturnValue(JSON.stringify({
+        [staleId]: {
+          id: staleId,
+          name: 'oldTest',
+          suite: 'OldSuite',
+          status: 'pending',
+          errorMessage: 'boom',
+          updatedAt: '2024-01-01T00:00:00Z',
+        },
+      }));
+
+      render(<FailureAnalysisProgress testData={testData} />);
+
+      await user.click(screen.getByText('View Stack Trace'));
+
+      expect(screen.queryByTestId('test-details-modal')).not.toBeInTheDocument();
+      getItemSpy.mockRestore();
+    });
   });
 
   describe('Null testData scenario', () => {
@@ -676,7 +769,7 @@ describe('FailureAnalysisProgress', () => {
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[1]); // first test checkbox
 
-      expect(screen.getByTestId('bulk-comment-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('floating-bulk-comment-btn')).toBeInTheDocument();
       expect(screen.getByText('Bulk Comment')).toBeInTheDocument();
     });
 
@@ -684,7 +777,7 @@ describe('FailureAnalysisProgress', () => {
       const testData = createTestDataWithFailures(5);
       render(<FailureAnalysisProgress testData={testData} />);
 
-      expect(screen.queryByTestId('bulk-comment-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('floating-bulk-comment-btn')).not.toBeInTheDocument();
     });
 
     it('should open BulkCommentModal when Bulk Comment is clicked', () => {
@@ -693,7 +786,7 @@ describe('FailureAnalysisProgress', () => {
 
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[0]); // select all
-      fireEvent.click(screen.getByTestId('bulk-comment-btn'));
+      fireEvent.click(screen.getByTestId('floating-bulk-comment-btn'));
 
       expect(screen.getByTestId('bulk-comment-modal')).toBeInTheDocument();
     });
@@ -704,7 +797,7 @@ describe('FailureAnalysisProgress', () => {
 
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[0]);
-      fireEvent.click(screen.getByTestId('bulk-comment-btn'));
+      fireEvent.click(screen.getByTestId('floating-bulk-comment-btn'));
 
       expect(screen.getByTestId('bulk-comment-modal')).toBeInTheDocument();
       fireEvent.click(screen.getByText('Cancel'));
@@ -717,9 +810,9 @@ describe('FailureAnalysisProgress', () => {
 
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[0]);
-      fireEvent.click(screen.getByTestId('bulk-comment-btn'));
+      fireEvent.click(screen.getByTestId('floating-bulk-comment-btn'));
 
-      fireEvent.click(screen.getByLabelText('Close modal'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       expect(screen.queryByTestId('bulk-comment-modal')).not.toBeInTheDocument();
     });
 
@@ -732,7 +825,7 @@ describe('FailureAnalysisProgress', () => {
       fireEvent.click(checkboxes[2]);
       fireEvent.click(checkboxes[3]);
 
-      fireEvent.click(screen.getByTestId('bulk-comment-btn'));
+      fireEvent.click(screen.getByTestId('floating-bulk-comment-btn'));
       expect(screen.getByText(/Bulk Comment \(3 items\)/)).toBeInTheDocument();
     });
 
@@ -746,7 +839,7 @@ describe('FailureAnalysisProgress', () => {
       await user.click(checkboxes[1]);
       await user.click(checkboxes[2]);
 
-      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.click(screen.getByTestId('floating-bulk-comment-btn'));
 
       const textarea = screen.getByTestId('shared-comment-input');
       await user.type(textarea, 'Bulk fix applied');
@@ -769,7 +862,7 @@ describe('FailureAnalysisProgress', () => {
       const checkboxes = screen.getAllByRole('checkbox');
       await user.click(checkboxes[0]); // select all
 
-      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.click(screen.getByTestId('floating-bulk-comment-btn'));
       await user.click(screen.getByTestId('mode-individual'));
 
       const textareas = screen.getAllByPlaceholderText('Enter comment for this test...');
@@ -791,7 +884,7 @@ describe('FailureAnalysisProgress', () => {
       const checkboxes = screen.getAllByRole('checkbox');
       await user.click(checkboxes[0]); // select all
 
-      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.click(screen.getByTestId('floating-bulk-comment-btn'));
       await user.type(screen.getByTestId('bulk-assignee-input'), 'Jane Smith');
       await user.click(screen.getByTestId('apply-comments-btn'));
 
@@ -807,7 +900,7 @@ describe('FailureAnalysisProgress', () => {
       const checkboxes = screen.getAllByRole('checkbox');
       await user.click(checkboxes[0]); // select all
 
-      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.click(screen.getByTestId('floating-bulk-comment-btn'));
       await user.selectOptions(screen.getByTestId('bulk-status-select'), 'completed');
       await user.type(screen.getByTestId('bulk-assignee-input'), 'Alex Rivera');
       await user.click(screen.getByTestId('apply-comments-btn'));
@@ -823,13 +916,14 @@ describe('FailureAnalysisProgress', () => {
 
       const checkboxes = screen.getAllByRole('checkbox');
       await user.click(checkboxes[0]); // select all
-      expect(screen.getByText(/3 selected/)).toBeInTheDocument();
+      // Both the inline "Select All" label and the floating bar show the count.
+      expect(screen.getAllByText(/3 selected/)).toHaveLength(2);
 
-      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.click(screen.getByTestId('floating-bulk-comment-btn'));
       await user.type(screen.getByTestId('shared-comment-input'), 'done');
       await user.click(screen.getByTestId('apply-comments-btn'));
 
-      expect(screen.queryByTestId('bulk-comment-btn')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('floating-bulk-comment-btn')).not.toBeInTheDocument();
     });
 
     it('should update timestamps when applying bulk comments', async () => {
@@ -840,7 +934,7 @@ describe('FailureAnalysisProgress', () => {
       const checkboxes = screen.getAllByRole('checkbox');
       await user.click(checkboxes[0]);
 
-      await user.click(screen.getByTestId('bulk-comment-btn'));
+      await user.click(screen.getByTestId('floating-bulk-comment-btn'));
       await user.type(screen.getByTestId('shared-comment-input'), 'ts-check');
       await user.click(screen.getByTestId('apply-comments-btn'));
 

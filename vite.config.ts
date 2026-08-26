@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import IstanbulPlugin from 'vite-plugin-istanbul'
@@ -6,6 +7,11 @@ import { publishPlugin } from './server/publishPlugin'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    }
+  },
   build: {
     sourcemap: true
   },
@@ -17,46 +23,7 @@ export default defineConfig({
       exclude: ['node_modules', 'test/', 'src/test/**', '.history/**'],
       extension: ['.js', '.ts', '.tsx']
     })
-  ],
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    exclude: [
-      '**/node_modules/**',
-      'spec/e2e/**',
-      '**/build/**',
-      '**/coverage/**',
-      '.history/**'
-    ],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/test/',
-        '**/*.d.ts',
-        'dist/',
-        'spec/**',
-        'spec/e2e/**',
-        'test-results/**',
-        '.history/**',
-        'eslint.config.cjs',
-        'vite.config.ts',
-        'playwright.config.ts',
-        'tailwind.config.ts',
-        'postcss.config.ts',
-        'src/index.tsx',
-        'src/types/**'
-      ],
-      thresholds: {
-        global: {
-          branches: 90,
-          functions: 90,
-          lines: 90,
-          statements: 90
-        }
-      }
-    }
-  }
+  ]
+  // Unit-test/coverage config lives in vitest.config.ts, which vitest prefers over
+  // this file whenever both exist — a `test` block here would never actually run.
 })

@@ -80,6 +80,29 @@ global.ResizeObserver = class ResizeObserver {
   }
 }
 
+// Mock IntersectionObserver
+global.IntersectionObserver = class IntersectionObserver {
+  root = null
+  rootMargin = ''
+  thresholds: ReadonlyArray<number> = []
+
+  observe() {
+    // Mock implementation
+  }
+
+  unobserve() {
+    // Mock implementation
+  }
+
+  disconnect() {
+    // Mock implementation
+  }
+
+  takeRecords(): IntersectionObserverEntry[] {
+    return []
+  }
+} as unknown as typeof IntersectionObserver
+
 // Mock localStorage
 const localStorageMock = {
   getItem: () => null,

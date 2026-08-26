@@ -6,6 +6,7 @@ import { FailureAnalysisPage } from './components/FailureAnalysis/FailureAnalysi
 import { FailureAnalysisProgress } from './components/FailureAnalysis/FailureAnalysisProgress';
 import { PublishPage } from './components/Publish/PublishPage';
 import { SplitPage } from './components/Split/SplitPage';
+import { Toaster } from './components/ui/sonner';
 import type { TestData } from './types';
 
 export function App() {
@@ -30,7 +31,7 @@ export function App() {
       case 'progress':
         return <FailureAnalysisProgress testData={testData} />;
       case 'report':
-        return <ReportGenerator testData={testData} />;
+        return <ReportGenerator testData={testData} setActiveTab={setActiveTab} />;
       case 'publish':
         return <PublishPage xmlContent={xmlContent} />;
       case 'split':
@@ -39,10 +40,11 @@ export function App() {
         return <Dashboard onDataUpload={handleDataUpload} onXmlContent={handleXmlContent} testData={testData} />;
     }
   };
-  return <div className="min-h-screen bg-gray-50">
+  return <div className="app-shell min-h-screen bg-background text-foreground">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="container mx-auto px-4 py-8">
         {getActiveComponent()}
       </main>
+      <Toaster richColors closeButton />
     </div>;
 }

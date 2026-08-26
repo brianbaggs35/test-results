@@ -85,13 +85,15 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
   )
 }));
 
-// Mock lucide-react icons
+// Mock lucide-react icons (includes StatusBadge's icons, since it renders inside this list)
 vi.mock('lucide-react', () => ({
   ChevronDownIcon: () => <div data-testid="chevron-down-icon" />,
   ChevronUpIcon: () => <div data-testid="chevron-up-icon" />,
-  CheckIcon: () => <div data-testid="check-icon" />,
-  XIcon: () => <div data-testid="x-icon" />,
-  AlertCircleIcon: () => <div data-testid="alert-circle-icon" />
+  ChevronsUpDownIcon: () => <div data-testid="chevrons-up-down-icon" />,
+  CheckCircleIcon: () => <div data-testid="check-circle-icon" />,
+  XCircleIcon: () => <div data-testid="x-circle-icon" />,
+  AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
+  ClockIcon: () => <div data-testid="clock-icon" />,
 }));
 
 describe('TestResultsList', () => {
@@ -224,9 +226,9 @@ describe('TestResultsList', () => {
     render(<TestResultsList testData={mockTestData} />);
 
     // Check for status icons (assuming they're rendered in the table)
-    expect(screen.getAllByTestId('check-icon')).toHaveLength(3); // 3 passed tests
-    expect(screen.getAllByTestId('x-icon')).toHaveLength(2); // 2 failed tests
-    expect(screen.getAllByTestId('alert-circle-icon')).toHaveLength(1); // 1 skipped test
+    expect(screen.getAllByTestId('check-circle-icon')).toHaveLength(3); // 3 passed tests
+    expect(screen.getAllByTestId('x-circle-icon')).toHaveLength(2); // 2 failed tests
+    expect(screen.getAllByTestId('alert-triangle-icon')).toHaveLength(1); // 1 skipped test
   });
 
   it('should open test details modal when test is clicked', async () => {
