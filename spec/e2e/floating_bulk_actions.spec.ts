@@ -61,7 +61,7 @@ test.describe('Floating Bulk Actions Bar', () => {
     await expect(page.getByTestId('floating-bulk-actions-bar')).toBeHidden()
 
     // Items should be marked as complete (green icons)
-    await expect(page.locator('.text-green-500')).toHaveCount(2)
+    await expect(page.locator('.status-badge.text-success')).toHaveCount(2)
   })
 
   test('should mark items as in progress via floating bar', async ({ page }) => {
@@ -73,7 +73,7 @@ test.describe('Floating Bulk Actions Bar', () => {
     await page.getByTestId('floating-mark-in-progress').click()
 
     await expect(page.getByTestId('floating-bulk-actions-bar')).toBeHidden()
-    await expect(page.locator('.text-blue-500')).toHaveCount(2)
+    await expect(page.locator('.status-badge.text-primary')).toHaveCount(2)
   })
 
   test('should mark items as pending via floating bar', async ({ page }) => {
@@ -90,7 +90,7 @@ test.describe('Floating Bulk Actions Bar', () => {
     await page.getByTestId('floating-mark-pending').click()
 
     await expect(page.getByTestId('floating-bulk-actions-bar')).toBeHidden()
-    await expect(page.locator('.text-red-500')).toHaveCount(4)
+    await expect(page.locator('.status-badge.text-destructive')).toHaveCount(4)
   })
 
   test('should open bulk comment modal via floating bar', async ({ page }) => {

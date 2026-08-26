@@ -22,11 +22,11 @@ test.describe('Split E2E Tests', () => {
 
     await fileUpload.setFiles('./spec/testfiles/sample.xml')
 
-    await expect(page.locator('span.text-sm.text-gray-500').filter({ hasText: 'Using: sample.xml' })).toBeVisible()
+    await expect(page.locator('span.text-sm.text-muted-foreground').filter({ hasText: 'Using: sample.xml' })).toBeVisible()
 
     await page.getByRole('main').getByRole('button', { name: 'Split' }).click()
 
-    await expect(page.locator('p.text-sm.text-gray-600.mb-3').filter({ hasText: '4 failed/errored tests split into 2 and 2. All passed and skipped tests are included in both files.' })).toBeVisible()
+    await expect(page.getByTestId('split-result')).toContainText('4 failed/errored tests split into 2 and 2. All passed and skipped tests are included in both files.')
 
     const [fileDownloadA] = await Promise.all([
       page.waitForEvent('download'),

@@ -5,6 +5,7 @@ import { TestResultsList } from './TestResultsList';
 import { parseJUnitXML } from '../../utils/xmlParser';
 import ClearLocalStorageButton from './ClearLocalStorage';
 import type { TestData } from '../../types';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 interface DashboardProps {
   onDataUpload: (data: TestData) => void;
@@ -36,15 +37,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
   return <div className="space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Test Results Dashboard
-        </h2>
-        <div className="flex mb-4">
+      <Card>
+        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">
+              Test Results Dashboard
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Upload a JUnit XML file from your Playwright run to explore results, track failures, and build reports.
+            </p>
+          </div>
           <ClearLocalStorageButton />
-        </div>
-        {!testData && <FileUploader onFileUpload={handleFileUpload} isLoading={isLoading} error={error} />}
-      </div>
+        </CardHeader>
+        {!testData && (
+          <CardContent>
+            <FileUploader onFileUpload={handleFileUpload} isLoading={isLoading} error={error} />
+          </CardContent>
+        )}
+      </Card>
       {testData && <>
           <TestMetrics testData={testData} />
           <TestResultsList testData={testData} />

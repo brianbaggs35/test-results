@@ -76,6 +76,7 @@ vi.mock('lucide-react', () => ({
   XCircleIcon: () => <div data-testid="x-circle-icon" />,
   ClockIcon: () => <div data-testid="clock-icon" />,
   AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
+  TrendingUpIcon: () => <div data-testid="trending-up-icon" />,
 }));
 
 // Mock utilities

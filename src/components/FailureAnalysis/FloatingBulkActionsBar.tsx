@@ -1,4 +1,8 @@
 import { MessageSquareIcon, XIcon } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 interface FloatingBulkActionsBarProps {
   selectedCount: number;
@@ -28,66 +32,44 @@ export const FloatingBulkActionsBar: React.FC<FloatingBulkActionsBarProps> = ({
   return (
     <div
       data-testid="floating-bulk-actions-bar"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-300 shadow-lg"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur-sm shadow-lg"
     >
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
+      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Label className="flex items-center gap-2 font-medium">
+            <Checkbox
               data-testid="floating-select-all"
               checked={allSelected && totalCount > 0}
-              onChange={onToggleSelectAll}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              onCheckedChange={onToggleSelectAll}
             />
-            <span className="text-sm font-medium text-gray-700">Select All</span>
-          </label>
-          <span className="text-sm font-semibold text-blue-600" data-testid="floating-selected-count">
+            Select All
+          </Label>
+          <span className="text-sm font-semibold text-primary" data-testid="floating-selected-count">
             {selectedCount} selected
           </span>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600 mr-1">Bulk Actions:</span>
-          <button
-            onClick={onMarkPending}
-            data-testid="floating-mark-pending"
-            className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
-          >
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground mr-1 hidden sm:inline">Bulk Actions:</span>
+          <Button size="sm" variant="outline" onClick={onMarkPending} data-testid="floating-mark-pending" className="text-destructive hover:text-destructive">
             Mark as Pending
-          </button>
-          <button
-            onClick={onMarkInProgress}
-            data-testid="floating-mark-in-progress"
-            className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-sm"
-          >
+          </Button>
+          <Button size="sm" variant="outline" onClick={onMarkInProgress} data-testid="floating-mark-in-progress" className="text-primary hover:text-primary">
             Mark as In Progress
-          </button>
-          <button
-            onClick={onMarkComplete}
-            data-testid="floating-mark-complete"
-            className="px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-sm"
-          >
+          </Button>
+          <Button size="sm" variant="outline" onClick={onMarkComplete} data-testid="floating-mark-complete" className="text-success hover:text-success">
             Mark as Complete
-          </button>
-          <span className="border-l border-gray-300 h-5" />
-          <button
-            onClick={onBulkComment}
-            data-testid="floating-bulk-comment-btn"
-            className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 text-sm flex items-center gap-1"
-          >
-            <MessageSquareIcon className="w-3 h-3" />
+          </Button>
+          <Separator orientation="vertical" className="h-5" />
+          <Button size="sm" variant="outline" onClick={onBulkComment} data-testid="floating-bulk-comment-btn">
+            <MessageSquareIcon className="size-3.5" />
             Bulk Comment
-          </button>
-          <span className="border-l border-gray-300 h-5" />
-          <button
-            onClick={onClearSelection}
-            data-testid="floating-clear-selection"
-            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm flex items-center gap-1"
-          >
-            <XIcon className="w-3 h-3" />
+          </Button>
+          <Separator orientation="vertical" className="h-5" />
+          <Button size="sm" variant="ghost" onClick={onClearSelection} data-testid="floating-clear-selection">
+            <XIcon className="size-3.5" />
             Clear Selection
-          </button>
+          </Button>
         </div>
       </div>
     </div>

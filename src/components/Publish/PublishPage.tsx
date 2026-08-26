@@ -1,5 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { SendIcon, FileIcon, UploadIcon, LoaderIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react';
+import { SendIcon, FileIcon, UploadIcon, LoaderIcon, CheckCircleIcon, XCircleIcon, PlusIcon, XIcon } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 export interface PublishPageProps {
   xmlContent: string | null;
@@ -15,6 +21,11 @@ interface PublishStatus {
   message: string;
   output?: string;
 }
+
+const METADATA_PLACEHOLDERS = [
+  { key: 'e.g., Failed Tests', value: 'e.g., 54' },
+  { key: 'e.g., Executed By', value: 'e.g., Brian' },
+];
 
 export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
   const [run, setRun] = useState('');
@@ -32,6 +43,14 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
     const updated = [...metadata];
     updated[index] = { ...updated[index], [field]: val };
     setMetadata(updated);
+  };
+
+  const addMetadataRow = () => {
+    setMetadata([...metadata, { key: '', value: '' }]);
+  };
+
+  const removeMetadataRow = (index: number) => {
+    setMetadata(metadata.filter((_, i) => i !== index));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,107 +122,110 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
 
   return (
     <div className="space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          Publish Test Results
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Configure and publish your test results using TestBeats.
-        </p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Publish Test Results</CardTitle>
+          <p className="text-muted-foreground pt-1">
+            Configure and publish your test results using TestBeats.
+          </p>
+        </CardHeader>
 
-        <div className="space-y-6">
+        <CardContent className="space-y-6">
           {/* Run Name */}
-          <div>
-            <label htmlFor="publish-run" className="block text-sm font-medium text-gray-700 mb-1">
-              Run Name
-            </label>
-            <input
-              type="text"
+          <div className="space-y-1.5">
+            <Label htmlFor="publish-run">Run Name</Label>
+            <Input
               id="publish-run"
               value={run}
               onChange={(e) => setRun(e.target.value)}
               placeholder="e.g., Full Regression February 17th"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           {/* Title */}
-          <div>
-            <label htmlFor="publish-title" className="block text-sm font-medium text-gray-700 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
+          <div className="space-y-1.5">
+            <Label htmlFor="publish-title">Title</Label>
+            <Input
               id="publish-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Full Regression February 17th"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           {/* Metadata */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Metadata</h3>
-            {metadata.map((entry, index) => (
-              <div key={index} className="flex gap-4 mb-3">
-                <div className="flex-1">
-                  <label htmlFor={`metadata-key-${index}`} className="block text-xs text-gray-500 mb-1">
-                    Key
-                  </label>
-                  <input
-                    type="text"
-                    id={`metadata-key-${index}`}
-                    value={entry.key}
-                    onChange={(e) => handleMetadataChange(index, 'key', e.target.value)}
-                    placeholder={index === 0 ? 'e.g., Failed Tests' : 'e.g., Executed By'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+            <h3 className="text-sm font-medium text-foreground mb-3">Metadata</h3>
+            <div className="space-y-3">
+              {metadata.map((entry, index) => (
+                <div key={index} className="flex gap-3 items-end">
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor={`metadata-key-${index}`} className="text-xs text-muted-foreground">
+                      Key
+                    </Label>
+                    <Input
+                      id={`metadata-key-${index}`}
+                      value={entry.key}
+                      onChange={(e) => handleMetadataChange(index, 'key', e.target.value)}
+                      placeholder={METADATA_PLACEHOLDERS[index]?.key ?? 'e.g., Environment'}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor={`metadata-value-${index}`} className="text-xs text-muted-foreground">
+                      Value
+                    </Label>
+                    <Input
+                      id={`metadata-value-${index}`}
+                      value={entry.value}
+                      onChange={(e) => handleMetadataChange(index, 'value', e.target.value)}
+                      placeholder={METADATA_PLACEHOLDERS[index]?.value ?? 'e.g., Staging'}
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeMetadataRow(index)}
+                    aria-label="Remove metadata row"
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <XIcon className="size-4" />
+                  </Button>
                 </div>
-                <div className="flex-1">
-                  <label htmlFor={`metadata-value-${index}`} className="block text-xs text-gray-500 mb-1">
-                    Value
-                  </label>
-                  <input
-                    type="text"
-                    id={`metadata-value-${index}`}
-                    value={entry.value}
-                    onChange={(e) => handleMetadataChange(index, 'value', e.target.value)}
-                    placeholder={index === 0 ? 'e.g., 54' : 'e.g., Brian'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={addMetadataRow} className="mt-3">
+              <PlusIcon className="size-4" />
+              Add metadata
+            </Button>
           </div>
 
           {/* XML Source */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">Test Results XML</h3>
+            <h3 className="text-sm font-medium text-foreground mb-3">Test Results XML</h3>
             <div className="space-y-3">
               {xmlContent && (
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
                   <input
                     type="radio"
                     name="xmlSource"
                     value="loaded"
                     checked={xmlSource === 'loaded'}
                     onChange={() => setXmlSource('loaded')}
-                    className="text-blue-600"
+                    className="text-primary accent-primary"
                   />
-                  <span className="text-sm text-gray-700">Use loaded XML file from Dashboard</span>
+                  Use loaded XML file from Dashboard
                 </label>
               )}
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-sm">
                 <input
                   type="radio"
                   name="xmlSource"
                   value="file"
                   checked={xmlSource === 'file'}
                   onChange={() => setXmlSource('file')}
-                  className="text-blue-600"
+                  className="text-primary accent-primary"
                 />
-                <span className="text-sm text-gray-700">Choose a new XML file</span>
+                Choose a new XML file
               </label>
               {xmlSource === 'file' && (
                 <div className="flex items-center gap-3 mt-2">
@@ -215,16 +237,13 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
                     className="hidden"
                     data-testid="xml-file-input"
                   />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <UploadIcon className="w-4 h-4 mr-2" />
+                  <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <UploadIcon className="size-4" />
                     {selectedFile ? 'Change File' : 'Select XML File'}
-                  </button>
+                  </Button>
                   {selectedFile && (
-                    <span className="text-sm text-green-600 flex items-center gap-1">
-                      <FileIcon className="w-4 h-4" />
+                    <span className="text-sm text-success flex items-center gap-1">
+                      <FileIcon className="size-4" />
                       {selectedFile.name}
                     </span>
                   )}
@@ -235,58 +254,53 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
 
           {/* Publish Button */}
           <div className="pt-4">
-            <button
+            <Button
+              size="lg"
               onClick={handlePublish}
               disabled={status.state === 'publishing'}
-              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-success text-success-foreground hover:bg-success/90"
             >
               {status.state === 'publishing' ? (
                 <>
-                  <LoaderIcon className="w-5 h-5 mr-2 animate-spin" />
+                  <LoaderIcon className="size-5 animate-spin" />
                   Publishing...
                 </>
               ) : (
                 <>
-                  <SendIcon className="w-5 h-5 mr-2" />
+                  <SendIcon className="size-5" />
                   Publish
                 </>
               )}
-            </button>
+            </Button>
           </div>
 
           {/* Status Display */}
           {status.state !== 'idle' && status.state !== 'publishing' && (
-            <div
-              className={`p-4 rounded-md ${
+            <Alert
+              className={cn(
                 status.state === 'success'
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}
+                  ? 'border-success/30 bg-success/5'
+                  : 'border-destructive/30 bg-destructive/5'
+              )}
               data-testid="publish-status"
             >
-              <div className="flex items-center gap-2 mb-2">
-                {status.state === 'success' ? (
-                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                ) : (
-                  <XCircleIcon className="w-5 h-5 text-red-600" />
-                )}
-                <span
-                  className={`font-medium ${
-                    status.state === 'success' ? 'text-green-800' : 'text-red-800'
-                  }`}
-                >
-                  {status.message}
-                </span>
-              </div>
-              {status.output && (
-                <pre className="mt-2 p-3 bg-gray-900 text-gray-100 rounded text-sm overflow-x-auto whitespace-pre-wrap">
-                  {status.output}
-                </pre>
+              {status.state === 'success' ? (
+                <CheckCircleIcon className="size-4 text-success" />
+              ) : (
+                <XCircleIcon className="size-4 text-destructive" />
               )}
-            </div>
+              <AlertDescription className={status.state === 'success' ? 'text-success' : 'text-destructive'}>
+                <span className="font-medium">{status.message}</span>
+                {status.output && (
+                  <pre className="mt-2 p-3 bg-zinc-950 text-zinc-100 rounded text-sm overflow-x-auto whitespace-pre-wrap">
+                    {status.output}
+                  </pre>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

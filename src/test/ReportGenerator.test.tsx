@@ -21,10 +21,11 @@ vi.mock('../components/ReportGenerator/ReportPreview', () => ({
   )
 }));
 
-// Mock lucide-react icons
+// Mock lucide-react icons (includes Check, used by the shadcn Checkbox content-option toggles)
 vi.mock('lucide-react', () => ({
   FileTextIcon: () => <div data-testid="file-text-icon" />,
-  EyeIcon: () => <div data-testid="eye-icon" />
+  EyeIcon: () => <div data-testid="eye-icon" />,
+  Check: () => <div data-testid="check-icon" />,
 }));
 
 describe('ReportGenerator', () => {
@@ -196,13 +197,15 @@ describe('ReportGenerator', () => {
     expect(screen.getByTestId('preview-failed')).toBeInTheDocument(); // Still checked
   });
 
-  it('should reload page when "Go to Dashboard" is clicked with no data', () => {
-    render(<ReportGenerator testData={null} />);
+  it('should switch to the Dashboard tab when "Go to Dashboard" is clicked with no data', () => {
+    const setActiveTab = vi.fn();
+    render(<ReportGenerator testData={null} setActiveTab={setActiveTab} />);
 
     const dashboardButton = screen.getByText('Go to Dashboard');
     fireEvent.click(dashboardButton);
 
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(setActiveTab).toHaveBeenCalledWith('dashboard');
+    expect(window.location.reload).not.toHaveBeenCalled();
   });
 
   it('should have proper form accessibility', () => {

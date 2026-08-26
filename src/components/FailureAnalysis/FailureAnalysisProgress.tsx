@@ -1,10 +1,22 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, AlertCircleIcon, MessageSquareIcon, DownloadIcon, UploadIcon } from 'lucide-react';
+import { AlertTriangleIcon, AlertCircleIcon, DownloadIcon, UploadIcon, CheckCircleIcon } from 'lucide-react';
 import { TestDetailsModal } from '../Dashboard/TestDetailsModal';
 import { FilterControls } from '../Dashboard/FilterControls';
 import ClearLocalStorageButton from '../Dashboard/ClearLocalStorage';
 import { BulkCommentModal, type BulkCommentResult } from './BulkCommentModal';
 import { FloatingBulkActionsBar } from './FloatingBulkActionsBar';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Pagination } from '@/components/shared/Pagination';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 import type { TestData, TestCase, FailureProgressItem } from '../../types';
 import { exportProgressBundle, importProgressBundle } from '../../utils/exportBundle';
 import { testIdentityKey } from '../../utils/testIdentity';
@@ -12,6 +24,14 @@ import { testIdentityKey } from '../../utils/testIdentity';
 interface FailureAnalysisProgressProps {
   testData: TestData | null;
 }
+
+const PAGE_SIZE = 50;
+
+const STATUS_BORDER: Record<string, string> = {
+  completed: 'border-success/30 bg-success/5',
+  in_progress: 'border-primary/30 bg-primary/5',
+  pending: 'border-destructive/30 bg-destructive/5',
+};
 
 export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = ({
   testData
@@ -31,7 +51,6 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   const [classNameFilter, setClassNameFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const testsPerPage = 50;
 
   // Bulk actions state
   const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set());
@@ -150,26 +169,6 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
       setImportError(err instanceof Error ? err.message : `Failed to import "${file.name}".`);
     }
   };
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
-      case 'in_progress':
-        return <ClockIcon className="w-5 h-5 text-blue-500" />;
-      default:
-        return <XCircleIcon className="w-5 h-5 text-red-500" />;
-    }
-  };
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-50 border-green-200';
-      case 'in_progress':
-        return 'bg-blue-50 border-blue-200';
-      default:
-        return 'bg-red-50 border-red-200';
-    }
-  };
   const failedTests = Object.values(progressData);
   const totalTests = failedTests.length;
   const completedTests = failedTests.filter(test => test.status === 'completed').length;
@@ -224,7 +223,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   }, [failedTests, statusFilter, suiteFilter, searchTerm]);
 
   // Reset to page 1 when filters change
-  const totalPages = Math.ceil(filteredTests.length / testsPerPage);
+  const totalPages = Math.ceil(filteredTests.length / PAGE_SIZE);
   const validCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
   if (validCurrentPage !== currentPage) {
     setCurrentPage(validCurrentPage);
@@ -232,11 +231,11 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
 
   // Paginate the filtered tests (memoized to prevent infinite re-renders)
   const paginationData = useMemo(() => {
-    const startIndex = (validCurrentPage - 1) * testsPerPage;
-    const endIndex = startIndex + testsPerPage;
+    const startIndex = (validCurrentPage - 1) * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
     const paginatedTests = filteredTests.slice(startIndex, endIndex);
     return { startIndex, endIndex, paginatedTests };
-  }, [filteredTests, validCurrentPage, testsPerPage]);
+  }, [filteredTests, validCurrentPage]);
 
   const { startIndex, endIndex, paginatedTests } = paginationData;
 
@@ -292,26 +291,23 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   };
 
   if (!testData) {
-    return <div className="bg-white p-8 rounded-lg shadow text-center">
-        <AlertTriangleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          No Test Data Available
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Please upload a JUnit XML file from the Dashboard to view failure
-          resolution progress.
-        </p>
-      </div>;
+    return (
+      <EmptyState
+        icon={AlertTriangleIcon}
+        title="No Test Data Available"
+        description="Please upload a JUnit XML file from the Dashboard to view failure resolution progress."
+      />
+    );
   }
 
   return <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Failure Resolution Progress
-        </h2>
-        <div className="flex items-center justify-between mb-4">
-          <ClearLocalStorageButton />
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <h2 className="text-2xl font-bold text-foreground">
+            Failure Resolution Progress
+          </h2>
           <div className="flex items-center gap-2">
+            <ClearLocalStorageButton />
             <input
               id="import-progress-upload"
               name="importProgressUpload"
@@ -322,294 +318,197 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
               className="hidden"
               aria-label="Upload progress export file"
             />
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => importInputRef.current?.click()}
               disabled={totalTests === 0}
-              className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Load a previously exported progress JSON file to restore your notes, status, and assignees"
             >
-              <UploadIcon className="w-4 h-4 mr-2" />
+              <UploadIcon className="size-4" />
               Import Progress
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               onClick={() => exportProgressBundle(testData, progressData)}
               disabled={totalTests === 0}
-              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Download this data plus your progress notes, to merge with a teammate's work later on the Split tab"
             >
-              <DownloadIcon className="w-4 h-4 mr-2" />
+              <DownloadIcon className="size-4" />
               Export Progress
-            </button>
+            </Button>
           </div>
-        </div>
-        {importError && (
-          <div className="flex items-center text-red-600 text-sm mb-4" data-testid="import-progress-error">
-            <AlertCircleIcon className="w-4 h-4 mr-2 shrink-0" />
-            {importError}
-          </div>
-        )}
-        {importSummary && (
-          <div className="flex items-center text-green-700 text-sm mb-4" data-testid="import-progress-summary">
-            <CheckCircleIcon className="w-4 h-4 mr-2 shrink-0" />
-            {importSummary}
-          </div>
-        )}
-        <div className="mb-4">
-          <p className="text-sm text-gray-500">
+        </CardHeader>
+        <CardContent>
+          {importError && (
+            <Alert variant="destructive" className="mb-4" data-testid="import-progress-error">
+              <AlertCircleIcon className="size-4" />
+              <AlertDescription>{importError}</AlertDescription>
+            </Alert>
+          )}
+          {importSummary && (
+            <Alert className="mb-4 border-success/30 bg-success/5 text-success [&>svg]:text-success" data-testid="import-progress-summary">
+              <CheckCircleIcon className="size-4" />
+              <AlertDescription className="text-success">{importSummary}</AlertDescription>
+            </Alert>
+          )}
+          <p className="text-sm text-muted-foreground mb-4">
             {filteredTests.length} test{filteredTests.length !== 1 ? 's' : ''} tracked
-            {filteredTests.length > testsPerPage && (
+            {filteredTests.length > PAGE_SIZE && (
               <span className="ml-2">
                 (Showing {startIndex + 1}-{Math.min(endIndex, filteredTests.length)} of {filteredTests.length})
               </span>
             )}
           </p>
-        </div>
-        {/* Progress Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total Failed Tests</span>
-              <span className="text-xl font-bold text-gray-800">
-                {totalTests}
-              </span>
-            </div>
+          {/* Progress Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="bg-muted/40">
+              <CardContent className="flex justify-between items-center py-4">
+                <span className="text-muted-foreground">Total Failed Tests</span>
+                <span className="text-xl font-bold text-foreground">
+                  {totalTests}
+                </span>
+              </CardContent>
+            </Card>
+            <Card className="bg-success/5 border-success/20">
+              <CardContent className="flex justify-between items-center py-4">
+                <span className="text-success">Completed</span>
+                <span className="text-xl font-bold text-success">
+                  {completedTests}
+                </span>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="flex justify-between items-center py-4">
+                <span className="text-primary">In Progress</span>
+                <span className="text-xl font-bold text-primary">
+                  {inProgressTests}
+                </span>
+              </CardContent>
+            </Card>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-green-600">Completed</span>
-              <span className="text-xl font-bold text-green-700">
-                {completedTests}
-              </span>
+          {/* Progress Bar */}
+          <Progress value={totalTests > 0 ? (completedTests / totalTests * 100) : 0} className="mb-6 [&>div]:bg-success" />
+
+          {/* Filter Controls */}
+          <FilterControls
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            suiteFilter={suiteFilter}
+            setSuiteFilter={setSuiteFilter}
+            classNameFilter={classNameFilter}
+            setClassNameFilter={setClassNameFilter}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+            suites={suites}
+            classNames={classNames}
+            resetFilters={resetFilters}
+            statusOptions={statusOptions}
+          />
+
+          {/* Select all row - bulk action buttons (including Bulk Comment) live on the floating bar below */}
+          {paginatedTests.length > 0 && (
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-4 mb-4">
+              <Label className="flex items-center gap-2 font-medium">
+                <Checkbox
+                  id="select-all-tests"
+                  checked={selectedTests.size === paginatedTests.length && paginatedTests.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                Select All ({selectedTests.size} selected)
+              </Label>
             </div>
-          </div>
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="flex justify-between items-center">
-              <span className="text-blue-600">In Progress</span>
-              <span className="text-xl font-bold text-blue-700">
-                {inProgressTests}
-              </span>
-            </div>
-          </div>
-        </div>
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-          <div className="bg-green-600 h-2 rounded-full transition-all duration-300" style={{
-          width: `${totalTests > 0 ? (completedTests / totalTests * 100) : 0}%`
-        }} />
-        </div>
+          )}
 
-        {/* Filter Controls */}
-        <FilterControls
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          suiteFilter={suiteFilter}
-          setSuiteFilter={setSuiteFilter}
-          classNameFilter={classNameFilter}
-          setClassNameFilter={setClassNameFilter}
-          showFilters={showFilters}
-          setShowFilters={setShowFilters}
-          suites={suites}
-          classNames={classNames}
-          resetFilters={resetFilters}
-          statusOptions={statusOptions}
-        />
-
-        {/* Bulk Actions Bar */}
-        {paginatedTests.length > 0 && (
-          <div className="bg-gray-50 border rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    id="select-all-tests"
-                    name="selectAllTests"
-                    type="checkbox"
-                    checked={selectedTests.size === paginatedTests.length && paginatedTests.length > 0}
-                    onChange={toggleSelectAll}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    Select All ({selectedTests.size} selected)
-                  </span>
-                </label>
-              </div>
-
-              {selectedTests.size > 0 && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">Bulk Actions:</span>
-                  <button
-                    onClick={() => updateBulkTestStatus(Array.from(selectedTests), 'pending')}
-                    className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
-                  >
-                    Mark as Pending
-                  </button>
-                  <button
-                    onClick={() => updateBulkTestStatus(Array.from(selectedTests), 'in_progress')}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 text-sm"
-                  >
-                    Mark as In Progress
-                  </button>
-                  <button
-                    onClick={() => updateBulkTestStatus(Array.from(selectedTests), 'completed')}
-                    className="px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-sm"
-                  >
-                    Mark as Complete
-                  </button>
-                  <span className="border-l border-gray-300 h-5" />
-                  <button
-                    onClick={() => setShowBulkCommentModal(true)}
-                    className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 text-sm flex items-center gap-1"
-                    data-testid="bulk-comment-btn"
-                  >
-                    <MessageSquareIcon className="w-3 h-3" />
-                    Bulk Comment
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Failed Tests List */}
-        <div className="space-y-4">
-          {paginatedTests.map(test => {
-            const safeId = test.id.replace(/\s+/g, '_');
-            return <div key={test.id} className={`border rounded-lg overflow-hidden ${getStatusColor(test.status)}`}>
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      id={`select-test-${safeId}`}
-                      name={`selectTest-${safeId}`}
-                      type="checkbox"
-                      checked={selectedTests.has(test.id)}
-                      onChange={() => toggleTestSelection(test.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      aria-label={`Select ${test.name}`}
-                    />
-                    {getStatusIcon(test.status)}
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900">
-                        {test.name}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        Suite: {test.suite}
-                      </p>
+          {/* Failed Tests List */}
+          <div className="space-y-4">
+            {paginatedTests.map(test => {
+              const safeId = test.id.replace(/\s+/g, '_');
+              return <div key={test.id} className={cn('border rounded-lg overflow-hidden', STATUS_BORDER[test.status])}>
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={selectedTests.has(test.id)}
+                        onCheckedChange={() => toggleTestSelection(test.id)}
+                        aria-label={`Select ${test.name}`}
+                      />
+                      <StatusBadge status={test.status} compact />
+                      <div>
+                        <h4 className="text-lg font-medium text-foreground">
+                          {test.name}
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          Suite: {test.suite}
+                        </p>
+                      </div>
                     </div>
+                    {selectedTest !== test.id ? <Button variant="outline" size="sm" onClick={() => {
+                        setSelectedTest(test.id);
+                        setNotes(progressData[test.id]?.notes || '');
+                        setAssignee(progressData[test.id]?.assignee || '');
+                      }}>
+                        Edit
+                      </Button> : <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => updateTestStatus(test.id, 'pending')}>
+                          Pending
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-primary hover:text-primary" onClick={() => updateTestStatus(test.id, 'in_progress')}>
+                          In Progress
+                        </Button>
+                        <Button size="sm" variant="outline" className="text-success hover:text-success" onClick={() => updateTestStatus(test.id, 'completed')}>
+                          Complete
+                        </Button>
+                      </div>}
                   </div>
-                  {selectedTest !== test.id ? <button onClick={() => {
-                      setSelectedTest(test.id);
-                      setNotes(progressData[test.id]?.notes || '');
-                      setAssignee(progressData[test.id]?.assignee || '');
-                    }} className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                      Edit
-                    </button> : <div className="flex space-x-2">
-                      <button onClick={() => updateTestStatus(test.id, 'pending')} className="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200">
-                        Pending
-                      </button>
-                      <button onClick={() => updateTestStatus(test.id, 'in_progress')} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200">
-                        In Progress
-                      </button>
-                      <button onClick={() => updateTestStatus(test.id, 'completed')} className="px-3 py-1 bg-green-100 text-green-700 rounded-md hover:bg-green-200">
-                        Complete
-                      </button>
+                  {/* Add Stack Trace button */}
+                  <div className="mt-2 flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => handleShowStackTrace(test)}>
+                      View Stack Trace
+                    </Button>
+                  </div>
+                  {selectedTest === test.id && <div className="mt-4 space-y-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`assignee-${safeId}`}>Assignee</Label>
+                        <Input id={`assignee-${safeId}`} name={`assignee-${safeId}`} type="text" value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Who is working on this?" className="bg-background" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`notes-${safeId}`}>Notes</Label>
+                        <Textarea id={`notes-${safeId}`} name={`notes-${safeId}`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add any notes about the fix..." className="bg-background" rows={3} />
+                      </div>
+                    </div>}
+                  {!selectedTest && (test.notes || test.assignee) && <div className="mt-2 text-sm text-muted-foreground">
+                      {test.notes && <p>
+                        <strong className="text-foreground">Notes:</strong> {test.notes}
+                      </p>}
+                      {test.assignee && <p>
+                          <strong className="text-foreground">Assignee:</strong> {test.assignee}
+                        </p>}
+                      <p>
+                        <strong className="text-foreground">Last Updated:</strong>{' '}
+                        {new Date(test.updatedAt || new Date()).toLocaleString()}
+                      </p>
                     </div>}
                 </div>
-                {/* Add Stack Trace button */}
-                <div className="mt-2 flex justify-end">
-                  <button onClick={() => handleShowStackTrace(test)} className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
-                    View Stack Trace
-                  </button>
-                </div>
-                {selectedTest === test.id && <div className="mt-4 space-y-4">
-                    <div>
-                      <label htmlFor={`assignee-${safeId}`} className="block text-sm font-medium text-gray-700 mb-1">
-                        Assignee
-                      </label>
-                      <input id={`assignee-${safeId}`} name={`assignee-${safeId}`} type="text" value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Who is working on this?" className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white" />
-                    </div>
-                    <div>
-                      <label htmlFor={`notes-${safeId}`} className="block text-sm font-medium text-gray-700 mb-1">
-                        Notes
-                      </label>
-                      <textarea id={`notes-${safeId}`} name={`notes-${safeId}`} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add any notes about the fix..." className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white" rows={3} />
-                    </div>
-                  </div>}
-                {!selectedTest && (test.notes || test.assignee) && <div className="mt-2 text-sm text-gray-600">
-                    {test.notes && <p>
-                      <strong>Notes:</strong> {test.notes}
-                    </p>}
-                    {test.assignee && <p>
-                        <strong>Assignee:</strong> {test.assignee}
-                      </p>}
-                    <p>
-                      <strong>Last Updated:</strong>{' '}
-                      {new Date(test.updatedAt || new Date()).toLocaleString()}
-                    </p>
-                  </div>}
-              </div>
-            </div>})}
-        </div>
-
-        {/* Pagination Controls */}
-        {filteredTests.length > testsPerPage && (
-          <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white border border-gray-200 rounded-lg">
-            <div className="flex items-center text-sm text-gray-500">
-              Showing {startIndex + 1} to {Math.min(endIndex, filteredTests.length)} of {filteredTests.length} results
-              <span className="ml-2">Page {currentPage} of {totalPages}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-
-              <div className="flex items-center space-x-1">
-                {/* Show page numbers */}
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${
-                        currentPage === pageNum
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
+              </div>})}
           </div>
-        )}
-      </div>
+
+          {/* Pagination Controls */}
+          {filteredTests.length > PAGE_SIZE && (
+            <div className="mt-6">
+              <Pagination
+                currentPage={validCurrentPage}
+                totalPages={totalPages}
+                totalItems={filteredTests.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
       {/* Stack Trace Modal */}
       {showStackTrace && <TestDetailsModal test={showStackTrace} onClose={() => setShowStackTrace(null)} />}
 

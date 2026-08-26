@@ -426,7 +426,7 @@ describe('BulkCommentModal', () => {
       render(
         <BulkCommentModal selectedItems={twoItems} onApply={onApply} onClose={onClose} />,
       );
-      fireEvent.click(screen.getByLabelText('Close modal'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       expect(onClose).toHaveBeenCalled();
     });
 

@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
-import { ChevronDownIcon, ChevronUpIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 import { TestDetailsModal } from './TestDetailsModal';
 import { FilterControls } from './FilterControls';
 import type { TestData, TestCase } from '../../types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { Pagination } from '@/components/shared/Pagination';
+import { FloatingScrollbar } from '@/components/shared/FloatingScrollbar';
 
 interface TestWithSuite extends TestCase {
   suite: string;
@@ -11,6 +16,8 @@ interface TestWithSuite extends TestCase {
 interface TestResultsListProps {
   testData: TestData;
 }
+
+const PAGE_SIZE = 50;
 
 export const TestResultsList: React.FC<TestResultsListProps> = ({
   testData
@@ -24,6 +31,8 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
   const [selectedTest, setSelectedTest] = useState<TestWithSuite | null>(null);
   const [suiteFilter, setSuiteFilter] = useState('all');
   const [classNameFilter, setClassNameFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
 
   // Get unique values for filters
   const suites = ['all', ...new Set(testData.suites.map(suite => suite.name))];
@@ -74,6 +83,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     setFilteredTests(filtered);
+    setCurrentPage(1);
   }, [testData, searchTerm, statusFilter, suiteFilter, classNameFilter, sortField, sortDirection]);
 
   const handleSort = (field: keyof TestWithSuite) => {
@@ -84,94 +94,90 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
       setSortDirection('asc');
     }
   };
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'passed':
-        return <CheckIcon className="w-5 h-5 text-green-500" />;
-      case 'failed':
-        return <XIcon className="w-5 h-5 text-red-500" />;
-      default:
-        return <AlertCircleIcon className="w-5 h-5 text-yellow-500" />;
-    }
-  };
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
     setSuiteFilter('all');
     setClassNameFilter('all');
   };
-  return <div className="bg-white p-6 rounded-lg shadow">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Test Results</h3>
-      <FilterControls searchTerm={searchTerm} setSearchTerm={setSearchTerm} statusFilter={statusFilter} setStatusFilter={setStatusFilter} suiteFilter={suiteFilter} setSuiteFilter={setSuiteFilter} classNameFilter={classNameFilter} setClassNameFilter={setClassNameFilter} showFilters={showFilters} setShowFilters={setShowFilters} suites={suites} classNames={classNames} resetFilters={resetFilters} />
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('name')}>
-                <div className="flex items-center">
-                  Test Name
-                  {sortField === 'name' && (sortDirection === 'asc' ? <ChevronUpIcon className="w-4 h-4 ml-1" /> : <ChevronDownIcon className="w-4 h-4 ml-1" />)}
-                </div>
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('suite')}>
-                <div className="flex items-center">
-                  Suite
-                  {sortField === 'suite' && (sortDirection === 'asc' ? <ChevronUpIcon className="w-4 h-4 ml-1" /> : <ChevronDownIcon className="w-4 h-4 ml-1" />)}
-                </div>
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('classname')}>
-                <div className="flex items-center">
-                  Class Name
-                  {sortField === 'classname' && (sortDirection === 'asc' ? <ChevronUpIcon className="w-4 h-4 ml-1" /> : <ChevronDownIcon className="w-4 h-4 ml-1" />)}
-                </div>
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('status')}>
-                <div className="flex items-center">
-                  Status
-                  {sortField === 'status' && (sortDirection === 'asc' ? <ChevronUpIcon className="w-4 h-4 ml-1" /> : <ChevronDownIcon className="w-4 h-4 ml-1" />)}
-                </div>
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer w-32" onClick={() => handleSort('time')}>
-                <div className="flex items-center">
-                  Duration
-                  {sortField === 'time' && (sortDirection === 'asc' ? <ChevronUpIcon className="w-4 h-4 ml-1" /> : <ChevronDownIcon className="w-4 h-4 ml-1" />)}
-                </div>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredTests.length > 0 ? filteredTests.map((test, index) => <tr key={index} onClick={() => setSelectedTest(test)} className={`${test.status === 'failed' ? 'bg-red-50' : ''} hover:bg-gray-50 cursor-pointer transition-colors`}>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {test.name}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {test.suite}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {test.classname || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {getStatusIcon(test.status)}
-                      <span className={`ml-2 text-sm ${test.status === 'passed' ? 'text-green-800' : test.status === 'failed' ? 'text-red-800' : 'text-yellow-800'}`}>
-                        {test.status.charAt(0).toUpperCase() + test.status.slice(1)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {test.time.toFixed(2)}s
-                  </td>
-                </tr>) : <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                  No test results match your filters.
-                </td>
-              </tr>}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-4 text-sm text-gray-500">
-        Showing {filteredTests.length} of {testData.summary.total} tests
-      </div>
+
+  const totalPages = Math.max(1, Math.ceil(filteredTests.length / PAGE_SIZE));
+  const paginatedTests = filteredTests.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const sortIndicator = (field: keyof TestWithSuite) => {
+    if (sortField !== field) return <ChevronsUpDownIcon className="size-3.5 text-muted-foreground/50" />;
+    return sortDirection === 'asc' ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />;
+  };
+
+  const sortableHeader = (field: keyof TestWithSuite, label: string) => (
+    <button
+      type="button"
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 font-medium hover:text-foreground"
+    >
+      {label}
+      {sortIndicator(field)}
+    </button>
+  );
+
+  return <Card>
+      <CardHeader>
+        <CardTitle>Test Results</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <FilterControls searchTerm={searchTerm} setSearchTerm={setSearchTerm} statusFilter={statusFilter} setStatusFilter={setStatusFilter} suiteFilter={suiteFilter} setSuiteFilter={setSuiteFilter} classNameFilter={classNameFilter} setClassNameFilter={setClassNameFilter} showFilters={showFilters} setShowFilters={setShowFilters} suites={suites} classNames={classNames} resetFilters={resetFilters} />
+        <div ref={tableScrollRef} className="rounded-lg border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{sortableHeader('name', 'Test Name')}</TableHead>
+                <TableHead>{sortableHeader('suite', 'Suite')}</TableHead>
+                <TableHead>{sortableHeader('classname', 'Class Name')}</TableHead>
+                <TableHead className="w-32">{sortableHeader('status', 'Status')}</TableHead>
+                <TableHead className="w-32">{sortableHeader('time', 'Duration')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedTests.length > 0 ? paginatedTests.map((test, index) => <TableRow key={index} onClick={() => setSelectedTest(test)} className={test.status === 'failed' ? 'bg-destructive/5 cursor-pointer' : 'cursor-pointer'}>
+                    <TableCell className="font-medium text-foreground">
+                      {test.name}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {test.suite}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {test.classname || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={test.status} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {test.time.toFixed(2)}s
+                    </TableCell>
+                  </TableRow>) : <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    No test results match your filters.
+                  </TableCell>
+                </TableRow>}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="mt-4 text-sm text-muted-foreground">
+          Showing {filteredTests.length} of {testData.summary.total} tests
+        </div>
+        {totalPages > 1 && (
+          <div className="mt-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredTests.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
+      </CardContent>
       {selectedTest && <TestDetailsModal test={selectedTest} onClose={() => setSelectedTest(null)} />}
-    </div>;
+      <FloatingScrollbar targetRef={tableScrollRef} />
+    </Card>;
 };

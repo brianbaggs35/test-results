@@ -79,6 +79,7 @@ test.describe('Progress Page', () => {
     await page.getByRole('button', { name: 'Progress' }).click()
 
     await page.getByRole('button', { name: 'Clear Test Data' }).click()
+    await page.getByRole('button', { name: 'Clear data' }).click()
 
     await expect(page.evaluate(() => localStorage.getItem('testFixProgress'))).resolves.toBeNull()
   })

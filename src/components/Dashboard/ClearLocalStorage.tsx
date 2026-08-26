@@ -1,5 +1,13 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Trash2Icon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+
+const PREFIX = 'testFixProgress';
+
 function ClearLocalStorageButton() {
-  const PREFIX = 'testFixProgress';
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleClearLocalStorage = () => {
     Object.keys(localStorage).forEach((key) => {
@@ -7,14 +15,26 @@ function ClearLocalStorageButton() {
         localStorage.removeItem(key);
       }
     });
-    alert('All loaded test data for this application has been cleared from local storage');
+    toast.success('All loaded test data for this application has been cleared from local storage');
     window.location.reload();
   };
 
   return (
-    <button onClick={handleClearLocalStorage} className="px-2 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
-      Clear Test Data
-    </button>
+    <>
+      <Button variant="outline" size="sm" onClick={() => setConfirmOpen(true)}>
+        <Trash2Icon className="size-4" />
+        Clear Test Data
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Clear all local test data?"
+        description="This permanently removes the loaded results and every failure-resolution note, assignee, and status stored in this browser. This can't be undone."
+        confirmLabel="Clear data"
+        variant="destructive"
+        onConfirm={handleClearLocalStorage}
+      />
+    </>
   );
 }
 

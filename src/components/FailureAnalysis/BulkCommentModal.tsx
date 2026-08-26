@@ -1,6 +1,18 @@
 import { useState } from 'react';
-import { XIcon, MessageSquareIcon } from 'lucide-react';
+import { MessageSquareIcon } from 'lucide-react';
 import type { FailureProgressItem } from '../../types';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type StatusValue = 'pending' | 'in_progress' | 'completed';
 
@@ -22,6 +34,9 @@ type CommentMode = 'same' | 'individual';
 
 /** Replace whitespace with underscores to produce a valid HTML id/name value. */
 const sanitizeId = (id: string) => id.replace(/\s+/g, '_');
+
+const selectClassName =
+  'w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 export const BulkCommentModal = ({
   selectedItems,
@@ -128,42 +143,31 @@ export const BulkCommentModal = ({
         Object.values(individualStatuses).some((s) => s !== '');
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      data-testid="bulk-comment-modal"
-    >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        data-testid="bulk-comment-modal"
+        className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <MessageSquareIcon className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">
-              Bulk Comment ({selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''})
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
-            aria-label="Close modal"
-          >
-            <XIcon className="w-5 h-5" />
-          </button>
-        </div>
+        <DialogHeader className="flex-row items-center justify-between gap-3 p-5 border-b space-y-0">
+          <DialogTitle className="flex items-center gap-3 text-lg">
+            <MessageSquareIcon className="w-5 h-5 text-primary" />
+            Bulk Comment ({selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''})
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Status and Assignee - shown only in "same" mode */}
         {mode === 'same' && (
           <div className="px-5 pt-4 pb-2 space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="bulk-status" className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
+              <div className="space-y-1.5">
+                <Label htmlFor="bulk-status">Status</Label>
                 <select
                   id="bulk-status"
                   name="bulkStatus"
                   value={bulkStatus}
                   onChange={(e) => setBulkStatus(e.target.value as StatusValue | '')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className={cn(selectClassName, 'text-sm')}
                   data-testid="bulk-status-select"
                 >
                   <option value="">No Change</option>
@@ -172,18 +176,15 @@ export const BulkCommentModal = ({
                   <option value="completed">Completed</option>
                 </select>
               </div>
-              <div>
-                <label htmlFor="bulk-assignee" className="block text-sm font-medium text-gray-700 mb-1">
-                  Assignee
-                </label>
-                <input
+              <div className="space-y-1.5">
+                <Label htmlFor="bulk-assignee">Assignee</Label>
+                <Input
                   id="bulk-assignee"
                   name="bulkAssignee"
                   type="text"
                   value={bulkAssignee}
                   onChange={(e) => setBulkAssignee(e.target.value)}
                   placeholder="Who is working on this?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   data-testid="bulk-assignee-input"
                 />
               </div>
@@ -193,25 +194,23 @@ export const BulkCommentModal = ({
 
         {/* Mode Selector */}
         <div className="px-5 pt-2 pb-2">
-          <div className="flex rounded-lg bg-gray-100 p-1">
+          <div className="flex rounded-lg bg-muted p-1">
             <button
               onClick={() => setMode('same')}
-              className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
-                mode === 'same'
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
+              className={cn(
+                'flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors',
+                mode === 'same' ? 'bg-background text-primary shadow-xs' : 'text-muted-foreground hover:text-foreground'
+              )}
               data-testid="mode-same"
             >
               Same Comment for All
             </button>
             <button
               onClick={() => setMode('individual')}
-              className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
-                mode === 'individual'
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
+              className={cn(
+                'flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors',
+                mode === 'individual' ? 'bg-background text-primary shadow-xs' : 'text-muted-foreground hover:text-foreground'
+              )}
               data-testid="mode-individual"
             >
               Individual Comments
@@ -223,20 +222,20 @@ export const BulkCommentModal = ({
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {mode === 'same' ? (
             <div>
-              <label htmlFor="shared-comment" className="block text-sm font-medium text-gray-700 mb-2">
+              <Label htmlFor="shared-comment" className="mb-2">
                 Comment for all selected items
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 id="shared-comment"
                 name="sharedComment"
                 value={sharedComment}
                 onChange={(e) => setSharedComment(e.target.value)}
                 placeholder="Enter a comment to apply to all selected failures..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                className="resize-none"
                 rows={4}
                 data-testid="shared-comment-input"
               />
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-muted-foreground">
                 This comment will be applied to all {selectedItems.length} selected item
                 {selectedItems.length !== 1 ? 's' : ''}.
               </p>
@@ -248,35 +247,36 @@ export const BulkCommentModal = ({
                 return (
                 <div
                   key={item.id}
-                  className="border border-gray-200 rounded-lg p-3"
+                  className="border rounded-lg p-3"
                   data-testid={`individual-item-${item.id}`}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <span
-                      className={`inline-block w-2 h-2 rounded-full ${
+                      className={cn(
+                        'inline-block w-2 h-2 rounded-full',
                         item.status === 'completed'
-                          ? 'bg-green-500'
+                          ? 'bg-success'
                           : item.status === 'in_progress'
-                            ? 'bg-blue-500'
-                            : 'bg-red-500'
-                      }`}
+                            ? 'bg-primary'
+                            : 'bg-destructive'
+                      )}
                     />
-                    <span className="text-sm font-medium text-gray-900 truncate">
+                    <span className="text-sm font-medium text-foreground truncate">
                       {item.name}
                     </span>
-                    <span className="text-xs text-gray-500 truncate">— {item.suite}</span>
+                    <span className="text-xs text-muted-foreground truncate">— {item.suite}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                      <label htmlFor={`individual-status-${safeId}`} className="block text-xs font-medium text-gray-600 mb-1">
+                    <div className="space-y-1">
+                      <Label htmlFor={`individual-status-${safeId}`} className="text-xs font-medium text-muted-foreground">
                         Status
-                      </label>
+                      </Label>
                       <select
                         id={`individual-status-${safeId}`}
                         name={`individualStatus-${safeId}`}
                         value={individualStatuses[item.id] || ''}
                         onChange={(e) => updateIndividualStatus(item.id, e.target.value as StatusValue | '')}
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className={cn(selectClassName, 'h-8 text-xs')}
                         data-testid={`individual-status-${item.id}`}
                       >
                         <option value="">No Change</option>
@@ -285,32 +285,32 @@ export const BulkCommentModal = ({
                         <option value="completed">Completed</option>
                       </select>
                     </div>
-                    <div>
-                      <label htmlFor={`individual-assignee-${safeId}`} className="block text-xs font-medium text-gray-600 mb-1">
+                    <div className="space-y-1">
+                      <Label htmlFor={`individual-assignee-${safeId}`} className="text-xs font-medium text-muted-foreground">
                         Assignee
-                      </label>
-                      <input
+                      </Label>
+                      <Input
                         id={`individual-assignee-${safeId}`}
                         name={`individualAssignee-${safeId}`}
                         type="text"
                         value={individualAssignees[item.id] || ''}
                         onChange={(e) => updateIndividualAssignee(item.id, e.target.value)}
                         placeholder="Assignee..."
-                        className="w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className="h-8 text-xs"
                         data-testid={`individual-assignee-${item.id}`}
                       />
                     </div>
                   </div>
-                  <label htmlFor={`individual-comment-input-${safeId}`} className="block text-xs font-medium text-gray-600 mb-1">
+                  <Label htmlFor={`individual-comment-input-${safeId}`} className="text-xs font-medium text-muted-foreground">
                     Notes
-                  </label>
-                  <textarea
+                  </Label>
+                  <Textarea
                     id={`individual-comment-input-${safeId}`}
                     name={`individualComment-${safeId}`}
                     value={individualComments[item.id] || ''}
                     onChange={(e) => updateIndividualComment(item.id, e.target.value)}
                     placeholder="Enter comment for this test..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm resize-none"
+                    className="mt-1 text-sm resize-none"
                     rows={2}
                     data-testid={`individual-comment-${item.id}`}
                   />
@@ -322,27 +322,15 @@ export const BulkCommentModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
+        <DialogFooter className="p-5 border-t">
+          <Button variant="outline" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            onClick={handleApply}
-            disabled={!hasContent}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
-              hasContent
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-blue-300 cursor-not-allowed'
-            }`}
-            data-testid="apply-comments-btn"
-          >
+          </Button>
+          <Button onClick={handleApply} disabled={!hasContent} data-testid="apply-comments-btn">
             Apply Comments
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -3,6 +3,8 @@ import { ArrowLeftIcon, DownloadIcon, LoaderIcon, ChevronUpIcon, ChevronDownIcon
 import { generatePDF } from './pdfGenerator';
 import { PDFPreviewFrame } from './PDFPreviewFrame';
 import { TestData, ReportConfig } from '../../types';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 const A4_HEIGHT_PX = 1123;
 
@@ -75,69 +77,59 @@ export const ReportPreview = ({ testData, config, onBack }: ReportPreviewProps) 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
-        <button
-          onClick={onBack}
-          className="flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-        >
-          <ArrowLeftIcon className="w-4 h-4 mr-2" />
+      <div className="flex justify-between items-center bg-card border rounded-lg shadow-xs p-4">
+        <Button variant="secondary" onClick={onBack}>
+          <ArrowLeftIcon className="size-4" />
           Back to Configuration
-        </button>
+        </Button>
         <div className="flex items-center gap-4">
           {/* Page navigation */}
-          <div className="flex items-center gap-1 text-sm text-gray-600">
-            <button
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30"
               aria-label="Previous page"
+              className="size-7"
             >
-              <ChevronUpIcon className="w-4 h-4" />
-            </button>
-            <span className="min-w-[80px] text-center font-medium">
+              <ChevronUpIcon className="size-4" />
+            </Button>
+            <span className="min-w-[80px] text-center font-medium text-foreground">
               Page {currentPage} / {totalPages}
             </span>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => scrollToPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage >= totalPages}
-              className="p-1 rounded hover:bg-gray-100 disabled:opacity-30"
               aria-label="Next page"
+              className="size-7"
             >
-              <ChevronDownIcon className="w-4 h-4" />
-            </button>
+              <ChevronDownIcon className="size-4" />
+            </Button>
           </div>
 
-          {pdfError && <span className="text-red-600 text-sm">{pdfError}</span>}
+          {pdfError && <span className="text-destructive text-sm">{pdfError}</span>}
           {isGeneratingPDF && (
-            <div className="flex items-center">
-              <div className="w-32 bg-gray-200 rounded-full h-2 mr-2">
-                <div
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${generationProgress}%` }}
-                />
-              </div>
-              <span className="text-sm text-gray-600">{generationProgress}%</span>
+            <div className="flex items-center gap-2">
+              <Progress value={generationProgress} className="w-32 [&>div]:bg-success" />
+              <span className="text-sm text-muted-foreground">{generationProgress}%</span>
             </div>
           )}
-          <button
-            onClick={handleGeneratePDF}
-            disabled={isGeneratingPDF}
-            className={`flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors ${
-              isGeneratingPDF ? 'opacity-75 cursor-not-allowed' : ''
-            }`}
-          >
+          <Button onClick={handleGeneratePDF} disabled={isGeneratingPDF} className="bg-success text-success-foreground hover:bg-success/90">
             {isGeneratingPDF ? (
               <>
-                <LoaderIcon className="w-4 h-4 mr-2 animate-spin" />
+                <LoaderIcon className="size-4 animate-spin" />
                 Generating PDF...
               </>
             ) : (
               <>
-                <DownloadIcon className="w-4 h-4 mr-2" />
+                <DownloadIcon className="size-4" />
                 Download PDF
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -145,7 +137,7 @@ export const ReportPreview = ({ testData, config, onBack }: ReportPreviewProps) 
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="bg-gray-200 rounded-lg shadow-inner p-8 flex justify-center"
+        className="bg-muted rounded-lg shadow-inner p-8 flex justify-center"
         style={{ maxHeight: '80vh', overflowY: 'auto' }}
         data-testid="preview-container"
       >

@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ClearLocalStorageButton from '../components/Dashboard/ClearLocalStorage';
 
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+import { toast } from 'sonner';
+
 describe('ClearLocalStorageButton', () => {
   // Mock localStorage
   const mockLocalStorage = {
@@ -24,7 +30,7 @@ describe('ClearLocalStorageButton', () => {
 
   // Mock Object.keys to work with our mock localStorage
   const originalObjectKeys = Object.keys;
-  
+
   beforeEach(() => {
     Object.defineProperty(window, 'localStorage', {
       value: mockLocalStorage,
@@ -47,9 +53,6 @@ describe('ClearLocalStorageButton', () => {
       writable: true,
     });
 
-    // Mock alert
-    window.alert = vi.fn();
-
     // Reset mocks
     vi.clearAllMocks();
     mockLocalStorage.store = {};
@@ -60,13 +63,39 @@ describe('ClearLocalStorageButton', () => {
     vi.restoreAllMocks();
   });
 
+  const clickClearThenConfirm = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Test Data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear data' }));
+  };
+
   it('should render Clear Test Data button', () => {
     render(<ClearLocalStorageButton />);
-    
+
     expect(screen.getByRole('button', { name: 'Clear Test Data' })).toBeInTheDocument();
   });
 
-  it('should clear localStorage items with testFixProgress prefix when clicked', () => {
+  it('should not clear anything until the confirmation dialog is confirmed', () => {
+    mockLocalStorage.store = { testFixProgress_item1: 'value1' };
+    render(<ClearLocalStorageButton />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Test Data' }));
+
+    expect(screen.getByText('Clear all local test data?')).toBeInTheDocument();
+    expect(mockLocalStorage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('should close the dialog without clearing when Cancel is clicked', () => {
+    mockLocalStorage.store = { testFixProgress_item1: 'value1' };
+    render(<ClearLocalStorageButton />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Test Data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(mockLocalStorage.removeItem).not.toHaveBeenCalled();
+    expect(screen.queryByText('Clear all local test data?')).not.toBeInTheDocument();
+  });
+
+  it('should clear localStorage items with testFixProgress prefix when confirmed', () => {
     // Set up localStorage with test data
     mockLocalStorage.store = {
       'testFixProgress_item1': 'value1',
@@ -76,38 +105,35 @@ describe('ClearLocalStorageButton', () => {
     };
 
     render(<ClearLocalStorageButton />);
-    
-    const button = screen.getByRole('button', { name: 'Clear Test Data' });
-    fireEvent.click(button);
+
+    clickClearThenConfirm();
 
     // Check that testFixProgress items were removed
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgress_item1');
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgress_item2');
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgress');
-    
+
     // Check that other items were not removed
     expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith('otherData');
-    
+
     // Should call removeItem 3 times (for the 3 testFixProgress items)
     expect(mockLocalStorage.removeItem).toHaveBeenCalledTimes(3);
   });
 
-  it('should show alert message when clearing data', () => {
+  it('should show a success toast when clearing data', () => {
     render(<ClearLocalStorageButton />);
-    
-    const button = screen.getByRole('button', { name: 'Clear Test Data' });
-    fireEvent.click(button);
 
-    expect(window.alert).toHaveBeenCalledWith(
+    clickClearThenConfirm();
+
+    expect(toast.success).toHaveBeenCalledWith(
       'All loaded test data for this application has been cleared from local storage'
     );
   });
 
   it('should reload the page after clearing data', () => {
     render(<ClearLocalStorageButton />);
-    
-    const button = screen.getByRole('button', { name: 'Clear Test Data' });
-    fireEvent.click(button);
+
+    clickClearThenConfirm();
 
     expect(window.location.reload).toHaveBeenCalledOnce();
   });
@@ -117,15 +143,14 @@ describe('ClearLocalStorageButton', () => {
     mockLocalStorage.store = {};
 
     render(<ClearLocalStorageButton />);
-    
-    const button = screen.getByRole('button', { name: 'Clear Test Data' });
-    fireEvent.click(button);
+
+    clickClearThenConfirm();
 
     // Should not call removeItem if no matching keys
     expect(mockLocalStorage.removeItem).not.toHaveBeenCalled();
-    
-    // Should still show alert and reload
-    expect(window.alert).toHaveBeenCalled();
+
+    // Should still show the toast and reload
+    expect(toast.success).toHaveBeenCalled();
     expect(window.location.reload).toHaveBeenCalled();
   });
 
@@ -140,20 +165,19 @@ describe('ClearLocalStorageButton', () => {
     };
 
     render(<ClearLocalStorageButton />);
-    
-    const button = screen.getByRole('button', { name: 'Clear Test Data' });
-    fireEvent.click(button);
+
+    clickClearThenConfirm();
 
     // Should remove items that start with the prefix
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgress');
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgressBackup');
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgress_123');
-    
+
     // Should NOT remove items that don't start with the prefix
     expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith('testData');
     expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith('other_testFixProgress');
     expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith('prefixTestFixProgress');
-    
+
     expect(mockLocalStorage.removeItem).toHaveBeenCalledTimes(3);
   });
 
@@ -165,9 +189,8 @@ describe('ClearLocalStorageButton', () => {
     };
 
     render(<ClearLocalStorageButton />);
-    
-    const button = screen.getByRole('button', { name: 'Clear Test Data' });
-    fireEvent.click(button);
+
+    clickClearThenConfirm();
 
     expect(mockLocalStorage.removeItem).toHaveBeenCalledWith('testFixProgress_test');
     expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith('wrongPrefix_test');

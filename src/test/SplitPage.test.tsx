@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SplitPage } from '../components/Split/SplitPage';
 import * as downloadUtil from '../utils/download';
@@ -59,6 +59,24 @@ describe('SplitPage', () => {
   });
 
   describe('Split section', () => {
+    it('accepts a file dropped onto the source drop zone', async () => {
+      render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
+
+      const dropZone = screen.getByLabelText('Upload XML file to split').closest('div') as HTMLElement;
+      const file = new File([VALID_XML], 'dropped.xml', { type: 'text/xml' });
+
+      fireEvent.dragOver(dropZone);
+      expect(dropZone.className).toContain('bg-primary/5');
+
+      fireEvent.dragLeave(dropZone);
+      expect(dropZone.className).not.toContain('bg-primary/5');
+
+      fireEvent.drop(dropZone, { dataTransfer: { files: [file] } });
+
+      await waitFor(() => expect(screen.getByText('Using: dropped.xml')).toBeInTheDocument());
+      expect(screen.getByText('Split').closest('button')).not.toBeDisabled();
+    });
+
     it('splits an uploaded file and shows the resulting counts', async () => {
       render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
 

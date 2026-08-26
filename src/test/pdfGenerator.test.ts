@@ -171,6 +171,22 @@ describe('pdfGenerator', () => {
     ).rejects.toThrow('No report content found')
   })
 
+  it('should restore a pre-existing inline theme variable after generation, rather than clearing it', async () => {
+    document.documentElement.style.setProperty('--primary', '#123456')
+
+    const { generatePDF } = await import(
+      '../components/ReportGenerator/pdfGenerator'
+    )
+
+    await generatePDF(mockTestData, mockConfig)
+
+    expect(
+      document.documentElement.style.getPropertyValue('--primary'),
+    ).toBe('#123456')
+
+    document.documentElement.style.removeProperty('--primary')
+  })
+
   it('should call html2canvas with correct options', async () => {
     const { generatePDF } = await import(
       '../components/ReportGenerator/pdfGenerator'

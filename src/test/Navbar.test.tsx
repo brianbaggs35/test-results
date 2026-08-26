@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Navbar } from '../components/Layout/Navbar';
 
-// Mock lucide-react icons
+// Mock lucide-react icons (Navbar's own icons + the ones ThemeToggle renders)
 vi.mock('lucide-react', () => ({
   BarChartIcon: () => <div data-testid="bar-chart-icon" />,
   FileTextIcon: () => <div data-testid="file-text-icon" />,
@@ -10,6 +10,9 @@ vi.mock('lucide-react', () => ({
   ListChecksIcon: () => <div data-testid="list-checks-icon" />,
   SendIcon: () => <div data-testid="send-icon" />,
   SplitIcon: () => <div data-testid="split-icon" />,
+  FlaskConicalIcon: () => <div data-testid="flask-conical-icon" />,
+  SunIcon: () => <div data-testid="sun-icon" />,
+  MoonIcon: () => <div data-testid="moon-icon" />,
 }));
 
 describe('Navbar', () => {
@@ -47,110 +50,37 @@ describe('Navbar', () => {
     expect(screen.getByTestId('send-icon')).toBeInTheDocument();
   });
 
-  it('should highlight the active split tab', () => {
-    render(<Navbar activeTab="split" setActiveTab={mockSetActiveTab} />);
-
-    const splitButton = screen.getByText('Split').closest('button');
-    expect(splitButton).toHaveClass('bg-orange-100 text-orange-700');
-  });
-
-  it('should call setActiveTab when split button is clicked', () => {
+  it('should render the theme toggle', () => {
     render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
 
-    fireEvent.click(screen.getByText('Split'));
-
-    expect(mockSetActiveTab).toHaveBeenCalledWith('split');
+    expect(screen.getByRole('button', { name: 'Toggle dark mode' })).toBeInTheDocument();
   });
 
-  it('should highlight the active dashboard tab', () => {
-    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
+  it.each(['dashboard', 'failures', 'progress', 'report', 'split', 'publish'])(
+    'should highlight the active %s tab and leave the others inactive',
+    (activeTab) => {
+      const labels: Record<string, string> = {
+        dashboard: 'Dashboard',
+        failures: 'Failures',
+        progress: 'Progress',
+        report: 'Report',
+        split: 'Split',
+        publish: 'Publish',
+      };
+      render(<Navbar activeTab={activeTab} setActiveTab={mockSetActiveTab} />);
 
-    const dashboardButton = screen.getByText('Dashboard').closest('button');
-    expect(dashboardButton).toHaveClass('bg-blue-100 text-blue-700');
-  });
+      const activeButton = screen.getByText(labels[activeTab]).closest('button');
+      expect(activeButton).toHaveClass('bg-gradient-to-br', 'from-primary', 'text-primary-foreground');
 
-  it('should highlight the active failures tab', () => {
-    render(<Navbar activeTab="failures" setActiveTab={mockSetActiveTab} />);
-
-    const failuresButton = screen.getByText('Failures').closest('button');
-    expect(failuresButton).toHaveClass('bg-red-100 text-red-700');
-  });
-
-  it('should highlight the active progress tab', () => {
-    render(<Navbar activeTab="progress" setActiveTab={mockSetActiveTab} />);
-
-    const progressButton = screen.getByText('Progress').closest('button');
-    expect(progressButton).toHaveClass('bg-purple-100 text-purple-700');
-  });
-
-  it('should highlight the active report tab', () => {
-    render(<Navbar activeTab="report" setActiveTab={mockSetActiveTab} />);
-
-    const reportButton = screen.getByText('Report').closest('button');
-    expect(reportButton).toHaveClass('bg-blue-100 text-blue-700');
-  });
-
-  it('should call setActiveTab when dashboard button is clicked', () => {
-    render(<Navbar activeTab="failures" setActiveTab={mockSetActiveTab} />);
-
-    fireEvent.click(screen.getByText('Dashboard'));
-
-    expect(mockSetActiveTab).toHaveBeenCalledWith('dashboard');
-    expect(mockSetActiveTab).toHaveBeenCalledTimes(1);
-  });
-
-  it('should call setActiveTab when failures button is clicked', () => {
-    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
-
-    fireEvent.click(screen.getByText('Failures'));
-
-    expect(mockSetActiveTab).toHaveBeenCalledWith('failures');
-  });
-
-  it('should call setActiveTab when progress button is clicked', () => {
-    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
-
-    fireEvent.click(screen.getByText('Progress'));
-
-    expect(mockSetActiveTab).toHaveBeenCalledWith('progress');
-  });
-
-  it('should call setActiveTab when report button is clicked', () => {
-    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
-
-    fireEvent.click(screen.getByText('Report'));
-
-    expect(mockSetActiveTab).toHaveBeenCalledWith('report');
-  });
-
-  it('should apply default styling to inactive tabs', () => {
-    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
-
-    const failuresButton = screen.getByText('Failures').closest('button');
-    const progressButton = screen.getByText('Progress').closest('button');
-    const reportButton = screen.getByText('Report').closest('button');
-    const publishButton = screen.getByText('Publish').closest('button');
-
-    expect(failuresButton).toHaveClass('text-gray-600 hover:bg-gray-100');
-    expect(progressButton).toHaveClass('text-gray-600 hover:bg-gray-100');
-    expect(reportButton).toHaveClass('text-gray-600 hover:bg-gray-100');
-    expect(publishButton).toHaveClass('text-gray-600 hover:bg-gray-100');
-  });
-
-  it('should highlight the active publish tab', () => {
-    render(<Navbar activeTab="publish" setActiveTab={mockSetActiveTab} />);
-
-    const publishButton = screen.getByText('Publish').closest('button');
-    expect(publishButton).toHaveClass('bg-green-100 text-green-700');
-  });
-
-  it('should call setActiveTab when publish button is clicked', () => {
-    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    expect(mockSetActiveTab).toHaveBeenCalledWith('publish');
-  });
+      Object.entries(labels)
+        .filter(([id]) => id !== activeTab)
+        .forEach(([, label]) => {
+          const inactiveButton = screen.getByText(label).closest('button');
+          expect(inactiveButton).toHaveClass('text-muted-foreground');
+          expect(inactiveButton).not.toHaveClass('bg-gradient-to-br');
+        });
+    }
+  );
 
   it('should handle unknown active tab gracefully', () => {
     render(<Navbar activeTab="unknown" setActiveTab={mockSetActiveTab} />);
@@ -159,10 +89,23 @@ describe('Navbar', () => {
     const dashboardButton = screen.getByText('Dashboard').closest('button');
     const failuresButton = screen.getByText('Failures').closest('button');
 
-    expect(dashboardButton).toHaveClass('text-gray-600 hover:bg-gray-100');
-    expect(failuresButton).toHaveClass('text-gray-600 hover:bg-gray-100');
+    expect(dashboardButton).toHaveClass('text-muted-foreground');
+    expect(failuresButton).toHaveClass('text-muted-foreground');
+  });
+
+  it.each([
+    ['Dashboard', 'dashboard'],
+    ['Failures', 'failures'],
+    ['Progress', 'progress'],
+    ['Report', 'report'],
+    ['Split', 'split'],
+    ['Publish', 'publish'],
+  ])('should call setActiveTab with "%s" tab id when %s button is clicked', (label, id) => {
+    render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);
+
+    fireEvent.click(screen.getByText(label));
+
+    expect(mockSetActiveTab).toHaveBeenCalledWith(id);
+    expect(mockSetActiveTab).toHaveBeenCalledTimes(1);
   });
 });
-
-/* The beforeEach function is already imported from 'vitest' and does not need to be re-implemented here. Remove this redundant implementation. */
-// The correct beforeEach is already imported from 'vitest' at the top of the file.

@@ -1,8 +1,10 @@
-import { PieChart, Pie, Tooltip, Legend, Cell, ResponsiveContainer, type PieLabelRenderProps } from 'recharts';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon } from 'lucide-react';
+import { PieChart, Pie, Tooltip, Cell, ResponsiveContainer, type PieLabelRenderProps } from 'recharts';
+import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, TrendingUpIcon } from 'lucide-react';
 import { formatDuration } from '../../utils/formatting';
 import type { TestData } from '../../types';
 import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface TestMetricsProps {
   testData: TestData;
@@ -48,10 +50,10 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
   }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
-      return <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-          <p className="font-medium text-gray-900">{data.name}</p>
-          <p className="text-gray-600">{data.description}</p>
-          <p className="text-sm text-gray-500 mt-1">
+      return <div className="rounded-lg border bg-popover p-4 text-popover-foreground shadow-md">
+          <p className="font-medium">{data.name}</p>
+          <p className="text-muted-foreground">{data.description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             {(data.value / summary.total * 100).toFixed(1)}% of total
           </p>
         </div>;
@@ -76,87 +78,90 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
     if (percent < 0.02) {
       return null;
     }
-    return <text x={x} y={y} fill="#4B5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium">
+    return <text x={x} y={y} fill="#374151" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium">
         {value} ({(percent * 100).toFixed(1)}%)
       </text>;
   };
-  return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white p-6 rounded-lg shadow col-span-1">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6">
-          Test Execution Summary
-        </h3>
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="flex items-center justify-center">
-              <CheckCircleIcon className="w-6 h-6 text-green-500 mr-2" />
-              <span className="text-2xl font-bold text-green-700">
-                {summary.passed}
-              </span>
-            </div>
-            <p className="text-sm text-green-600 text-center mt-2">Passed</p>
+
+  const successRate = (summary.passed / (summary.passed + summary.failed + summary.skipped) * 100).toFixed(1);
+
+  const stats = [
+    { key: 'passed', label: 'Passed', value: summary.passed, icon: CheckCircleIcon, ring: 'ring-success/20', chip: 'bg-success/15 text-success', bar: 'bg-success' },
+    { key: 'failed', label: 'Failed', value: summary.failed, icon: XCircleIcon, ring: 'ring-destructive/20', chip: 'bg-destructive/15 text-destructive', bar: 'bg-destructive' },
+    { key: 'skipped', label: 'Skipped', value: summary.skipped, icon: AlertTriangleIcon, ring: 'ring-warning/20', chip: 'bg-warning/15 text-warning', bar: 'bg-warning' },
+  ] as const;
+
+  return <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <Card className="lg:col-span-3">
+        <CardHeader>
+          <CardTitle>Test Execution Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {stats.map(({ key, label, value, icon: Icon, ring, chip, bar }) => {
+              const pct = summary.total > 0 ? (value / summary.total * 100) : 0;
+              return (
+                <div key={key} data-testid={`stat-${key}`} className={cn('rounded-xl border bg-card p-4 ring-1', ring)}>
+                  <div className={cn('flex size-9 items-center justify-center rounded-full', chip)}>
+                    <Icon className="size-5" />
+                  </div>
+                  <p className="mt-3 text-3xl font-bold tracking-tight text-foreground">{value}</p>
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div className={cn('h-full rounded-full transition-all', bar)} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="bg-red-50 rounded-lg p-4">
-            <div className="flex items-center justify-center">
-              <XCircleIcon className="w-6 h-6 text-red-500 mr-2" />
-              <span className="text-2xl font-bold text-red-700">
-                {summary.failed}
-              </span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-4">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <ClockIcon className="size-4" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Total Duration:</p>
+                <p className="text-lg font-bold text-foreground">
+                  {formatDuration(summary.time)}
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-red-600 text-center mt-2">Failed</p>
-          </div>
-          <div className="bg-yellow-50 rounded-lg p-4">
-            <div className="flex items-center justify-center">
-              <AlertTriangleIcon className="w-6 h-6 text-yellow-500 mr-2" />
-              <span className="text-2xl font-bold text-yellow-700">
-                {summary.skipped}
-              </span>
+            <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-4">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <TrendingUpIcon className="size-4" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Success Rate:</p>
+                <p className="text-lg font-bold text-foreground">
+                  {successRate}%
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-yellow-600 text-center mt-2">Skipped</p>
           </div>
-        </div>
-        <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 rounded-lg">
-          <div>
-            <div className="flex items-center">
-              <ClockIcon className="w-5 h-5 text-blue-500 mr-2" />
-              <span className="font-medium text-gray-700">Total Duration:</span>
+        </CardContent>
+      </Card>
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Test Status Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="relative h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={0} // Remove padding between segments
+              dataKey="value" labelLine={false} label={renderCustomizedLabel} animationBegin={0} animationDuration={1000} minAngle={2} // Ensure small segments are visible
+              >
+                  {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} className="transition-all duration-200 hover:opacity-80" />)}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-bold text-foreground">{summary.total}</span>
+              <span className="text-xs text-muted-foreground">tests</span>
             </div>
-            <p className="text-lg font-bold text-blue-600 mt-1">
-              {formatDuration(summary.time)}
-            </p>
           </div>
-          <div>
-            <div className="flex items-center">
-              <span className="font-medium text-gray-700">Success Rate:</span>
-            </div>
-            <p className="text-lg font-bold text-blue-600 mt-1">
-              {(summary.passed / (summary.passed + summary.failed + summary.skipped) * 100).toFixed(1)}
-              %
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow col-span-1">
-        <h3 className="text-lg font-semibold text-gray-800 mb-6">
-          Test Status Distribution
-        </h3>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={0} // Remove padding between segments
-            dataKey="value" labelLine={false} label={renderCustomizedLabel} animationBegin={0} animationDuration={1000} minAngle={2} // Ensure small segments are visible
-            >
-                {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} className="transition-all duration-200 hover:opacity-80" />)}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend verticalAlign="bottom" height={36} formatter={(value, entry) => <span className="inline-flex items-center px-2 py-1 rounded-md" style={{
-              color: entry.color,
-              fontWeight: 500
-            }}>
-                    {value}
-                  </span>} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>;
 };

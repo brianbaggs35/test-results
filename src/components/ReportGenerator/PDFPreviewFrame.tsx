@@ -351,6 +351,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                       minAngle={2}
                       stroke="#ffffff"
                       strokeWidth={2}
+                      isAnimationActive={false}
                     >
                       {statusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />

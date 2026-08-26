@@ -11,6 +11,8 @@ vi.mock('lucide-react', () => ({
   LoaderIcon: () => <div data-testid="loader-icon" />,
   CheckCircleIcon: () => <div data-testid="check-circle-icon" />,
   XCircleIcon: () => <div data-testid="x-circle-icon" />,
+  PlusIcon: () => <div data-testid="plus-icon" />,
+  XIcon: () => <div data-testid="x-icon" />,
 }));
 
 /**
@@ -463,7 +465,7 @@ describe('PublishPage', () => {
 
     await waitFor(() => {
       const statusDiv = screen.getByTestId('publish-status');
-      expect(statusDiv).toHaveClass('bg-green-50');
+      expect(statusDiv).toHaveClass('bg-success/5');
       expect(screen.getByTestId('check-circle-icon')).toBeInTheDocument();
     });
   });
@@ -484,7 +486,7 @@ describe('PublishPage', () => {
 
     await waitFor(() => {
       const statusDiv = screen.getByTestId('publish-status');
-      expect(statusDiv).toHaveClass('bg-red-50');
+      expect(statusDiv).toHaveClass('bg-destructive/5');
       expect(screen.getByTestId('x-circle-icon')).toBeInTheDocument();
     });
   });
