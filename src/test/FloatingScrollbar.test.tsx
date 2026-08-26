@@ -1,30 +1,12 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { render, act, fireEvent } from '@testing-library/react';
 import { createRef } from 'react';
 import { FloatingScrollbar } from '../components/shared/FloatingScrollbar';
 
-type IntersectionCallback = (entries: Array<{ isIntersecting: boolean }>) => void;
-
-function mockIntersectionObserver() {
-  let capturedCallback: IntersectionCallback | null = null;
-  class FakeIntersectionObserver {
-    constructor(callback: IntersectionCallback) {
-      capturedCallback = callback;
-    }
-    observe() { /* no-op */ }
-    unobserve() { /* no-op */ }
-    disconnect() { /* no-op */ }
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (global as any).IntersectionObserver = FakeIntersectionObserver;
-  return {
-    fire: (isIntersecting: boolean) => capturedCallback?.([{ isIntersecting }]),
-  };
-}
-
 describe('FloatingScrollbar', () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    delete (HTMLDivElement.prototype as unknown as { scrollWidth?: unknown }).scrollWidth;
+    delete (HTMLDivElement.prototype as unknown as { clientWidth?: unknown }).clientWidth;
   });
 
   it('should render nothing when the target has no horizontal overflow', () => {
@@ -39,11 +21,49 @@ describe('FloatingScrollbar', () => {
     expect(container.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
   });
 
-  it('should stay hidden while the target’s own scrollbar is still on-screen', () => {
-    mockIntersectionObserver();
+  it('should appear whenever the target has horizontal overflow, regardless of vertical scroll position', () => {
     const targetRef = createRef<HTMLDivElement>();
     Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, value: 2000 });
     Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, value: 500 });
+
+    const { container } = render(
+      <div>
+        <div ref={targetRef} />
+        <FloatingScrollbar targetRef={targetRef} />
+      </div>
+    );
+
+    expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
+  });
+
+  it('should match the target\'s own left position and width, not span the full viewport', () => {
+    const targetRef = createRef<HTMLDivElement>();
+    Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, value: 2000 });
+    Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, value: 500 });
+
+    const { container } = render(
+      <div>
+        <div ref={targetRef} />
+        <FloatingScrollbar targetRef={targetRef} />
+      </div>
+    );
+    // The target's own rect (distinct from jsdom's default 0/400 mock elsewhere in the tree).
+    targetRef.current!.getBoundingClientRect = () => ({
+      left: 120, width: 640, top: 0, right: 760, bottom: 0, height: 0, x: 120, y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent(window, new Event('resize'));
+
+    const bar = container.querySelector('[aria-hidden="true"]') as HTMLDivElement;
+    expect(bar.style.left).toBe('120px');
+    expect(bar.style.width).toBe('640px');
+  });
+
+  it('should re-measure position and overflow on window resize', () => {
+    const targetRef = createRef<HTMLDivElement>();
+    const state = { scrollWidth: 500, clientWidth: 500 };
+    Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, get: () => state.scrollWidth });
+    Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, get: () => state.clientWidth });
 
     const { container } = render(
       <div>
@@ -53,13 +73,20 @@ describe('FloatingScrollbar', () => {
     );
 
     expect(container.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
+
+    // The window shrinking (or a sidebar collapsing) makes the same table overflow, without
+    // any DOM mutation inside the target for the MutationObserver to catch.
+    state.scrollWidth = 2000;
+    fireEvent(window, new Event('resize'));
+
+    expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
 
-  it('should appear once the target overflows and its own scrollbar scrolls out of view', () => {
-    const { fire } = mockIntersectionObserver();
+  it('should detect overflow that only appears once the target\'s content changes later, not just at mount', async () => {
     const targetRef = createRef<HTMLDivElement>();
-    Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, value: 2000 });
-    Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, value: 500 });
+    const state = { scrollWidth: 500, clientWidth: 500 };
+    Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, get: () => state.scrollWidth });
+    Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, get: () => state.clientWidth });
 
     const { container } = render(
       <div>
@@ -68,7 +95,16 @@ describe('FloatingScrollbar', () => {
       </div>
     );
 
-    act(() => fire(false)); // sentinel scrolled out of view -> native scrollbar unreachable
+    expect(container.querySelector('[aria-hidden="true"]')).not.toBeInTheDocument();
+
+    // Content (e.g. table rows) arrives asynchronously after mount and grows the target wider —
+    // a real scenario for a table whose rows populate via a follow-up effect in its parent.
+    state.scrollWidth = 2000;
+    await act(async () => {
+      targetRef.current!.appendChild(document.createElement('span'));
+      await Promise.resolve();
+    });
+
     expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
 
@@ -82,8 +118,7 @@ describe('FloatingScrollbar', () => {
     });
   }
 
-  it('should mirror the target’s scrollLeft onto the floating track', () => {
-    const { fire } = mockIntersectionObserver();
+  it('should mirror the target\'s scrollLeft onto the floating track', () => {
     const targetRef = createRef<HTMLDivElement>();
     Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, value: 2000 });
     Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, value: 500 });
@@ -94,7 +129,6 @@ describe('FloatingScrollbar', () => {
         <FloatingScrollbar targetRef={targetRef} />
       </div>
     );
-    act(() => fire(false));
 
     const track = container.querySelector('[aria-hidden="true"]') as HTMLDivElement;
     makeScrollLeftSettable(track);
@@ -104,8 +138,7 @@ describe('FloatingScrollbar', () => {
     expect(track.scrollLeft).toBe(250);
   });
 
-  it('should mirror the floating track’s scrollLeft back onto the target', () => {
-    const { fire } = mockIntersectionObserver();
+  it('should mirror the floating track\'s scrollLeft back onto the target', () => {
     const targetRef = createRef<HTMLDivElement>();
     Object.defineProperty(HTMLDivElement.prototype, 'scrollWidth', { configurable: true, value: 2000 });
     Object.defineProperty(HTMLDivElement.prototype, 'clientWidth', { configurable: true, value: 500 });
@@ -116,7 +149,6 @@ describe('FloatingScrollbar', () => {
         <FloatingScrollbar targetRef={targetRef} />
       </div>
     );
-    act(() => fire(false));
 
     const track = container.querySelector('[aria-hidden="true"]') as HTMLDivElement;
     makeScrollLeftSettable(targetRef.current!);

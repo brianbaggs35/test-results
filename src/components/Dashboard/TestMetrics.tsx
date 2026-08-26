@@ -78,7 +78,7 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
     if (percent < 0.02) {
       return null;
     }
-    return <text x={x} y={y} fill="#374151" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium">
+    return <text x={x} y={y} fill="currentColor" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium text-foreground">
         {value} ({(percent * 100).toFixed(1)}%)
       </text>;
   };
@@ -151,7 +151,7 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
                 <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={0} // Remove padding between segments
               dataKey="value" labelLine={false} label={renderCustomizedLabel} animationBegin={0} animationDuration={1000} minAngle={2} // Ensure small segments are visible
               >
-                  {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} className="transition-all duration-200 hover:opacity-80" />)}
+                  {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} />)}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
               </PieChart>

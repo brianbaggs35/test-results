@@ -4,9 +4,15 @@ import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  React.HTMLAttributes<HTMLTableElement> & {
+    /** Ref to the scrolling wrapper div — this, not the <table> itself, is what actually
+     *  overflows and scrolls horizontally, so it's what a sibling like FloatingScrollbar
+     *  needs to observe. */
+    wrapperRef?: React.Ref<HTMLDivElement>
+    wrapperClassName?: string
+  }
+>(({ className, wrapperRef, wrapperClassName, ...props }, ref) => (
+  <div ref={wrapperRef} className={cn("relative w-full overflow-auto", wrapperClassName)}>
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}

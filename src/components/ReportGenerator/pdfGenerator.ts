@@ -15,7 +15,9 @@ const A4_HEIGHT_PX = 1123;  // 297mm at 96 DPI
 const SCALE = 2;             // hi-DPI canvas scale
 
 // Plain-hex re-declarations of the app theme's (oklch-based) CSS variables, for html2canvas —
-// see the comment where this is applied in generatePDF for why it's needed.
+// see the comment where this is applied in generatePDF for why it's needed. The PDF itself is
+// always rendered light regardless of the viewer's theme (see the clone's own fallback
+// declarations below), so this light map is what gets baked into the captured pages.
 const CSS_VAR_HEX_FALLBACKS: Record<string, string> = {
   '--background': '#ffffff', '--foreground': '#1e1e2e',
   '--card': '#ffffff', '--card-foreground': '#1e1e2e',
@@ -28,6 +30,24 @@ const CSS_VAR_HEX_FALLBACKS: Record<string, string> = {
   '--success': '#16a34a', '--success-foreground': '#f0fdf4',
   '--warning': '#d97706', '--warning-foreground': '#fffbeb',
   '--border': '#e4e4e7', '--input': '#e4e4e7', '--ring': '#2563eb',
+};
+
+// Same idea, but matching the .dark theme's own colors — applied to the live <html> element
+// instead of the light map above when the viewer is in dark mode, so pinning hex fallbacks for
+// html2canvas's benefit (see generatePDF) doesn't itself flash the whole page to light mode
+// for the duration of the capture. The PDF's own clone always uses the light map regardless.
+const DARK_CSS_VAR_HEX_FALLBACKS: Record<string, string> = {
+  '--background': '#18181b', '--foreground': '#fafafa',
+  '--card': '#27272a', '--card-foreground': '#fafafa',
+  '--popover': '#27272a', '--popover-foreground': '#fafafa',
+  '--primary': '#4f7fff', '--primary-foreground': '#eff6ff',
+  '--secondary': '#313135', '--secondary-foreground': '#fafafa',
+  '--muted': '#313135', '--muted-foreground': '#a1a1aa',
+  '--accent': '#313135', '--accent-foreground': '#fafafa',
+  '--destructive': '#f87171', '--destructive-foreground': '#fafafa',
+  '--success': '#4ade80', '--success-foreground': '#f0fdf4',
+  '--warning': '#fbbf24', '--warning-foreground': '#451a03',
+  '--border': '#3f3f46', '--input': '#3f3f46', '--ring': '#4f7fff',
 };
 
 const cssVarFallbackDeclarations = Object.entries(CSS_VAR_HEX_FALLBACKS)
@@ -135,10 +155,16 @@ export const generatePDF = async (
   // fallbacks on the clone alone (below) isn't enough. Temporarily pin plain-hex values on
   // the real <html> element for the duration of the capture, then restore whatever was
   // there before (nothing, normally — this is the only place that sets inline vars on it).
-  const previousRootVars = Object.keys(CSS_VAR_HEX_FALLBACKS).map(
+  // Match whichever theme is currently active: the PDF itself always renders light (via the
+  // clone's own fallbacks below) regardless of this choice, but pinning the *light* map here
+  // while the viewer is in dark mode would flash the entire live page to light for the
+  // duration of the capture, since these vars apply to the real <html>, not just the clone.
+  const isDarkMode = root.classList.contains('dark');
+  const rootFallbacks = isDarkMode ? DARK_CSS_VAR_HEX_FALLBACKS : CSS_VAR_HEX_FALLBACKS;
+  const previousRootVars = Object.keys(rootFallbacks).map(
     (name) => [name, root.style.getPropertyValue(name)] as const,
   );
-  Object.entries(CSS_VAR_HEX_FALLBACKS).forEach(([name, value]) => root.style.setProperty(name, value));
+  Object.entries(rootFallbacks).forEach(([name, value]) => root.style.setProperty(name, value));
   try {
     if (onProgress) onProgress(5);
 

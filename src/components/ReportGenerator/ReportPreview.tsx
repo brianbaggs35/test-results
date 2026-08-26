@@ -20,16 +20,19 @@ export const ReportPreview = ({ testData, config, onBack }: ReportPreviewProps) 
   const [generationProgress, setGenerationProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [scaledContentHeight, setScaledContentHeight] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Calculate total pages from content height
+  // Calculate total pages, and the visual (post-scale) height to reserve for scrolling, from
+  // the content's real height
   useEffect(() => {
     const measure = () => {
       const el = contentRef.current;
       if (el) {
         const pages = Math.max(1, Math.ceil(el.scrollHeight / A4_HEIGHT_PX));
         setTotalPages(pages);
+        setScaledContentHeight(el.scrollHeight * 0.7);
       }
     };
     measure();
@@ -142,50 +145,60 @@ export const ReportPreview = ({ testData, config, onBack }: ReportPreviewProps) 
         data-testid="preview-container"
       >
         <div
-          className="shadow-2xl ring-1 ring-black/5"
           style={{
-            transform: 'scale(0.7)',
-            transformOrigin: 'top center',
-            marginBottom: '-30%',
-            borderRadius: '4px',
-            overflow: 'visible',
+            // A little taller than the scaled content itself so shadow-2xl's blur isn't
+            // clipped at the bottom edge; the page-scroll math below is keyed off a fixed
+            // per-page height, not this wrapper's total height, so the buffer doesn't skew it.
+            height: scaledContentHeight != null ? scaledContentHeight + 40 : undefined,
+            overflow: 'hidden',
             position: 'relative',
           }}
         >
-          <div ref={contentRef}>
-            <PDFPreviewFrame testData={testData} config={config} />
-          </div>
-          {/* Page break indicators */}
-          {Array.from({ length: totalPages - 1 }, (_, i) => (
-            <div
-              key={`page-break-${i}`}
-              style={{
-                position: 'absolute',
-                top: `${(i + 1) * A4_HEIGHT_PX}px`,
-                left: '-20px',
-                right: '-20px',
-                height: '0',
-                borderTop: '2px dashed #94a3b8',
-                zIndex: 10,
-              }}
-            >
-              <span
+          <div
+            className="shadow-2xl ring-1 ring-black/5"
+            style={{
+              transform: 'scale(0.7)',
+              transformOrigin: 'top center',
+              borderRadius: '4px',
+              overflow: 'visible',
+              position: 'relative',
+            }}
+          >
+            <div ref={contentRef}>
+              <PDFPreviewFrame testData={testData} config={config} />
+            </div>
+            {/* Page break indicators */}
+            {Array.from({ length: totalPages - 1 }, (_, i) => (
+              <div
+                key={`page-break-${i}`}
                 style={{
                   position: 'absolute',
-                  right: '0',
-                  top: '-10px',
-                  background: '#64748b',
-                  color: 'white',
-                  fontSize: '10px',
-                  padding: '1px 8px',
-                  borderRadius: '4px',
-                  whiteSpace: 'nowrap',
+                  top: `${(i + 1) * A4_HEIGHT_PX}px`,
+                  left: '-20px',
+                  right: '-20px',
+                  height: '0',
+                  borderTop: '2px dashed #94a3b8',
+                  zIndex: 10,
                 }}
               >
-                Page {i + 2}
-              </span>
-            </div>
-          ))}
+                <span
+                  style={{
+                    position: 'absolute',
+                    right: '0',
+                    top: '-10px',
+                    background: '#64748b',
+                    color: 'white',
+                    fontSize: '10px',
+                    padding: '1px 8px',
+                    borderRadius: '4px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Page {i + 2}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
