@@ -3,8 +3,9 @@ import { toast } from 'sonner';
 import { Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { PROGRESS_STORAGE_PREFIX } from '@/utils/progressStorage';
 
-const PREFIX = 'testFixProgress';
+const PREFIX = PROGRESS_STORAGE_PREFIX;
 
 function ClearLocalStorageButton() {
   const [confirmOpen, setConfirmOpen] = useState(false);

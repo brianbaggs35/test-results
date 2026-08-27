@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Dashboard } from '../components/Dashboard/Dashboard';
 
 // Mock child components
@@ -248,8 +249,71 @@ describe('Dashboard', () => {
     };
     
     render(<Dashboard onDataUpload={mockOnDataUpload} testData={testData} />);
-    
+
     expect(screen.getByTestId('test-metrics')).toBeInTheDocument();
     expect(screen.getByTestId('test-results-list')).toBeInTheDocument();
+  });
+
+  describe('loading a different file while test data is already shown', () => {
+    const testData = {
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+      suites: []
+    };
+
+    it('should show the "Load Different File" button once test data is available', () => {
+      render(<Dashboard onDataUpload={mockOnDataUpload} testData={testData} />);
+
+      expect(screen.getByRole('button', { name: /Load Different File/i })).toBeInTheDocument();
+    });
+
+    it('should not show the "Load Different File" button before any test data is loaded', () => {
+      render(<Dashboard onDataUpload={mockOnDataUpload} testData={null} />);
+
+      expect(screen.queryByRole('button', { name: /Load Different File/i })).not.toBeInTheDocument();
+    });
+
+    it('should parse and upload a newly selected file without requiring a manual clear first', async () => {
+      render(<Dashboard onDataUpload={mockOnDataUpload} testData={testData} />);
+
+      const input = screen.getByLabelText('Upload a different XML file');
+      const file = new File(['<testsuite name="Test" tests="1"><testcase name="test1"/></testsuite>'], 'other.xml', {
+        type: 'text/xml',
+      });
+      await userEvent.upload(input, file);
+
+      await waitFor(() => {
+        expect(mockOnDataUpload).toHaveBeenCalledWith({
+          summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+          suites: [{
+            name: 'Test',
+            tests: 1,
+            failures: 0,
+            errors: 0,
+            skipped: 0,
+            time: 1.0,
+            timestamp: '2024-01-01T12:00:00Z',
+            testcases: [{ name: 'test1', status: 'passed' as const, time: 1.0 }]
+          }]
+        });
+      });
+    });
+
+    it('should show an inline error, and keep the currently loaded data, when the newly selected file fails to parse', async () => {
+      render(<Dashboard onDataUpload={mockOnDataUpload} testData={testData} />);
+
+      const input = screen.getByLabelText('Upload a different XML file');
+      const file = new File(['invalid xml'], 'broken.xml', { type: 'text/xml' });
+      await userEvent.upload(input, file);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('reload-file-error')).toBeInTheDocument();
+      });
+      expect(
+        screen.getByText('Failed to parse the XML file. Please ensure it is a valid JUnit XML file.')
+      ).toBeInTheDocument();
+      expect(mockOnDataUpload).not.toHaveBeenCalled();
+      // The previously loaded data stays on screen — a failed reload doesn't wipe it.
+      expect(screen.getByTestId('test-metrics')).toBeInTheDocument();
+    });
   });
 });
