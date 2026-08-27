@@ -33,7 +33,7 @@ export function App() {
       case 'report':
         return <ReportGenerator testData={testData} setActiveTab={setActiveTab} />;
       case 'publish':
-        return <PublishPage xmlContent={xmlContent} />;
+        return <PublishPage testData={testData} />;
       case 'split':
         return <SplitPage xmlContent={xmlContent} onCombined={handleDataUpload} setActiveTab={setActiveTab} />;
       default:

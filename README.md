@@ -8,7 +8,7 @@ A React-based web application for analyzing JUnit XML test results with comprehe
 - **Failure Analysis**: Detailed analysis of failed tests with filtering capabilities
 - **Progress Tracking**: Track resolution progress for failed tests, add notes/assignees, and view the full stack trace
 - **Split & Combine**: Split a run's failures evenly between teammates, then combine each teammate's exported progress back into one report
-- **Publish**: Send a summary of the loaded results to Slack (via TestBeats)
+- **Publish**: Send a summary of the loaded results directly to a Slack channel via an Incoming Webhook
 - **Report Generation**: Generate and preview PDF reports from test data
 - **Light/Dark Mode**: Toggle between light and dark themes, persisted across sessions
 - **Comprehensive Testing**: Vitest for unit/component tests, Playwright for e2e
@@ -28,12 +28,52 @@ A React-based web application for analyzing JUnit XML test results with comprehe
    npm fund
    ```
 
-3. Start the development server:
+3. (Optional) Configure the Publish tab by copying `.env.example` to `.env` and
+   setting `SLACK_WEBHOOK_URL` to a Slack Incoming Webhook URL — see
+   [Configuration](#configuration) below.
+
+4. Start the development server:
    ```bash
    npm run dev
    ```
 
-4. Open [http://localhost:5173](http://localhost:5173) in your browser
+5. Open [http://localhost:5173](http://localhost:5173) in your browser
+
+## Configuration
+
+The **Publish** tab posts a summary of the loaded test results directly to a
+Slack channel using a [Slack Incoming Webhook](https://api.slack.com/messaging/webhooks) —
+no third-party test-result publishing service required.
+
+1. Create an Incoming Webhook for the Slack channel you want to publish to.
+2. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+3. Set `SLACK_WEBHOOK_URL` in `.env` to the webhook URL.
+4. Restart `npm run dev` if it's already running — the dev server only reads
+   `.env` on startup.
+
+`.env` is gitignored since the webhook URL should be treated as a secret; only
+`.env.example` (with a placeholder value) is committed. If `SLACK_WEBHOOK_URL`
+isn't set, the Publish tab will show a clear error explaining how to configure
+it when you try to publish.
+
+Optionally, set `VITE_EXECUTED_BY` in `.env` to your name to pre-fill the
+"Executed By" metadata row on the Publish page (key and value together) so
+you don't have to retype it every time. It needs the `VITE_` prefix since,
+unlike `SLACK_WEBHOOK_URL`, it's read in the browser rather than the dev
+server. The first metadata row's key is always pre-filled with "Failed
+Tests" — its value is left for you to fill in by hand, since the parsed
+XML's failure count includes flaky-test retries and would overstate the
+real number.
+
+The published message includes a small pass/fail donut chart rendered by
+[QuickChart](https://quickchart.io), a free hosted chart-image API — Slack
+images must be fetched from a public URL, and this app has no backend of its
+own to host a generated image, so the pass/fail/skipped counts are sent to
+QuickChart's public endpoint to get one back. No test names, file paths, or
+failure details are included in that request — only the three counts.
 
 ## Available Scripts
 
@@ -61,8 +101,8 @@ A React-based web application for analyzing JUnit XML test results with comprehe
 
 This project has comprehensive test coverage with:
 
-- **625 Vitest tests** covering unit, component, and hook functionality
-- **45 Playwright end-to-end tests** covering upload, filtering, search, split/combine, bulk actions, report generation, and publishing flows
+- **653 Vitest tests** covering unit, component, hook, and Slack-publishing functionality
+- **47 Playwright end-to-end tests** covering upload, filtering, search, split/combine, bulk actions, report generation, and publishing flows
 - **Vitest** testing framework (v8 coverage provider) with React Testing Library
 - **Playwright** e2e testing with istanbul/nyc coverage reporting
 
@@ -70,9 +110,9 @@ Current coverage (all four metrics enforced above 90% in CI):
 
 | Metric     | Coverage | Enforced minimum |
 |------------|---------:|------------------:|
-| Statements |   ~95%   | 93% |
-| Branches   |   ~91%   | 90% |
-| Functions  |   ~94%   | 92% |
+| Statements |   ~96%   | 93% |
+| Branches   |   ~92%   | 90% |
+| Functions  |   ~95%   | 92% |
 | Lines      |   ~97%   | 95% |
 
 Vendored shadcn/ui primitives under `src/components/ui/` are excluded from coverage (generated boilerplate, not hand-written logic). A handful of files with heavier branch counts — notably `ReportPreview.tsx` and `pdfGenerator.ts` — sit below the global average due to PDF-rendering edge cases that are impractical to exercise in jsdom; they're covered end-to-end instead via the Playwright report-generation spec.
@@ -124,7 +164,7 @@ src/
 │   ├── Dashboard/          # File upload, metrics, results table, test details modal
 │   ├── FailureAnalysis/    # Failure list, resolution progress tracking, bulk actions
 │   ├── Layout/             # Navbar and app shell
-│   ├── Publish/            # Publish results to Slack (TestBeats)
+│   ├── Publish/            # Publish results directly to Slack via Incoming Webhook
 │   ├── ReportGenerator/    # PDF report configuration, preview, and generation
 │   ├── Split/              # Split failures between teammates and combine results back
 │   ├── shared/             # Cross-tab primitives (StatusBadge, Pagination, EmptyState,
@@ -138,6 +178,10 @@ src/
 spec/
 ├── e2e/                    # Playwright end-to-end specs
 └── testfiles/              # Sample JUnit XML fixtures used by tests
+
+server/
+├── publishPlugin.ts        # Vite dev-server middleware backing /api/publish
+└── slackMessage.ts         # Builds the Slack Block Kit message from test data
 ```
 
 ## Technology Stack
@@ -152,6 +196,7 @@ spec/
 - **Playwright** - End-to-End testing
 - **Recharts** - Data visualization
 - **jsPDF / html2canvas** - PDF generation
+- **@slack/webhook** - Publishes test result summaries to Slack
 
 ## Contributing
 

@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { parseJUnitXML } from '@/utils/xmlParser';
+import type { TestData } from '@/types';
 
 export interface PublishPageProps {
-  xmlContent: string | null;
+  testData: TestData | null;
 }
 
 interface MetadataEntry {
@@ -19,7 +21,6 @@ interface MetadataEntry {
 interface PublishStatus {
   state: 'idle' | 'publishing' | 'success' | 'error';
   message: string;
-  output?: string;
 }
 
 const METADATA_PLACEHOLDERS = [
@@ -27,14 +28,28 @@ const METADATA_PLACEHOLDERS = [
   { key: 'e.g., Executed By', value: 'e.g., Brian' },
 ];
 
-export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
-  const [run, setRun] = useState('');
+const MAX_METADATA_ENTRIES = 6;
+
+/**
+ * Row 0's key is always pre-filled with "Failed Tests" — its value is left
+ * for the user to fill in by hand, since the parsed XML's failure count
+ * includes flaky-test retries and would overstate the real number. Row 1
+ * ("Executed By") is only pre-filled, key and value together, when
+ * VITE_EXECUTED_BY is set, so the same person doesn't have to retype their
+ * own name on every publish.
+ */
+const buildInitialMetadata = (): MetadataEntry[] => {
+  const executedBy = import.meta.env.VITE_EXECUTED_BY;
+  return [
+    { key: 'Failed Tests', value: '' },
+    executedBy ? { key: 'Executed By', value: executedBy } : { key: '', value: '' },
+  ];
+};
+
+export const PublishPage: React.FC<PublishPageProps> = ({ testData }) => {
   const [title, setTitle] = useState('');
-  const [metadata, setMetadata] = useState<MetadataEntry[]>([
-    { key: '', value: '' },
-    { key: '', value: '' },
-  ]);
-  const [xmlSource, setXmlSource] = useState<'loaded' | 'file'>(xmlContent ? 'loaded' : 'file');
+  const [metadata, setMetadata] = useState<MetadataEntry[]>(buildInitialMetadata);
+  const [xmlSource, setXmlSource] = useState<'loaded' | 'file'>(testData ? 'loaded' : 'file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState<PublishStatus>({ state: 'idle', message: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +61,7 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
   };
 
   const addMetadataRow = () => {
+    if (metadata.length >= MAX_METADATA_ENTRIES) return;
     setMetadata([...metadata, { key: '', value: '' }]);
   };
 
@@ -61,24 +77,32 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
     }
   };
 
-  const getXmlContent = async (): Promise<string | null> => {
-    if (xmlSource === 'loaded' && xmlContent) {
-      return xmlContent;
+  const getTestData = async (): Promise<TestData | null> => {
+    if (xmlSource === 'loaded' && testData) {
+      return testData;
     }
     if (xmlSource === 'file' && selectedFile) {
-      return await selectedFile.text();
+      const content = await selectedFile.text();
+      return parseJUnitXML(content);
     }
     return null;
   };
 
   const handlePublish = async () => {
-    if (!run.trim() || !title.trim()) {
-      setStatus({ state: 'error', message: 'Run and Title are required fields.' });
+    if (!title.trim()) {
+      setStatus({ state: 'error', message: 'Title is a required field.' });
       return;
     }
 
-    const xml = await getXmlContent();
-    if (!xml) {
+    let dataToPublish: TestData | null;
+    try {
+      dataToPublish = await getTestData();
+    } catch {
+      setStatus({ state: 'error', message: 'Could not parse the selected file. Make sure it is valid JUnit XML.' });
+      return;
+    }
+
+    if (!dataToPublish) {
       setStatus({ state: 'error', message: 'Please provide an XML file for publishing.' });
       return;
     }
@@ -90,10 +114,11 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          run: run.trim(),
           title: title.trim(),
-          metadata: metadata.filter(m => m.key.trim()),
-          xmlContent: xml,
+          // Both sides required now that a key can be pre-filled (e.g.
+          // "Failed Tests") without its value being filled in yet.
+          metadata: metadata.filter(m => m.key.trim() && m.value.trim()),
+          testData: dataToPublish,
         }),
       });
 
@@ -102,14 +127,12 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
       if (result.success) {
         setStatus({
           state: 'success',
-          message: 'Test results published successfully!',
-          output: result.stdout || result.stderr,
+          message: 'Test results published to Slack!',
         });
       } else {
         setStatus({
           state: 'error',
           message: result.error || 'Publishing failed.',
-          output: result.stdout || result.stderr,
         });
       }
     } catch (err) {
@@ -126,22 +149,11 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
         <CardHeader>
           <CardTitle className="text-2xl">Publish Test Results</CardTitle>
           <p className="text-muted-foreground pt-1">
-            Configure and publish your test results using TestBeats.
+            Send a summary of your test results directly to a Slack channel.
           </p>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Run Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="publish-run">Run Name</Label>
-            <Input
-              id="publish-run"
-              value={run}
-              onChange={(e) => setRun(e.target.value)}
-              placeholder="e.g., Full Regression February 17th"
-            />
-          </div>
-
           {/* Title */}
           <div className="space-y-1.5">
             <Label htmlFor="publish-title">Title</Label>
@@ -193,7 +205,14 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" onClick={addMetadataRow} className="mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addMetadataRow}
+              disabled={metadata.length >= MAX_METADATA_ENTRIES}
+              title={metadata.length >= MAX_METADATA_ENTRIES ? `Maximum of ${MAX_METADATA_ENTRIES} metadata entries` : undefined}
+              className="mt-3"
+            >
               <PlusIcon className="size-4" />
               Add metadata
             </Button>
@@ -203,7 +222,7 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
           <div>
             <h3 className="text-sm font-medium text-foreground mb-3">Test Results XML</h3>
             <div className="space-y-3">
-              {xmlContent && (
+              {testData && (
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
                   <input
                     type="radio"
@@ -291,11 +310,6 @@ export const PublishPage: React.FC<PublishPageProps> = ({ xmlContent }) => {
               )}
               <AlertDescription className={status.state === 'success' ? 'text-success' : 'text-destructive'}>
                 <span className="font-medium">{status.message}</span>
-                {status.output && (
-                  <pre className="mt-2 p-3 bg-zinc-950 text-zinc-100 rounded text-sm overflow-x-auto whitespace-pre-wrap">
-                    {status.output}
-                  </pre>
-                )}
               </AlertDescription>
             </Alert>
           )}

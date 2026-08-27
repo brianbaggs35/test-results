@@ -13,7 +13,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // server/**  tests live alongside their source rather than under src/test/ —
+    // they belong to the separate tsconfig.node.json TS project, and importing
+    // them from a src/ file trips TS6305 (see tsconfig.json's project reference).
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'server/**/*.{test,spec}.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
