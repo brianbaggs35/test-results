@@ -68,7 +68,7 @@ Tests" — its value is left for you to fill in by hand, since the parsed
 XML's failure count includes flaky-test retries and would overstate the
 real number.
 
-The published message includes a small pass/fail donut chart rendered by
+The published message includes a small pass/fail/skipped proportion bar rendered by
 [QuickChart](https://quickchart.io), a free hosted chart-image API — Slack
 images must be fetched from a public URL, and this app has no backend of its
 own to host a generated image, so the pass/fail/skipped counts are sent to
