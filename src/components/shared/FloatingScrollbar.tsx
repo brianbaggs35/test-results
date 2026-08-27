@@ -57,8 +57,11 @@ export function FloatingScrollbar({ targetRef, className }: FloatingScrollbarPro
 
     // Belt-and-suspenders: re-measure on a short interval as well, so a change that manages to
     // slip past every observer above (e.g. a layout shift with no associated DOM mutation or
-    // resize event) still gets picked up quickly rather than never.
-    const pollId = window.setInterval(measure, 500);
+    // resize event) still gets picked up quickly rather than never. Skipped under Vitest: a real
+    // timer that outlives a single test's synchronous assertions is a classic source of "state
+    // update not wrapped in act()" warnings once a test (or CI's slower scheduling) takes longer
+    // than 500ms — the primary observers above still run normally and are what tests exercise.
+    const pollId = import.meta.env.MODE === 'test' ? undefined : window.setInterval(measure, 500);
 
     const onTargetScroll = () => {
       if (syncingFrom.current === 'track') return;
@@ -72,7 +75,7 @@ export function FloatingScrollbar({ targetRef, className }: FloatingScrollbarPro
       resizeObserver.disconnect();
       mutationObserver.disconnect();
       window.removeEventListener('resize', measure);
-      window.clearInterval(pollId);
+      if (pollId !== undefined) window.clearInterval(pollId);
       target.removeEventListener('scroll', onTargetScroll);
     };
   }, [targetRef]);

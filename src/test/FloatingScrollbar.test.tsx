@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, act, fireEvent } from '@testing-library/react';
 import { createRef } from 'react';
 import { FloatingScrollbar } from '../components/shared/FloatingScrollbar';
@@ -136,6 +136,49 @@ describe('FloatingScrollbar', () => {
     fireEvent.scroll(targetRef.current!);
 
     expect(track.scrollLeft).toBe(250);
+  });
+
+  it('should not start the belt-and-suspenders polling interval under Vitest', () => {
+    // A real setInterval that outlives a single test's synchronous
+    // assertions is a classic source of "not wrapped in act()" warnings —
+    // this locks in that the guard actually skips it during tests.
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const targetRef = createRef<HTMLDivElement>();
+
+    render(
+      <div>
+        <div ref={targetRef} />
+        <FloatingScrollbar targetRef={targetRef} />
+      </div>
+    );
+
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+    setIntervalSpy.mockRestore();
+  });
+
+  it('should start (and clean up on unmount) the polling interval outside of Vitest', () => {
+    vi.stubEnv('MODE', 'production');
+    const setIntervalSpy = vi.spyOn(window, 'setInterval');
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+    const targetRef = createRef<HTMLDivElement>();
+
+    const { unmount } = render(
+      <div>
+        <div ref={targetRef} />
+        <FloatingScrollbar targetRef={targetRef} />
+      </div>
+    );
+
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 500);
+    const intervalId = setIntervalSpy.mock.results[0]!.value;
+
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalledWith(intervalId);
+
+    setIntervalSpy.mockRestore();
+    clearIntervalSpy.mockRestore();
+    vi.unstubAllEnvs();
   });
 
   it('should mirror the floating track\'s scrollLeft back onto the target', () => {
