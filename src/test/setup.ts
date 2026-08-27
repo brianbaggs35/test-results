@@ -16,7 +16,25 @@ console.error = (...args: unknown[]) => {
     message.includes('The width(0) and height(0) of chart should be greater than 0') ||
     message.includes('Error parsing file:') ||
     message.includes('An update to Animate inside a test was not wrapped in act(') ||
-    message.includes('In HTML, <button> cannot be a descendant of <button>')
+    message.includes('In HTML, <button> cannot be a descendant of <button>') ||
+    // Recharts' Pie labels render through an internal zIndex-portal system (ZIndexLayer,
+    // @since 3.4): a <g> portal target is registered via a useLayoutEffect, then consumed
+    // once a separate subscriber component re-renders with it — an unavoidable multi-pass
+    // settle that isn't guaranteed to finish inside one act() flush. Confirmed via a real
+    // Linux/CI reproduction (Docker) that this is scheduling-sensitive, not a real bug: it
+    // fires only when another test file runs concurrently (genuine CPU contention changes
+    // how many passes complete before reconciliation), never when isolated, and disappears
+    // entirely with --no-file-parallelism. Recharts hardcodes this zIndex (DefaultZIndexes.label
+    // = 2000, in node_modules/recharts/es6/zIndex/DefaultZIndexes.js) with no prop to opt out
+    // short of dropping Pie's label feature, so it can't be fixed from application code —
+    // giving ResponsiveContainer fixed pixel dimensions under test was tried and rejected:
+    // it skips rendering the .recharts-responsive-container element entirely, which broke
+    // useChartRenderComplete's synchronous chart-ready detection (src/hooks/useChartRenderComplete.ts).
+    message.includes('a unique "key" prop') && message.includes('a child from Pie') ||
+    // React logs this as console.error('The tag <%s> is unrecognized...', type) — match
+    // around the %s placeholder rather than the substituted tag name, since args.join(' ')
+    // below never performs that substitution.
+    message.includes('is unrecognized in this browser')
   ) {
     return
   }

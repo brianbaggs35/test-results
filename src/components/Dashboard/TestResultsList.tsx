@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 import { TestDetailsModal } from './TestDetailsModal';
 import { FilterControls } from './FilterControls';
@@ -26,7 +26,6 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState<keyof TestWithSuite>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [filteredTests, setFilteredTests] = useState<TestWithSuite[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestWithSuite | null>(null);
   const [suiteFilter, setSuiteFilter] = useState('all');
@@ -41,32 +40,30 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
       .flatMap(suite => suite.testcases.map(test => test.classname))
       .filter((className): className is string => Boolean(className))
   )];
-  // Flatten test cases from all suites
-  useEffect(() => {
+  // Flatten test cases from all suites, then filter and sort. Derived entirely from
+  // existing props/state (nothing async), so it's computed directly during render rather
+  // than synced into state via an effect — an effect here meant every mount rendered once
+  // with an empty table and then again once the effect fired, which also produced a
+  // spurious post-mount DOM mutation inside FloatingScrollbar's observed table wrapper.
+  const filteredTests = useMemo(() => {
     const flattenedTests = testData.suites.flatMap(suite => suite.testcases.map(test => ({
       ...test,
       suite: suite.name
     })));
-    // Apply all filters
     let filtered = [...flattenedTests];
-    // Apply status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(test => test.status === statusFilter);
     }
-    // Apply suite filter
     if (suiteFilter !== 'all') {
       filtered = filtered.filter(test => test.suite === suiteFilter);
     }
-    // Apply class name filter
     if (classNameFilter !== 'all') {
       filtered = filtered.filter(test => test.classname === classNameFilter);
     }
-    // Apply search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(test => test.name.toLowerCase().includes(term) || test.suite.toLowerCase().includes(term) || test.classname && test.classname.toLowerCase().includes(term));
     }
-    // Apply sorting
     filtered.sort((a, b) => {
       let comparison = 0;
       if (sortField === 'name') {
@@ -82,7 +79,12 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-    setFilteredTests(filtered);
+    return filtered;
+  }, [testData, searchTerm, statusFilter, suiteFilter, classNameFilter, sortField, sortDirection]);
+
+  // Reset to page 1 whenever the filters/sort actually change. A no-op on mount (currentPage
+  // already starts at 1), so React bails out without an extra render.
+  useEffect(() => {
     setCurrentPage(1);
   }, [testData, searchTerm, statusFilter, suiteFilter, classNameFilter, sortField, sortDirection]);
 
