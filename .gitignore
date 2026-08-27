@@ -37,8 +37,8 @@ lcov.info
 /blob-report/
 /playwright/.cache/
 .nyc_output/*
-testbeats.config.json
-teatbeats.config.*
-results.xml
 .history/
 .claude/
+
+# Environment variables (contains the Slack webhook URL)
+.env

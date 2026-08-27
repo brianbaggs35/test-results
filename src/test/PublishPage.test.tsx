@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PublishPage } from '../components/Publish/PublishPage';
+import { parseJUnitXML } from '../utils/xmlParser';
+import type { TestData } from '../types';
 
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
@@ -29,17 +31,44 @@ function createMockFile(content: string, name: string, type = 'text/xml'): File 
   return file;
 }
 
+const sampleTestData: TestData = {
+  summary: { total: 10, passed: 8, failed: 2, skipped: 0, time: 12.3 },
+  suites: [
+    {
+      name: 'Suite A',
+      tests: 10,
+      failures: 2,
+      errors: 0,
+      skipped: 0,
+      time: 12.3,
+      timestamp: '2024-01-01T00:00:00Z',
+      testcases: [],
+    },
+  ],
+};
+
+const VALID_JUNIT_XML =
+  '<testsuites><testsuite name="s1" tests="1" failures="0" errors="0" skipped="0" time="1.0" timestamp="2024-01-01T00:00:00.000Z">' +
+  '<testcase name="t1" time="1.0"/></testsuite></testsuites>';
+
 describe('PublishPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Tests must not depend on whatever VITE_EXECUTED_BY happens to be set
+    // to in the real .env on this machine — force "unset" by default, and
+    // let the one test that wants it set override this explicitly.
+    vi.stubEnv('VITE_EXECUTED_BY', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('should render the publish form', () => {
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
     expect(screen.getByText('Publish Test Results')).toBeInTheDocument();
-    expect(screen.getByText('Configure and publish your test results using TestBeats.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Run Name')).toBeInTheDocument();
+    expect(screen.getByText('Send a summary of your test results directly to a Slack channel.')).toBeInTheDocument();
     expect(screen.getByLabelText('Title')).toBeInTheDocument();
     expect(screen.getByText('Metadata')).toBeInTheDocument();
     expect(screen.getByText('Test Results XML')).toBeInTheDocument();
@@ -47,9 +76,8 @@ describe('PublishPage', () => {
   });
 
   it('should render metadata key/value inputs', () => {
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
-    expect(screen.getByLabelText('Run Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Title')).toBeInTheDocument();
     // Two metadata entries
     const keyInputs = screen.getAllByText('Key');
@@ -58,18 +86,35 @@ describe('PublishPage', () => {
     expect(valueInputs).toHaveLength(2);
   });
 
-  it('should allow typing in run name input', async () => {
-    const user = userEvent.setup();
-    render(<PublishPage xmlContent={null} />);
+  it('should pre-fill the first metadata row\'s key with "Failed Tests"', () => {
+    render(<PublishPage testData={null} />);
 
-    const runInput = screen.getByLabelText('Run Name');
-    await user.type(runInput, 'Test Run 1');
-    expect(runInput).toHaveValue('Test Run 1');
+    const metaKey0 = screen.getByPlaceholderText('e.g., Failed Tests');
+    expect(metaKey0).toHaveValue('Failed Tests');
+    // The value is deliberately left blank — the parsed XML's failure count
+    // includes flaky-test retries, so it can't be trusted to auto-fill this.
+    expect(screen.getByPlaceholderText('e.g., 54')).toHaveValue('');
+  });
+
+  it('should leave the "Executed By" row blank when VITE_EXECUTED_BY is not set', () => {
+    render(<PublishPage testData={null} />);
+
+    expect(screen.getByPlaceholderText('e.g., Executed By')).toHaveValue('');
+    expect(screen.getByPlaceholderText('e.g., Brian')).toHaveValue('');
+  });
+
+  it('should pre-fill "Executed By" from VITE_EXECUTED_BY when it is set', () => {
+    vi.stubEnv('VITE_EXECUTED_BY', 'Brian');
+
+    render(<PublishPage testData={null} />);
+
+    expect(screen.getByPlaceholderText('e.g., Executed By')).toHaveValue('Executed By');
+    expect(screen.getByPlaceholderText('e.g., Brian')).toHaveValue('Brian');
   });
 
   it('should allow typing in title input', async () => {
     const user = userEvent.setup();
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
     const titleInput = screen.getByLabelText('Title');
     await user.type(titleInput, 'My Test Title');
@@ -78,40 +123,80 @@ describe('PublishPage', () => {
 
   it('should allow typing in metadata inputs', async () => {
     const user = userEvent.setup();
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
     const metaKey0 = screen.getByPlaceholderText('e.g., Failed Tests');
     const metaVal0 = screen.getByPlaceholderText('e.g., 54');
     const metaKey1 = screen.getByPlaceholderText('e.g., Executed By');
     const metaVal1 = screen.getByPlaceholderText('e.g., Brian');
 
-    await user.type(metaKey0, 'Failed Tests');
+    // metaKey0 starts pre-filled with "Failed Tests" — clear it first so
+    // typing replaces rather than appends to the pre-filled value.
+    await user.clear(metaKey0);
+    await user.type(metaKey0, 'Renamed Key');
     await user.type(metaVal0, '10');
     await user.type(metaKey1, 'Executed By');
     await user.type(metaVal1, 'Alice');
 
-    expect(metaKey0).toHaveValue('Failed Tests');
+    expect(metaKey0).toHaveValue('Renamed Key');
     expect(metaVal0).toHaveValue('10');
     expect(metaKey1).toHaveValue('Executed By');
     expect(metaVal1).toHaveValue('Alice');
   });
 
-  it('should not show loaded XML option when xmlContent is null', () => {
-    render(<PublishPage xmlContent={null} />);
+  it('should add a metadata row when "Add metadata" is clicked', () => {
+    render(<PublishPage testData={null} />);
+
+    fireEvent.click(screen.getByText('Add metadata'));
+
+    expect(screen.getAllByText('Key')).toHaveLength(3);
+    expect(screen.getAllByText('Value')).toHaveLength(3);
+  });
+
+  it('should remove a metadata row when its remove button is clicked', () => {
+    render(<PublishPage testData={null} />);
+
+    const removeButtons = screen.getAllByLabelText('Remove metadata row');
+    fireEvent.click(removeButtons[0]);
+
+    expect(screen.getAllByText('Key')).toHaveLength(1);
+    expect(screen.getAllByText('Value')).toHaveLength(1);
+  });
+
+  it('should cap metadata entries at 6 and disable the Add metadata button', () => {
+    render(<PublishPage testData={null} />);
+
+    const addButton = screen.getByText('Add metadata').closest('button')!;
+    // Starts with 2 rows; click up to the cap of 6.
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+    expect(screen.getAllByText('Key')).toHaveLength(6);
+    expect(addButton).toBeDisabled();
+
+    // Further clicks (e.g. via keyboard activation despite the disabled
+    // state) must not add a 7th row.
+    fireEvent.click(addButton);
+    expect(screen.getAllByText('Key')).toHaveLength(6);
+  });
+
+  it('should not show loaded XML option when testData is null', () => {
+    render(<PublishPage testData={null} />);
 
     expect(screen.queryByText('Use loaded XML file from Dashboard')).not.toBeInTheDocument();
     expect(screen.getByText('Choose a new XML file')).toBeInTheDocument();
   });
 
-  it('should show loaded XML option when xmlContent is provided', () => {
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+  it('should show loaded XML option when testData is provided', () => {
+    render(<PublishPage testData={sampleTestData} />);
 
     expect(screen.getByText('Use loaded XML file from Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Choose a new XML file')).toBeInTheDocument();
   });
 
-  it('should default to loaded XML source when xmlContent is provided', () => {
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+  it('should default to loaded XML source when testData is provided', () => {
+    render(<PublishPage testData={sampleTestData} />);
 
     const loadedRadio = screen.getByDisplayValue('loaded');
     const fileRadio = screen.getByDisplayValue('file');
@@ -120,15 +205,15 @@ describe('PublishPage', () => {
     expect(fileRadio).not.toBeChecked();
   });
 
-  it('should default to file XML source when xmlContent is null', () => {
-    render(<PublishPage xmlContent={null} />);
+  it('should default to file XML source when testData is null', () => {
+    render(<PublishPage testData={null} />);
 
     const fileRadio = screen.getByDisplayValue('file');
     expect(fileRadio).toBeChecked();
   });
 
   it('should switch XML source when radio buttons are clicked', async () => {
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
     const fileRadio = screen.getByDisplayValue('file');
     fireEvent.click(fileRadio);
@@ -140,51 +225,32 @@ describe('PublishPage', () => {
   });
 
   it('should show file chooser button when file source is selected', () => {
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
     expect(screen.getByText('Select XML File')).toBeInTheDocument();
   });
 
   it('should hide file chooser when loaded source is selected', () => {
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    // loaded is default when xmlContent provided
+    // loaded is default when testData provided
     expect(screen.queryByText('Select XML File')).not.toBeInTheDocument();
   });
 
-  it('should show error when publishing without run name', async () => {
-    const user = userEvent.setup();
-    render(<PublishPage xmlContent="<test>xml</test>" />);
-
-    const titleInput = screen.getByLabelText('Title');
-    await user.type(titleInput, 'My Title');
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Run and Title are required fields.')).toBeInTheDocument();
-    });
-  });
-
   it('should show error when publishing without title', async () => {
-    const user = userEvent.setup();
-    render(<PublishPage xmlContent="<test>xml</test>" />);
-
-    const runInput = screen.getByLabelText('Run Name');
-    await user.type(runInput, 'My Run');
+    render(<PublishPage testData={sampleTestData} />);
 
     fireEvent.click(screen.getByText('Publish'));
 
     await waitFor(() => {
-      expect(screen.getByText('Run and Title are required fields.')).toBeInTheDocument();
+      expect(screen.getByText('Title is a required field.')).toBeInTheDocument();
     });
   });
 
   it('should show error when publishing without XML', async () => {
     const user = userEvent.setup();
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'My Run');
     await user.type(screen.getByLabelText('Title'), 'My Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -194,45 +260,60 @@ describe('PublishPage', () => {
     });
   });
 
-  it('should publish successfully with loaded XML', async () => {
+  it('should show a parse error when the selected file is not valid JUnit XML', async () => {
+    const user = userEvent.setup();
+    render(<PublishPage testData={null} />);
+
+    await user.type(screen.getByLabelText('Title'), 'My Title');
+
+    const badFile = createMockFile('<foo>not junit</foo>', 'bad.xml');
+    const fileInput = screen.getByTestId('xml-file-input');
+    await user.upload(fileInput, badFile);
+
+    fireEvent.click(screen.getByText('Publish'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Could not parse the selected file. Make sure it is valid JUnit XML.')).toBeInTheDocument();
+    });
+  });
+
+  it('should publish successfully with loaded test data', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'Published successfully' }),
+      json: () => Promise.resolve({ success: true }),
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml content</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'My Run');
     await user.type(screen.getByLabelText('Title'), 'My Title');
 
     fireEvent.click(screen.getByText('Publish'));
 
     await waitFor(() => {
-      expect(screen.getByText('Test results published successfully!')).toBeInTheDocument();
+      expect(screen.getByText('Test results published to Slack!')).toBeInTheDocument();
     });
 
     expect(mockFetch).toHaveBeenCalledWith('/api/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: expect.stringContaining('"run":"My Run"'),
+      body: expect.stringContaining('"title":"My Title"'),
     });
   });
 
-  it('should publish with metadata filtered by non-empty keys', async () => {
+  it('should publish with metadata filtered to only complete key+value pairs', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'OK' }),
+      json: () => Promise.resolve({ success: true }),
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
-    await user.type(screen.getByPlaceholderText('e.g., Failed Tests'), 'MyKey');
+    // Only fill in the value for the pre-filled "Failed Tests" key.
     await user.type(screen.getByPlaceholderText('e.g., 54'), 'MyValue');
-    // Leave second metadata entry empty
+    // Leave the second metadata entry (Executed By) empty entirely
 
     fireEvent.click(screen.getByText('Publish'));
 
@@ -242,25 +323,46 @@ describe('PublishPage', () => {
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(callBody.metadata).toHaveLength(1);
-    expect(callBody.metadata[0]).toEqual({ key: 'MyKey', value: 'MyValue' });
+    expect(callBody.metadata[0]).toEqual({ key: 'Failed Tests', value: 'MyValue' });
+  });
+
+  it('should not send a metadata row that has a pre-filled key but no value', async () => {
+    const user = userEvent.setup();
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ success: true }),
+    });
+    global.fetch = mockFetch;
+
+    render(<PublishPage testData={sampleTestData} />);
+
+    await user.type(screen.getByLabelText('Title'), 'Title');
+    // Leave the pre-filled "Failed Tests" key's value untouched (blank).
+
+    fireEvent.click(screen.getByText('Publish'));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.metadata).toHaveLength(0);
   });
 
   it('should show error status on publish failure', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: false, error: 'Command failed', stderr: 'error output' }),
+      json: () => Promise.resolve({ success: false, error: 'Slack rejected the payload' }),
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
 
     await waitFor(() => {
-      expect(screen.getByText('Command failed')).toBeInTheDocument();
+      expect(screen.getByText('Slack rejected the payload')).toBeInTheDocument();
     });
   });
 
@@ -269,9 +371,8 @@ describe('PublishPage', () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -286,9 +387,8 @@ describe('PublishPage', () => {
     const mockFetch = vi.fn().mockRejectedValue('string error');
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -298,92 +398,19 @@ describe('PublishPage', () => {
     });
   });
 
-  it('should display command output on success', async () => {
-    const user = userEvent.setup();
-    const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'Results published to Slack' }),
-    });
-    global.fetch = mockFetch;
-
-    render(<PublishPage xmlContent="<test>xml</test>" />);
-
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
-    await user.type(screen.getByLabelText('Title'), 'Title');
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Results published to Slack')).toBeInTheDocument();
-    });
-  });
-
-  it('should display stderr output on failure', async () => {
-    const user = userEvent.setup();
-    const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: false, error: 'Failed', stderr: 'detailed error info' }),
-    });
-    global.fetch = mockFetch;
-
-    render(<PublishPage xmlContent="<test>xml</test>" />);
-
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
-    await user.type(screen.getByLabelText('Title'), 'Title');
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    await waitFor(() => {
-      expect(screen.getByText('detailed error info')).toBeInTheDocument();
-    });
-  });
-
-  it('should show publishing state with spinner', async () => {
-    const user = userEvent.setup();
-    let resolvePromise: (value: unknown) => void;
-    const fetchPromise = new Promise(resolve => {
-      resolvePromise = resolve;
-    });
-    const mockFetch = vi.fn().mockReturnValue(fetchPromise);
-    global.fetch = mockFetch;
-
-    render(<PublishPage xmlContent="<test>xml</test>" />);
-
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
-    await user.type(screen.getByLabelText('Title'), 'Title');
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Publishing...')).toBeInTheDocument();
-    });
-
-    // Button should be disabled during publishing
-    const publishButton = screen.getByText('Publishing...').closest('button');
-    expect(publishButton).toBeDisabled();
-
-    // Resolve the promise to clean up
-    resolvePromise!({
-      json: () => Promise.resolve({ success: true, stdout: 'done' }),
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Test results published successfully!')).toBeInTheDocument();
-    });
-  });
-
   it('should publish with file chooser XML', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'OK' }),
+      json: () => Promise.resolve({ success: true }),
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     // Create and upload a file
-    const xmlFile = createMockFile('<testsuites><testsuite name="s1"></testsuite></testsuites>', 'test.xml');
+    const xmlFile = createMockFile(VALID_JUNIT_XML, 'test.xml');
     const fileInput = screen.getByTestId('xml-file-input');
     await user.upload(fileInput, xmlFile);
 
@@ -398,36 +425,17 @@ describe('PublishPage', () => {
     });
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(callBody.xmlContent).toBe('<testsuites><testsuite name="s1"></testsuite></testsuites>');
+    expect(callBody.testData).toEqual(parseJUnitXML(VALID_JUNIT_XML));
   });
 
   it('should ignore a file input change when no file was selected', async () => {
-    render(<PublishPage xmlContent={null} />);
+    render(<PublishPage testData={null} />);
 
     const fileInput = screen.getByTestId('xml-file-input');
     fireEvent.change(fileInput, { target: { files: [] } });
 
     // No file name should be displayed since the selection was cancelled
     expect(screen.queryByText('Change File')).not.toBeInTheDocument();
-  });
-
-  it('should fall back to stderr for successful output when stdout is empty', async () => {
-    const user = userEvent.setup();
-    const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: '', stderr: 'warnings: none' }),
-    });
-    global.fetch = mockFetch;
-
-    render(<PublishPage xmlContent="<test>xml</test>" />);
-
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
-    await user.type(screen.getByLabelText('Title'), 'Title');
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    await waitFor(() => {
-      expect(screen.getByText('warnings: none')).toBeInTheDocument();
-    });
   });
 
   it('should use error message from API result when no specific error', async () => {
@@ -437,9 +445,8 @@ describe('PublishPage', () => {
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -452,13 +459,12 @@ describe('PublishPage', () => {
   it('should render success status with correct styling', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'done' }),
+      json: () => Promise.resolve({ success: true }),
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -477,9 +483,8 @@ describe('PublishPage', () => {
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -493,7 +498,7 @@ describe('PublishPage', () => {
 
   it('should set xmlSource to file when a file is selected even if loaded is default', async () => {
     const user = userEvent.setup();
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
     // Initially loaded
     expect(screen.getByDisplayValue('loaded')).toBeChecked();
@@ -502,7 +507,7 @@ describe('PublishPage', () => {
     fireEvent.click(screen.getByDisplayValue('file'));
 
     // Upload a file
-    const xmlFile = createMockFile('<test/>', 'chosen.xml');
+    const xmlFile = createMockFile(VALID_JUNIT_XML, 'chosen.xml');
     const fileInput = screen.getByTestId('xml-file-input');
     await user.upload(fileInput, xmlFile);
 
@@ -510,16 +515,15 @@ describe('PublishPage', () => {
     expect(screen.getByText('chosen.xml')).toBeInTheDocument();
   });
 
-  it('should handle both metadata entries being empty', async () => {
+  it('should include testData from loaded source in publish request', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'OK' }),
+      json: () => Promise.resolve({ success: true }),
     });
     global.fetch = mockFetch;
 
-    render(<PublishPage xmlContent="<test>xml</test>" />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
     await user.type(screen.getByLabelText('Title'), 'Title');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -529,42 +533,18 @@ describe('PublishPage', () => {
     });
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(callBody.metadata).toHaveLength(0); // Both empty keys filtered out
+    expect(callBody.testData).toEqual(sampleTestData);
   });
 
-  it('should include xmlContent from loaded source in publish request', async () => {
+  it('should trim whitespace from title before sending', async () => {
     const user = userEvent.setup();
     const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'OK' }),
+      json: () => Promise.resolve({ success: true }),
     });
     global.fetch = mockFetch;
 
-    const xmlData = '<testsuite name="loaded"><testcase name="t1"/></testsuite>';
-    render(<PublishPage xmlContent={xmlData} />);
+    render(<PublishPage testData={sampleTestData} />);
 
-    await user.type(screen.getByLabelText('Run Name'), 'Run');
-    await user.type(screen.getByLabelText('Title'), 'Title');
-
-    fireEvent.click(screen.getByText('Publish'));
-
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
-    });
-
-    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(callBody.xmlContent).toBe(xmlData);
-  });
-
-  it('should trim whitespace from run and title before sending', async () => {
-    const user = userEvent.setup();
-    const mockFetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ success: true, stdout: 'OK' }),
-    });
-    global.fetch = mockFetch;
-
-    render(<PublishPage xmlContent="<test/>" />);
-
-    await user.type(screen.getByLabelText('Run Name'), '  My Run  ');
     await user.type(screen.getByLabelText('Title'), '  My Title  ');
 
     fireEvent.click(screen.getByText('Publish'));
@@ -574,7 +554,6 @@ describe('PublishPage', () => {
     });
 
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(callBody.run).toBe('My Run');
     expect(callBody.title).toBe('My Title');
   });
 });

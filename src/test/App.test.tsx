@@ -68,10 +68,10 @@ vi.mock('../components/ReportGenerator/ReportGenerator', () => ({
 }));
 
 vi.mock('../components/Publish/PublishPage', () => ({
-  PublishPage: ({ xmlContent }: { xmlContent: string | null }) => (
+  PublishPage: ({ testData }: { testData: unknown }) => (
     <div data-testid="publish-page">
       Publish Page
-      {xmlContent ? <div data-testid="publish-xml-content">XML content available</div> : null}
+      {testData ? <div data-testid="publish-test-data">Test data available</div> : null}
     </div>
   ),
 }));
@@ -201,7 +201,7 @@ describe('App', () => {
     expect(screen.getByTestId('report-test-data')).toBeInTheDocument();
   });
 
-  it('should pass xml content to publish page after upload', () => {
+  it('should pass parsed test data to publish page after upload', () => {
     render(<App />);
 
     // Upload data from dashboard
@@ -210,7 +210,7 @@ describe('App', () => {
     // Switch to publish tab
     fireEvent.click(screen.getByTestId('publish-tab'));
 
-    expect(screen.getByTestId('publish-xml-content')).toBeInTheDocument();
+    expect(screen.getByTestId('publish-test-data')).toBeInTheDocument();
   });
 
   it('should maintain test data when switching tabs', () => {

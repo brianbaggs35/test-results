@@ -1,45 +1,19 @@
 import type { Plugin } from 'vite';
-import { readFileSync, writeFileSync } from 'fs';
-import { exec } from 'child_process';
-import { resolve } from 'path';
+import { IncomingWebhook, IncomingWebhookHTTPError } from '@slack/webhook';
+import type { IncomingWebhookSendArguments } from '@slack/webhook';
 import type { IncomingMessage, ServerResponse } from 'http';
-
-interface MetadataEntry {
-  key: string;
-  value: string;
-}
+import { buildSlackMessage } from './slackMessage.ts';
+import type { SlackMetadataEntry, SlackTestData } from './slackMessage.ts';
 
 interface PublishRequestBody {
-  run: string;
   title: string;
-  metadata: MetadataEntry[];
-  xmlContent?: string;
+  metadata: SlackMetadataEntry[];
+  testData: SlackTestData;
 }
 
-interface ConfigExtension {
-  name: string;
-  inputs?: {
-    data?: MetadataEntry[];
-  };
-}
-
-interface TestBeatsConfig {
-  api_key: string;
-  project: string;
-  run: string;
-  targets: Array<{
-    name: string;
-    inputs: {
-      url: string;
-      publish: string;
-      title: string;
-    };
-    extensions: ConfigExtension[];
-  }>;
-  results: Array<{
-    type: string;
-    files: string[];
-  }>;
+interface PublishResult {
+  success: boolean;
+  error?: string;
 }
 
 function parseBody(req: IncomingMessage): Promise<string> {
@@ -53,94 +27,94 @@ function parseBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-export function publishPlugin(): Plugin {
-  return {
-    name: 'testbeats-publish',
-    configureServer(server) {
-      server.middlewares.use('/api/publish', async (req: IncomingMessage, res: ServerResponse) => {
-        if (req.method !== 'POST') {
-          res.statusCode = 405;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Method not allowed' }));
-          return;
-        }
+function isValidRequestBody(data: Partial<PublishRequestBody>): data is PublishRequestBody {
+  return (
+    typeof data.title === 'string' &&
+    Array.isArray(data.metadata) &&
+    !!data.testData &&
+    typeof data.testData === 'object' &&
+    !!data.testData.summary &&
+    Array.isArray(data.testData.suites)
+  );
+}
 
-        try {
-          const rawBody = await parseBody(req);
-          const data: PublishRequestBody = JSON.parse(rawBody);
-          const projectRoot = process.cwd();
-          const configPath = resolve(projectRoot, 'testbeats.config.json');
+function sendJson(res: ServerResponse, statusCode: number, body: PublishResult) {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(body));
+}
 
-          // Read current config
-          const config: TestBeatsConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
+// Slack's own rejection reason (e.g. "invalid_payload", "channel_not_found")
+// lives in the HTTP error's body, not its generic `.message` — surface that
+// when it's available so a failed publish says why, not just that it failed.
+function extractSlackErrorMessage(err: unknown): string {
+  if (err instanceof IncomingWebhookHTTPError && err.body) {
+    return err.body;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return 'Failed to publish to Slack.';
+}
 
-          // Update run
-          config.run = data.run;
+export interface CreatePublishHandlerOptions {
+  webhookUrl?: string;
+  /** Injectable for testing; defaults to posting through @slack/webhook. */
+  sendToSlack?: (webhookUrl: string, message: IncomingWebhookSendArguments) => Promise<unknown>;
+}
 
-          // Update title in targets
-          if (config.targets?.[0]?.inputs) {
-            config.targets[0].inputs.title = data.title;
-          }
+const defaultSendToSlack = (webhookUrl: string, message: IncomingWebhookSendArguments) =>
+  new IncomingWebhook(webhookUrl).send(message);
 
-          // Update metadata
-          if (config.targets?.[0]?.extensions) {
-            const metadataExt = config.targets[0].extensions.find(
-              (ext: ConfigExtension) => ext.name === 'metadata'
-            );
-            if (metadataExt?.inputs?.data && data.metadata) {
-              metadataExt.inputs.data = data.metadata.map(m => ({
-                key: m.key,
-                value: m.value,
-              }));
-            }
-          }
+export function createPublishHandler(options: CreatePublishHandlerOptions = {}) {
+  const sendToSlack = options.sendToSlack ?? defaultSendToSlack;
 
-          // Handle XML content
-          if (data.xmlContent) {
-            const xmlPath = resolve(projectRoot, 'results.xml');
-            writeFileSync(xmlPath, data.xmlContent, 'utf-8');
-            if (config.results?.[0]) {
-              config.results[0].files = [xmlPath];
-            }
-          }
+  return async function handlePublishRequest(req: IncomingMessage, res: ServerResponse) {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { success: false, error: 'Method not allowed' });
+      return;
+    }
 
-          // Write updated config
-          writeFileSync(configPath, JSON.stringify(config, null, 4), 'utf-8');
+    let data: Partial<PublishRequestBody>;
+    try {
+      const rawBody = await parseBody(req);
+      data = JSON.parse(rawBody);
+    } catch {
+      sendJson(res, 400, { success: false, error: 'Request body must be valid JSON.' });
+      return;
+    }
 
-          // Execute testbeats command
-          exec(
-            'npx testbeats@latest publish -c testbeats.config.json',
-            { cwd: projectRoot, timeout: 60000 },
-            (error, stdout, stderr) => {
-              res.setHeader('Content-Type', 'application/json');
-              if (error) {
-                res.statusCode = 500;
-                res.end(JSON.stringify({
-                  success: false,
-                  error: error.message,
-                  stdout,
-                  stderr,
-                }));
-                return;
-              }
+    if (!isValidRequestBody(data)) {
+      sendJson(res, 400, { success: false, error: 'Title and testData are required.' });
+      return;
+    }
 
-              res.statusCode = 200;
-              res.end(JSON.stringify({
-                success: true,
-                stdout,
-                stderr,
-              }));
-            }
-          );
-        } catch (err) {
-          res.setHeader('Content-Type', 'application/json');
-          res.statusCode = 400;
-          res.end(JSON.stringify({
-            success: false,
-            error: err instanceof Error ? err.message : 'Unknown error',
-          }));
-        }
+    if (!options.webhookUrl) {
+      sendJson(res, 503, {
+        success: false,
+        error: 'Slack publishing is not configured. Set SLACK_WEBHOOK_URL in your .env file and restart the dev server.',
       });
+      return;
+    }
+
+    try {
+      const message = buildSlackMessage(data.testData, {
+        title: data.title,
+        metadata: data.metadata,
+      });
+      await sendToSlack(options.webhookUrl, message);
+      sendJson(res, 200, { success: true });
+    } catch (err) {
+      sendJson(res, 502, { success: false, error: extractSlackErrorMessage(err) });
+    }
+  };
+}
+
+export function publishPlugin(options: { webhookUrl?: string } = {}): Plugin {
+  return {
+    name: 'slack-publish',
+    configureServer(server) {
+      server.middlewares.use('/api/publish', createPublishHandler(options));
     },
   };
 }
