@@ -13,6 +13,7 @@ import type { TestData, ExportBundle } from '../../types';
 import { splitJUnitXml, type SplitResult } from '../../utils/splitJUnitXml';
 import { combineExportBundles } from '../../utils/combineResults';
 import { readExportBundle } from '../../utils/exportBundle';
+import { computeStructureHash } from '../../utils/structureHash';
 import { downloadFile, readFileAsText } from '../../utils/download';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,6 +92,8 @@ export const SplitPage: React.FC<SplitPageProps> = ({ xmlContent, onCombined, se
       ]);
       const result = combineExportBundles(a, b);
       localStorage.setItem('testFixProgress', JSON.stringify(result.progress));
+      const hash = await computeStructureHash(result.testData);
+      if (hash) localStorage.setItem('testFixProgress_structureHash', hash);
       setCombinedData(result.testData);
       setCombineWarnings(result.warnings);
       onCombined(result.testData);

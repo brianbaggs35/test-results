@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { toast } from 'sonner';
 import { App } from '../App';
+import { syncProgressStorageForNewXml } from '../utils/progressStorage';
+
+vi.mock('../utils/progressStorage', () => ({
+  syncProgressStorageForNewXml: vi.fn().mockResolvedValue({ cleared: false }),
+}));
 
 // Mock the child components to isolate App testing
 vi.mock('../components/Layout/Navbar', () => ({
@@ -97,6 +103,10 @@ vi.mock('../components/Split/SplitPage', () => ({
 }));
 
 describe('App', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('should render with dashboard as default tab', () => {
     render(<App />);
 
@@ -226,5 +236,50 @@ describe('App', () => {
 
     // Data should still be available
     expect(screen.getByTestId('report-test-data')).toBeInTheDocument();
+  });
+
+  it('checks whether the uploaded XML matches what was already stored', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('upload-data'));
+
+    await waitFor(() => {
+      expect(syncProgressStorageForNewXml).toHaveBeenCalledWith({ test: 'data' });
+    });
+  });
+
+  it('toasts when the uploaded XML differs from what was already stored', async () => {
+    vi.mocked(syncProgressStorageForNewXml).mockResolvedValueOnce({ cleared: true });
+    const toastSpy = vi.spyOn(toast, 'success');
+
+    render(<App />);
+    fireEvent.click(screen.getByTestId('upload-data'));
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        'Loaded a different XML file — previous failure-resolution progress was cleared.'
+      );
+    });
+  });
+
+  it('does not toast when the uploaded XML matches what was already stored', async () => {
+    const toastSpy = vi.spyOn(toast, 'success');
+
+    render(<App />);
+    fireEvent.click(screen.getByTestId('upload-data'));
+
+    await waitFor(() => {
+      expect(syncProgressStorageForNewXml).toHaveBeenCalled();
+    });
+    expect(toastSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not check for a different XML when data arrives via Combine', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('split-tab'));
+    fireEvent.click(screen.getByTestId('combine-and-go-to-report'));
+
+    expect(syncProgressStorageForNewXml).not.toHaveBeenCalled();
   });
 });

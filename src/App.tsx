@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Navbar } from './components/Layout/Navbar';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { ReportGenerator } from './components/ReportGenerator/ReportGenerator';
@@ -7,6 +8,7 @@ import { FailureAnalysisProgress } from './components/FailureAnalysis/FailureAna
 import { PublishPage } from './components/Publish/PublishPage';
 import { SplitPage } from './components/Split/SplitPage';
 import { Toaster } from './components/ui/sonner';
+import { syncProgressStorageForNewXml } from './utils/progressStorage';
 import type { TestData } from './types';
 
 export function App() {
@@ -15,6 +17,15 @@ export function App() {
   const [xmlContent, setXmlContent] = useState<string | null>(null);
 
   const handleDataUpload = (data: TestData) => {
+    setTestData(data);
+    syncProgressStorageForNewXml(data).then(({ cleared }) => {
+      if (cleared) toast.success('Loaded a different XML file — previous failure-resolution progress was cleared.');
+    });
+  };
+
+  // Combine already writes its own merged progress to storage (see SplitPage's
+  // handleCombine), so this deliberately skips the same/different-XML check above.
+  const handleCombinedDataUpload = (data: TestData) => {
     setTestData(data);
   };
 
@@ -35,7 +46,7 @@ export function App() {
       case 'publish':
         return <PublishPage testData={testData} />;
       case 'split':
-        return <SplitPage xmlContent={xmlContent} onCombined={handleDataUpload} setActiveTab={setActiveTab} />;
+        return <SplitPage xmlContent={xmlContent} onCombined={handleCombinedDataUpload} setActiveTab={setActiveTab} />;
       default:
         return <Dashboard onDataUpload={handleDataUpload} onXmlContent={handleXmlContent} testData={testData} />;
     }

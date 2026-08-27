@@ -188,6 +188,23 @@ describe('SplitPage', () => {
       expect(Object.keys(storedProgress).sort()).toEqual(['Suite-fail1', 'Suite-fail2']);
     });
 
+    it('also stores a structure hash for the combined result, so a later upload can tell it apart from a different XML', async () => {
+      const setItemSpy = vi.spyOn(window.localStorage, 'setItem');
+      render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
+
+      const fileA = new File([JSON.stringify(makeBundle('fail1'))], 'a.json', { type: 'application/json' });
+      const fileB = new File([JSON.stringify(makeBundle('fail2'))], 'b.json', { type: 'application/json' });
+      await uploadFile(screen.getByLabelText('Upload export A'), fileA);
+      await uploadFile(screen.getByLabelText('Upload export B'), fileB);
+      await userEvent.click(screen.getByText('Combine'));
+
+      await screen.findByTestId('combine-result');
+
+      // Written after the progress blob, so combine-result's own `setItem('testFixProgress', ...)`
+      // assertion (mock.calls[0]) keeps indexing the right call.
+      expect(setItemSpy).toHaveBeenCalledWith('testFixProgress_structureHash', expect.any(String));
+    });
+
     it('navigates to the report tab when "Continue to Report" is clicked', async () => {
       render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
 
