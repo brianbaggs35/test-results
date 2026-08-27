@@ -150,6 +150,7 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
               <PieChart>
                 <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={0} // Remove padding between segments
               dataKey="value" labelLine={false} label={renderCustomizedLabel} animationBegin={0} animationDuration={1000} minAngle={2} // Ensure small segments are visible
+              isAnimationActive={import.meta.env.MODE !== 'test'} // Recharts' Pie entrance animation is a known source of "non-unique key" and act() warnings under test (recharts#4004) — animation has no test value, so it's off under Vitest and unchanged for real users.
               >
                   {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="white" strokeWidth={2} />)}
                 </Pie>
