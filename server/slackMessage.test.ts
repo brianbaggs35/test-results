@@ -17,13 +17,13 @@ function getBlocks(message: ReturnType<typeof buildSlackMessage>): TestableBlock
 
 // The chart image URL's `c` param is a JS-object-literal-like string (from
 // quickchart-js's own serializer — single-quoted, unquoted keys), not
-// strict JSON, so it can't be JSON.parse()'d. Extract the dataset's numbers
-// directly instead.
+// strict JSON, so it can't be JSON.parse()'d. Extract each dataset's single
+// value directly instead — the bar chart has one dataset per segment
+// (Passed/Failed/Skipped, in that order), each holding a one-element array.
 function getChartDataValues(imageUrl: string): number[] {
   // URLSearchParams.get() already returns the decoded value.
   const configStr = new URL(imageUrl).searchParams.get('c')!;
-  const match = configStr.match(/data:\[([^\]]+)\]/);
-  return match![1].split(',').map(Number);
+  return [...configStr.matchAll(/data:\[([\d.]+)\]/g)].map(m => Number(m[1]));
 }
 
 describe('buildSlackMessage', () => {
@@ -69,8 +69,8 @@ describe('buildSlackMessage', () => {
   });
 
   it('boosts tiny non-zero slices to a minimum visible share of the chart, without altering the displayed counts', () => {
-    // A real reported case: 3 failed / 13 skipped out of 3738 is a <0.4°
-    // sliver at true proportions — invisible in the rendered chart.
+    // A real reported case: 3 failed / 13 skipped out of 3738 is under a
+    // pixel wide at true proportions — invisible in the rendered chart.
     const testData: SlackTestData = {
       summary: { total: 3738, passed: 3722, failed: 3, skipped: 13, time: 100 },
       suites: [],
@@ -80,22 +80,42 @@ describe('buildSlackMessage', () => {
     const blocks = getBlocks(message);
     const chartBlock = blocks.find(b => b.type === 'image')!;
 
-    expect(chartBlock.image_url).toContain('cutout%3A%2740%25%27');
+    expect(chartBlock.image_url).toContain('indexAxis%3A%27y%27');
 
+    // Matches MIN_SLICE_VISUAL_SHARE in slackMessage.ts.
+    const MIN_SHARE = 5 / 360;
     const [passedShare, failedShare, skippedShare] = getChartDataValues(chartBlock.image_url!);
-    expect(failedShare).toBeGreaterThanOrEqual(0.04);
-    expect(skippedShare).toBeGreaterThanOrEqual(0.04);
-    // Passed is still overwhelmingly the largest slice.
-    expect(passedShare).toBeGreaterThan(failedShare + skippedShare);
-    // Shares are a chart-only encoding — they always sum to a full circle.
-    expect(passedShare + failedShare + skippedShare).toBeCloseTo(1, 5);
+    // Both minority segments are true-tiny (well under the floor), so both
+    // get lifted to exactly the floor.
+    expect(failedShare).toBeCloseTo(MIN_SHARE, 5);
+    expect(skippedShare).toBeCloseTo(MIN_SHARE, 5);
+    // Passed is far above the floor, so it's left at its exact true
+    // proportion — nothing is manually stolen from it; Chart.js's own
+    // normalization is what makes room for the lifted segments at render
+    // time (see toVisualShares).
+    expect(passedShare).toBeCloseTo(3722 / 3738, 5);
 
     // The boost never touches what's actually displayed as text.
     const summarySection = blocks.find(b => b.type === 'section' && b.fields);
     expect(summarySection?.fields?.[0].text).toContain('3722 / 3738 Passed');
   });
 
-  it('does not need to boost a single-category chart — it already fills the full circle', () => {
+  it('leaves an already-visible split (e.g. 90/10) at its exact true proportion, not compressed toward the floor', () => {
+    const testData: SlackTestData = {
+      summary: { total: 100, passed: 90, failed: 10, skipped: 0, time: 10 },
+      suites: [],
+    };
+
+    const message = buildSlackMessage(testData, { title: 'Run', metadata: [] });
+    const blocks = getBlocks(message);
+    const chartBlock = blocks.find(b => b.type === 'image')!;
+
+    const [passedShare, failedShare] = getChartDataValues(chartBlock.image_url!);
+    expect(passedShare).toBeCloseTo(0.9, 5);
+    expect(failedShare).toBeCloseTo(0.1, 5);
+  });
+
+  it('does not need to boost a single-category chart — it already fills the whole bar', () => {
     const testData: SlackTestData = {
       summary: { total: 5, passed: 5, failed: 0, skipped: 0, time: 5 },
       suites: [],

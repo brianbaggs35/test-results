@@ -43,15 +43,21 @@ const MAX_FAILED_SUITES_SHOWN = 10;
 
 const CHART_COLORS = { passed: '#2eb67d', failed: '#e01e5a', skipped: '#ecb22e' };
 const CHART_WIDTH = 320;
-const CHART_HEIGHT = 220;
-// Guaranteed minimum share of the doughnut's circumference for any non-zero
-// segment. A real, common test run might be 3722 passed / 3 failed — at
-// true proportions that's a ~0.3° sliver, visually indistinguishable from
-// zero. This is purely a VISUAL encoding choice: it never touches the real
-// counts (still shown accurately in the Results text and legend), only how
-// much of the circle each non-zero segment is drawn with, so a present
-// failure/skip is always actually visible.
-const MIN_SLICE_VISUAL_SHARE = 0.04;
+// A single horizontal bar needs far less height than the doughnut this
+// replaced — just enough for the bar itself plus the legend below it.
+const CHART_HEIGHT = 110;
+// Guaranteed minimum share of the bar's total length for any non-zero
+// segment — about 4-5px at CHART_WIDTH, small enough to read as a thin
+// sliver rather than a chunky block, but wide enough to still be a visible
+// band of color rather than an antialiasing smudge. A real, common test run
+// might be 3722 passed / 3 failed — at true proportions that's a fraction
+// of a pixel wide, visually indistinguishable from zero. This is purely a
+// VISUAL encoding choice: it never touches the real counts (still shown
+// accurately in the Results text and legend), only how much of the bar each
+// non-zero segment is drawn with, so a present failure/skip is always
+// actually visible — without inflating segments that are already
+// comfortably visible (see toVisualShares).
+const MIN_SLICE_VISUAL_SHARE = 5 / 360;
 // QuickChart defaults to a 2x (or higher) devicePixelRatio for crisper
 // images, which silently doubled the actual PNG size beyond CHART_WIDTH/
 // CHART_HEIGHT and rendered far larger in Slack than intended. Pinned to 1
@@ -125,28 +131,38 @@ const attachmentColor = (summary: SlackTestData['summary']): 'good' | 'warning' 
   return passRateValue(summary.passed, summary.total) < 90 ? 'danger' : 'warning';
 };
 
-// Redistributes raw counts into chart-only "visual shares" so every segment
-// gets at least MIN_SLICE_VISUAL_SHARE of the circle, with the remainder
-// split proportionally by true value. Chart.js data doesn't need to be the
-// literal counts — only their relative proportions — so this only changes
-// how the pie is drawn, never the numbers shown anywhere as text. Callers
-// must pre-filter to non-zero values (buildChartUrl's `segments` already
-// does) — the minimum-share guarantee isn't meaningful for a zero segment.
+// Floors each segment's true proportion at MIN_SLICE_VISUAL_SHARE — a
+// segment already at or above that share (e.g. a normal 90/10 split) is
+// left at its exact true value, so ordinary proportions render accurately;
+// only a segment that would otherwise round to an invisible sliver gets
+// lifted to the floor. Chart.js normalizes whatever relative magnitudes
+// it's given (they don't need to sum to 1), so lifting one segment doesn't
+// require manually stealing area from the others — it's handled by the
+// chart itself slightly compressing everyone else, proportionally, when it
+// renders. Callers must pre-filter to non-zero values (buildChartUrl's
+// `segments` already does) — the floor isn't meaningful for a zero segment.
 const toVisualShares = (values: number[]): number[] => {
   const total = values.reduce((sum, v) => sum + v, 0);
-  const remainingShare = 1 - values.length * MIN_SLICE_VISUAL_SHARE;
-  return values.map(v => MIN_SLICE_VISUAL_SHARE + remainingShare * (v / total));
+  return values.map(v => Math.max(v / total, MIN_SLICE_VISUAL_SHARE));
 };
 
-// A pass/fail/skip donut rendered by QuickChart (the same free chart-image
-// service TestBeats itself used for its "quick-chart-test-summary"
-// extension). Slack images must be fetched from a public URL — there's no
-// backend in this app to render and host one ourselves — so this sends the
-// pass/fail/skip counts to quickchart.io as URL params and gets back a PNG
-// URL. Rendered as its own full-width image block (not a section accessory,
-// which Slack shrinks to a small square thumbnail) so both the chart and its
-// legend stay legible. Chart.js version is pinned to 4 so the legend config
-// below (options.plugins.legend) is unambiguous — QuickChart's own default
+// A single horizontal bar, stacked and colored by pass/fail/skip share,
+// rendered by QuickChart. Slack images must be fetched from a public URL —
+// there's no backend in this app to render and host one ourselves — so this
+// sends the pass/fail/skip counts to quickchart.io as URL params and gets
+// back a PNG URL. Rendered as its own full-width image block (not a section
+// accessory, which Slack shrinks to a small square thumbnail) so both the
+// chart and its legend stay legible.
+//
+// A bar rather than a pie/doughnut: a wedge's visible width shrinks toward
+// the circle's center at a fixed angle, so even a "floored" minimum-angle
+// slice (see toVisualShares) can look thin and tapered; a bar segment's
+// width is constant along its whole height, so the same floored share reads
+// as a cleaner, more legible band of color — a better fit for the typically
+// lopsided pass/fail/skip proportions this chart has to show.
+//
+// Chart.js version is pinned to 4 so the legend config below
+// (options.plugins.legend) is unambiguous — QuickChart's own default
 // version otherwise reads legend options from a different, older location.
 // Returns null when there's nothing meaningful to chart.
 const buildChartUrl = (summary: SlackTestData['summary']): string | null => {
@@ -157,23 +173,29 @@ const buildChartUrl = (summary: SlackTestData['summary']): string | null => {
     { label: 'Failed', value: summary.failed, color: CHART_COLORS.failed },
     { label: 'Skipped', value: summary.skipped, color: CHART_COLORS.skipped },
   ].filter(s => s.value > 0);
+  const shares = toVisualShares(segments.map(s => s.value));
 
   const chart = new QuickChart();
   chart.setConfig({
-    type: 'doughnut',
+    type: 'bar',
     data: {
-      labels: segments.map(s => s.label),
-      datasets: [
-        {
-          data: toVisualShares(segments.map(s => s.value)),
-          backgroundColor: segments.map(s => s.color),
-        },
-      ],
+      // A single unlabeled row — each segment is its own dataset so they
+      // stack into one bar rather than becoming separate bars.
+      labels: [''],
+      datasets: segments.map((s, i) => ({
+        label: s.label,
+        data: [shares[i]],
+        backgroundColor: s.color,
+      })),
     },
     options: {
-      // Thicker ring (smaller hole) reads as bolder/more substantial than
-      // Chart.js's default doughnut proportions.
-      cutout: '40%',
+      indexAxis: 'y',
+      scales: {
+        // No axis chrome — the legend below already labels the colors, and
+        // an unlabeled 0-1 share axis wouldn't mean anything to a viewer.
+        x: { stacked: true, display: false },
+        y: { stacked: true, display: false },
+      },
       plugins: {
         legend: {
           display: true,
@@ -181,13 +203,12 @@ const buildChartUrl = (summary: SlackTestData['summary']): string | null => {
           align: 'center',
           labels: { padding: 16, boxWidth: 14 },
         },
-        // QuickChart auto-enables chartjs-plugin-datalabels for pie/doughnut
-        // charts by default, which crams a number onto every slice — for a
-        // small slice (e.g. 18 out of 6607) that number becomes illegible.
-        // The exact counts are already in the Results text right above the
-        // chart and in the legend, so the in-chart labels are redundant;
-        // disabling them keeps the chart to what it's actually good at, a
-        // quick proportion glance.
+        // QuickChart auto-enables chartjs-plugin-datalabels by default,
+        // which prints a number on every segment — for a thin sliver that
+        // number becomes illegible. The exact counts are already in the
+        // Results text right above the chart and in the legend, so the
+        // in-chart labels are redundant; disabling them keeps the chart to
+        // what it's actually good at, a quick proportion glance.
         datalabels: { display: false },
       },
     },
