@@ -419,13 +419,26 @@ describe('PDFPreviewFrame flaky tests', () => {
     expect(screen.getAllByText('1 (25.00%)')).toHaveLength(2);
   });
 
-  it('should render the flaky row in the All Test Cases table with its own icon and status text', () => {
-    const config: ReportConfig = { ...summaryOnlyConfig, includeTestMetrics: false, includeAllTests: true };
+  it('should render the flaky row in the All Test Cases table with its own icon and status text when included', () => {
+    const config: ReportConfig = {
+      ...summaryOnlyConfig, includeTestMetrics: false, includeAllTests: true, includeFlakyTests: true,
+    };
     render(<PDFPreviewFrame testData={flakyTestData} config={config} />);
 
     expect(screen.getByText('Flaky Test')).toBeInTheDocument();
     expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
     // The capitalized status text next to the icon in the All Tests row.
     expect(screen.getByText('Flaky')).toBeInTheDocument();
+  });
+
+  it('should fold the flaky row into Passed in the All Test Cases table when not included', () => {
+    const config: ReportConfig = { ...summaryOnlyConfig, includeTestMetrics: false, includeAllTests: true };
+    render(<PDFPreviewFrame testData={flakyTestData} config={config} />);
+
+    expect(screen.getByText('Flaky Test')).toBeInTheDocument();
+    expect(screen.queryByTestId('alert-triangle-icon')).not.toBeInTheDocument();
+    expect(screen.queryByText('Flaky')).not.toBeInTheDocument();
+    // Its row now reads "Passed", same as any other clean pass.
+    expect(screen.getAllByText('Passed')).toHaveLength(3);
   });
 });

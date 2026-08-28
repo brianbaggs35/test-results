@@ -209,6 +209,20 @@ describe('buildSlackMessage', () => {
     expect(message.attachments![0].color).toBe('danger');
   });
 
+  it('guards against divide-by-zero when every test is skipped but some are also marked failed', () => {
+    // Executed count (total - skipped) is 0 here even though failed > 0 — an inconsistent-looking
+    // summary, but nothing stops a caller from passing one. passRateValue must not divide by that
+    // zero executed count when computing the danger/warning threshold.
+    const testData: SlackTestData = {
+      summary: { total: 5, passed: 0, failed: 1, skipped: 5, time: 5 },
+      suites: [{ name: 'Suite A', tests: 5, failures: 1, errors: 0, skipped: 5, time: 5 }],
+    };
+
+    const message = buildSlackMessage(testData, { title: 'AllSkipped', metadata: [] });
+
+    expect(message.attachments![0].color).toBe('danger');
+  });
+
   it('guards against divide-by-zero when there are no tests at all', () => {
     const testData: SlackTestData = {
       summary: { total: 0, passed: 0, failed: 0, skipped: 0, time: 0 },

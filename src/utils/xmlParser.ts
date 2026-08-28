@@ -14,7 +14,10 @@ interface RawTestCase {
   failure?: string | RawFailureOrError;
   error?: string | RawFailureOrError;
   skipped?: string;
-  'system-out'?: string;
+  // fast-xml-parser coerces purely numeric/boolean tag text into a JS number/boolean
+  // (not a string), and returns an array instead of a single value when a testcase has
+  // more than one <system-out> element — both verified against the installed parser.
+  'system-out'?: string | number | boolean | (string | number | boolean)[];
 }
 
 interface RawTestSuite {
@@ -55,6 +58,16 @@ const ATTACHMENT_MARKER = '[[ATTACHMENT|';
 // test, not just failing attempts, which would make every passing test look
 // flaky. In that case, skip flaky-marking entirely rather than mislabel the file.
 const FLAKY_GUARD_MAX_RATIO = 0.5;
+
+// Normalizes <system-out> into a single searchable string regardless of the shape
+// fast-xml-parser handed back (see the RawTestCase field comment above) — a plain
+// .includes() call on the raw value crashes on a number/boolean and silently misses
+// the marker when it's an array.
+const systemOutText = (value: RawTestCase['system-out']): string => {
+  if (value === undefined) return '';
+  if (Array.isArray(value)) return value.map(String).join('\n');
+  return String(value);
+};
 
 export const parseJUnitXML = (xmlContent: string): TestData => {
   const parser = new XMLParser({
@@ -113,7 +126,7 @@ const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
         let status: 'passed' | 'failed' | 'skipped' = 'passed';
         let errorMessage: string | null = null;
         let failureDetails: { message: string; type: string; stackTrace: string } | null = null;
-        if (testcase.failure) {
+        if (testcase.failure !== undefined) {
           status = 'failed';
           // Handle both string and object failure messages
           if (typeof testcase.failure === 'string') {
@@ -127,7 +140,7 @@ const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
               stackTrace: testcase.failure['#text'] || ''
             };
           }
-        } else if (testcase.error) {
+        } else if (testcase.error !== undefined) {
           status = 'failed';
           if (typeof testcase.error === 'string') {
             errorMessage = testcase.error;
@@ -150,7 +163,7 @@ const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
           errorMessage,
           failureDetails
         };
-        if (status === 'passed' && testcase['system-out']?.includes(ATTACHMENT_MARKER)) {
+        if (status === 'passed' && systemOutText(testcase['system-out']).includes(ATTACHMENT_MARKER)) {
           flakyCandidates.push(testCase);
         }
         return testCase;

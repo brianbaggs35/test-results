@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReportPreview } from '../components/ReportGenerator/ReportPreview';
 import { generatePDF } from '../components/ReportGenerator/pdfGenerator';
@@ -28,6 +28,7 @@ vi.mock('lucide-react', () => ({
   AlertCircleIcon: () => <div data-testid="alert-circle-icon" />,
   ChevronUpIcon: () => <div data-testid="chevron-up-icon" />,
   ChevronDownIcon: () => <div data-testid="chevron-down-icon" />,
+  AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
 }));
 
 describe('ReportPreview', () => {
@@ -275,5 +276,86 @@ describe('ReportPreview', () => {
     });
 
     await act(async () => { resolveGenerate!(); });
+  });
+
+  describe('multi-page navigation', () => {
+    // jsdom never actually lays content out, so scrollHeight is 0 by default — stub it to a
+    // value spanning several A4 pages (1123px each) so totalPages > 1 and the page-navigation
+    // buttons/page-break indicators actually have something to do.
+    let scrollHeightSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2500);
+      // jsdom doesn't implement scrollTo at all, and assigning scrollTop directly (what a real
+      // browser's scrollTo does under the hood) doesn't dispatch a 'scroll' event on its own —
+      // so the stub does both, the way the real thing effectively does from this component's
+      // point of view.
+      HTMLElement.prototype.scrollTo = function (this: HTMLElement, opts?: ScrollToOptions | number) {
+        const top = typeof opts === 'object' ? opts.top ?? 0 : 0;
+        Object.defineProperty(this, 'scrollTop', { value: top, configurable: true });
+        this.dispatchEvent(new Event('scroll'));
+      };
+    });
+
+    afterEach(() => {
+      scrollHeightSpy.mockRestore();
+      // @ts-expect-error — removing the stub added above, jsdom never defines this itself.
+      delete HTMLElement.prototype.scrollTo;
+    });
+
+    it('should compute multiple pages and render a page-break indicator for each extra page', async () => {
+      render(<ReportPreview testData={mockTestData} config={mockConfig} onBack={() => {}} />);
+
+      // ceil(2500 / 1123) = 3 pages
+      await waitFor(() => expect(screen.getByText('Page 1 / 3')).toBeInTheDocument());
+      expect(screen.getByText('Page 2')).toBeInTheDocument();
+      expect(screen.getByText('Page 3')).toBeInTheDocument();
+    });
+
+    it('should advance and retreat pages via the Previous/Next buttons', async () => {
+      const user = userEvent.setup();
+      render(<ReportPreview testData={mockTestData} config={mockConfig} onBack={() => {}} />);
+      await waitFor(() => expect(screen.getByText('Page 1 / 3')).toBeInTheDocument());
+
+      const previousButton = screen.getByRole('button', { name: 'Previous page' });
+      const nextButton = screen.getByRole('button', { name: 'Next page' });
+      expect(previousButton).toBeDisabled();
+      expect(nextButton).not.toBeDisabled();
+
+      await user.click(nextButton);
+      expect(screen.getByText('Page 2 / 3')).toBeInTheDocument();
+      expect(previousButton).not.toBeDisabled();
+
+      await user.click(previousButton);
+      expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
+    });
+
+    it('should not advance past the last page or retreat past the first', async () => {
+      const user = userEvent.setup();
+      render(<ReportPreview testData={mockTestData} config={mockConfig} onBack={() => {}} />);
+      await waitFor(() => expect(screen.getByText('Page 1 / 3')).toBeInTheDocument());
+
+      const nextButton = screen.getByRole('button', { name: 'Next page' });
+      await user.click(nextButton);
+      await user.click(nextButton);
+      expect(screen.getByText('Page 3 / 3')).toBeInTheDocument();
+      expect(nextButton).toBeDisabled();
+
+      // Clicking again is a no-op — scrollToPage clamps via Math.min in the caller.
+      await user.click(nextButton);
+      expect(screen.getByText('Page 3 / 3')).toBeInTheDocument();
+    });
+
+    it('should update the current page indicator when the preview container is scrolled', async () => {
+      render(<ReportPreview testData={mockTestData} config={mockConfig} onBack={() => {}} />);
+      await waitFor(() => expect(screen.getByText('Page 1 / 3')).toBeInTheDocument());
+
+      const container = screen.getByTestId('preview-container');
+      // Scaled page height is 1123 * 0.7 = 786.1; land in the middle of page 2.
+      Object.defineProperty(container, 'scrollTop', { value: 900, configurable: true });
+      fireEvent.scroll(container);
+
+      await waitFor(() => expect(screen.getByText('Page 2 / 3')).toBeInTheDocument());
+    });
   });
 });

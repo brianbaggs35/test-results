@@ -77,6 +77,11 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
   // "flaky" mentioned anywhere in the report shouldn't see the numbers come up short.
   const displayPassed = config.includeFlakyTests ? summary.passed : summary.passed + summary.flaky;
 
+  // Same fold, applied per-testcase: a flaky row reads as an ordinary "Passed" row
+  // anywhere flaky isn't meant to be visible in this report (the All Test Cases table).
+  const displayStatus = (status: TestCase['status']): TestCase['status'] =>
+    !config.includeFlakyTests && status === 'flaky' ? 'passed' : status;
+
   const statusData = [
     { name: 'Passed', value: displayPassed, color: '#10B981' },
     { name: 'Failed', value: summary.failed, color: '#EF4444' },
@@ -476,7 +481,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
           <h2 style={headingStyle}>{allTestsNum}. All Test Cases</h2>
           {(() => {
             const allTests = testData.suites.flatMap((suite) =>
-              suite.testcases.map((test) => ({ ...test, suite: suite.name }))
+              suite.testcases.map((test) => ({ ...test, suite: suite.name, status: displayStatus(test.status) }))
             );
 
             const maxTests = allTests.length > 5000 ? 300
@@ -542,7 +547,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
           {(() => {
             let progressData: Record<string, {
               status?: string; assignee?: string;
-              name?: string; suite?: string; notes?: string;
+              name?: string; suite?: string; notes?: string; testStatus?: string;
             }> = {};
             try {
               const saved = typeof window !== 'undefined' ? localStorage.getItem('testFixProgress') : null;
@@ -551,7 +556,11 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
               console.warn('Could not access localStorage:', e);
             }
 
-            const progressTests = Object.values(progressData);
+            // Same rule as everywhere else in this report: when flaky tests aren't
+            // included, their resolution-progress entries stay out of this section too.
+            const progressTests = Object.values(progressData).filter(
+              (t) => config.includeFlakyTests || t.testStatus !== 'flaky'
+            );
             const completed = progressTests.filter((t) => t.status === 'completed').length;
             const inProgress = progressTests.filter((t) => t.status === 'in_progress').length;
 
@@ -593,7 +602,11 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {progressTests.map((test, i) => (
+                      {progressTests.map((test, i) => {
+                        // Mirrors FailureAnalysisProgress.tsx's effectiveStatus: a still-pending
+                        // flaky test reads as "Flaky" (yellow), not as a red, unresolved failure.
+                        const pillStatus = test.status === 'pending' && test.testStatus === 'flaky' ? 'flaky' : test.status;
+                        return (
                         <tr key={`progress-${i}`} style={zebraRow(i)}>
                           <td style={{ ...tdStyle, fontWeight: '500' }}>{test.name}</td>
                           <td style={tdStyle}>{test.suite}</td>
@@ -605,16 +618,17 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                               lineHeight: '1.2',
                               verticalAlign: 'middle',
                               textAlign: 'center',
-                              backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : '#fee2e2',
-                              color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : '#991b1b',
+                              backgroundColor: pillStatus === 'completed' ? '#d1fae5' : pillStatus === 'in_progress' ? '#dbeafe' : pillStatus === 'flaky' ? '#fef9c3' : '#fee2e2',
+                              color: pillStatus === 'completed' ? '#065f46' : pillStatus === 'in_progress' ? '#1e40af' : pillStatus === 'flaky' ? '#a16207' : '#991b1b',
                             }}>
-                              {test.status ? test.status.replace('_', ' ') : 'Not started'}
+                              {pillStatus === 'flaky' ? 'Flaky' : pillStatus ? pillStatus.replace('_', ' ') : 'Not started'}
                             </span>
                           </td>
                           <td style={tdStyle}>{test.assignee || '-'}</td>
                           <td style={tdStyle}>{test.notes || '-'}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 ) : (

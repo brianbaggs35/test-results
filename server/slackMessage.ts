@@ -26,6 +26,11 @@ export interface SlackTestData {
     passed: number;
     failed: number;
     skipped: number;
+    // Optional: older callers/tests predate the flaky-tracking feature and never set
+    // this. When present, it's already excluded from `passed` (see src/utils/xmlParser.ts),
+    // so it's folded back in via effectivePassed() below — Slack has no flaky concept of
+    // its own, and a flaky test did, in the end, pass.
+    flaky?: number;
     time: number;
   };
   suites: SlackTestSuite[];
@@ -122,9 +127,19 @@ const passRateValue = (passed: number, total: number): number => (total === 0 ? 
 const formatPercent = (passed: number, total: number): string => {
   if (total === 0) return '0.00';
   const rawPercent = (passed / total) * 100;
-  const flooredToTwoDecimals = Math.floor(rawPercent * 100) / 100;
+  // The tiny epsilon absorbs floating-point representation error (e.g. 58 * 100 can
+  // evaluate to 5799.999999999999) so an exact percentage like 58.00 doesn't floor
+  // down to 57.99 — it's far too small to ever mask a genuinely-lower value.
+  const flooredToTwoDecimals = Math.floor(rawPercent * 100 + 1e-9) / 100;
   return flooredToTwoDecimals.toFixed(2);
 };
+
+// A flaky test is already excluded from summary.passed (see SlackTestData's summary
+// field comment) but Slack has no flaky category of its own to put it in instead —
+// fold it back into passed so the published total/rate match the per-suite breakdown,
+// which never subtracted flaky tests in the first place (a test that eventually
+// passed was never counted in the suite's own failures/errors attributes).
+const effectivePassed = (summary: SlackTestData['summary']): number => summary.passed + (summary.flaky ?? 0);
 
 const suitePassed = (suite: SlackTestSuite): number => suite.tests - suite.failures - suite.errors - suite.skipped;
 
@@ -138,7 +153,7 @@ const executedCount = (total: number, skipped: number): number => total - skippe
 
 const attachmentColor = (summary: SlackTestData['summary']): 'good' | 'warning' | 'danger' => {
   if (summary.failed === 0) return 'good';
-  return passRateValue(summary.passed, executedCount(summary.total, summary.skipped)) < 90 ? 'danger' : 'warning';
+  return passRateValue(effectivePassed(summary), executedCount(summary.total, summary.skipped)) < 90 ? 'danger' : 'warning';
 };
 
 // Floors each segment's true proportion at MIN_SLICE_VISUAL_SHARE — a
@@ -179,7 +194,7 @@ const buildChartUrl = (summary: SlackTestData['summary']): string | null => {
   if (summary.total === 0) return null;
 
   const segments = [
-    { label: 'Passed', value: summary.passed, color: CHART_COLORS.passed },
+    { label: 'Passed', value: effectivePassed(summary), color: CHART_COLORS.passed },
     { label: 'Failed', value: summary.failed, color: CHART_COLORS.failed },
     { label: 'Skipped', value: summary.skipped, color: CHART_COLORS.skipped },
   ].filter(s => s.value > 0);
@@ -241,7 +256,8 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
   const { summary, suites } = testData;
   const { title, metadata } = options;
   const executedTotal = executedCount(summary.total, summary.skipped);
-  const overallPassRateText = formatPercent(summary.passed, executedTotal);
+  const overallPassed = effectivePassed(summary);
+  const overallPassRateText = formatPercent(overallPassed, executedTotal);
   const chartUrl = buildChartUrl(summary);
 
   const blocks: KnownBlock[] = [
@@ -252,7 +268,7 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*Results:*\n${summary.passed} / ${executedTotal} Passed (${overallPassRateText}%)` },
+        { type: 'mrkdwn', text: `*Results:*\n${overallPassed} / ${executedTotal} Passed (${overallPassRateText}%)` },
         { type: 'mrkdwn', text: `*Duration:*\n${formatDuration(summary.time)}` },
       ],
     },
@@ -307,7 +323,7 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
   }
 
   return {
-    text: `Automated Testing Results: ${summary.passed} / ${executedTotal} passed (${overallPassRateText}%)`,
+    text: `Automated Testing Results: ${overallPassed} / ${executedTotal} passed (${overallPassRateText}%)`,
     attachments: [
       {
         color: attachmentColor(summary),

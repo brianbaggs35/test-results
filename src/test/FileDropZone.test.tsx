@@ -97,4 +97,37 @@ describe('FileDropZone', () => {
 
     expect(onFileSelect).not.toHaveBeenCalled();
   });
+
+  it('should show the file icon and the selected file name once a file is selected', () => {
+    render(
+      <FileDropZone
+        onFileSelect={vi.fn()}
+        accept=".json"
+        idleLabel="Upload file"
+        selectedFileName="export.json"
+      />
+    );
+
+    // The large status icon switches to FileIcon; the button keeps its own UploadIcon regardless.
+    expect(screen.getByTestId('file-icon')).toBeInTheDocument();
+    expect(screen.getByText('export.json')).toBeInTheDocument();
+  });
+
+  it('should not open the file picker by clicking the drop zone while loading', () => {
+    const { container } = render(
+      <FileDropZone
+        onFileSelect={vi.fn()}
+        accept=".json"
+        isLoading
+        idleLabel="Upload file"
+      />
+    );
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, 'click');
+
+    fireEvent.click(container.firstChild as HTMLElement);
+
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
 });

@@ -1,7 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { IncomingMessage, ServerResponse } from 'http';
-import { IncomingWebhookHTTPError } from '@slack/webhook';
+import { IncomingWebhookHTTPError, IncomingWebhook } from '@slack/webhook';
 import { createPublishHandler, publishPlugin } from './publishPlugin';
+
+// Every other test in this file injects its own sendToSlack, exercising handlePublishRequest's
+// own logic without ever touching the real @slack/webhook client. This mock exists solely for
+// the one test below that covers the *default* sendToSlack — the actual `new IncomingWebhook(...)`
+// construction — so that path isn't left completely untested. IncomingWebhookHTTPError stays real.
+vi.mock('@slack/webhook', async (importActual) => {
+  const actual = await importActual<typeof import('@slack/webhook')>();
+  return {
+    ...actual,
+    // Must be a real function/class, not an arrow function — `new IncomingWebhook(...)` requires
+    // a constructible mock implementation.
+    IncomingWebhook: vi.fn().mockImplementation(function IncomingWebhookMock() {
+      return { send: vi.fn().mockResolvedValue(undefined) };
+    }),
+  };
+});
 
 interface MockRes {
   statusCode: number;
@@ -106,6 +122,23 @@ describe('createPublishHandler', () => {
 
     expect(res.statusCode).toBe(503);
     expect(JSON.parse(res.body).error).toContain('SLACK_WEBHOOK_URL');
+  });
+
+  it('constructs a real IncomingWebhook and sends through it when sendToSlack is not overridden', async () => {
+    const handler = createPublishHandler({ webhookUrl: 'https://hooks.slack.com/services/x' });
+    const req = createMockReq(
+      'POST',
+      JSON.stringify({ title: 'Title', metadata: [], testData: validTestData })
+    );
+    const res = createMockRes();
+
+    await handler(req, res as unknown as ServerResponse);
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ success: true });
+    expect(IncomingWebhook).toHaveBeenCalledWith('https://hooks.slack.com/services/x');
+    const instance = (IncomingWebhook as unknown as ReturnType<typeof vi.fn>).mock.results[0].value;
+    expect(instance.send).toHaveBeenCalledTimes(1);
   });
 
   it('sends the built message to Slack and returns success', async () => {

@@ -258,7 +258,9 @@ export const BulkCommentModal = ({
                           ? 'bg-success'
                           : item.status === 'in_progress'
                             ? 'bg-primary'
-                            : 'bg-destructive'
+                            : item.status === 'pending' && item.testStatus === 'flaky'
+                              ? 'bg-flaky'
+                              : 'bg-destructive'
                       )}
                     />
                     <span className="text-sm font-medium text-foreground truncate">

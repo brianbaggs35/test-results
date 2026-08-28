@@ -30,6 +30,9 @@ vi.mock('../components/Layout/Navbar', () => ({
       <button data-testid="split-tab" onClick={() => setActiveTab('split')}>
         Split {activeTab === 'split' && '(active)'}
       </button>
+      <button data-testid="bogus-tab" onClick={() => setActiveTab('bogus')}>
+        Bogus
+      </button>
     </div>
   ),
 }));
@@ -165,13 +168,16 @@ describe('App', () => {
     expect(screen.getByTestId('report-test-data')).toBeInTheDocument();
   });
 
-  it('should default to dashboard for unknown tabs', () => {
-    // This tests the default case in the switch statement
+  it('should fall back to dashboard for an unrecognized tab value', () => {
     render(<App />);
 
-    // We can't directly test this without modifying the component,
-    // but we can verify the initial state is dashboard
+    fireEvent.click(screen.getByTestId('failures-tab'));
+    expect(screen.getByTestId('failure-analysis')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('bogus-tab'));
+
     expect(screen.getByTestId('dashboard')).toBeInTheDocument();
+    expect(screen.queryByTestId('failure-analysis')).not.toBeInTheDocument();
   });
 
   it('should switch to publish tab when clicked', () => {
