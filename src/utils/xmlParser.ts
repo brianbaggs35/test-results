@@ -49,7 +49,9 @@ interface RawJUnitXML {
 // JUnit XML or Playwright's reporter output, so this structural side-effect is the
 // only reliable signal available — verified against two real result files where
 // every flaky/failed/clean-pass test matched this pattern with no exceptions.
-const ATTACHMENT_MARKER = '[[ATTACHMENT|';
+// Exported so splitJUnitXml.ts can apply the identical rule when deciding what
+// needs to be split rather than duplicated across both halves.
+export const ATTACHMENT_MARKER = '[[ATTACHMENT|';
 
 // If detecting flaky tests this way would flag more than half of the tests that
 // would otherwise be "passed", that's no longer plausible as genuine flakiness
@@ -57,17 +59,27 @@ const ATTACHMENT_MARKER = '[[ATTACHMENT|';
 // this project's Playwright config captures video/trace/screenshots for every
 // test, not just failing attempts, which would make every passing test look
 // flaky. In that case, skip flaky-marking entirely rather than mislabel the file.
-const FLAKY_GUARD_MAX_RATIO = 0.5;
+export const FLAKY_GUARD_MAX_RATIO = 0.5;
 
 // Normalizes <system-out> into a single searchable string regardless of the shape
 // fast-xml-parser handed back (see the RawTestCase field comment above) — a plain
 // .includes() call on the raw value crashes on a number/boolean and silently misses
-// the marker when it's an array.
-const systemOutText = (value: RawTestCase['system-out']): string => {
+// the marker when it's an array. Takes `unknown` (rather than RawTestCase's own
+// narrower field type) so splitJUnitXml.ts's differently-typed raw nodes — parsed
+// with the same parser options, so structurally identical at runtime — can reuse
+// this directly with no cast.
+export const systemOutText = (value: unknown): string => {
   if (value === undefined) return '';
   if (Array.isArray(value)) return value.map(String).join('\n');
   return String(value);
 };
+
+// A testcase is a flaky *candidate* when its final attempt didn't fail but an
+// earlier one did (see ATTACHMENT_MARKER above). Exported so splitJUnitXml.ts can
+// identify the same candidates — before its own guard decides whether to trust
+// them — without re-deriving the detection rule a second time.
+export const isFlakyCandidateTestcase = (tc: { failure?: unknown; error?: unknown; 'system-out'?: unknown }): boolean =>
+  tc.failure === undefined && tc.error === undefined && systemOutText(tc['system-out']).includes(ATTACHMENT_MARKER);
 
 export const parseJUnitXML = (xmlContent: string): TestData => {
   const parser = new XMLParser({

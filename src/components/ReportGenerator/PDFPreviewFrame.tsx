@@ -603,9 +603,11 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                     </thead>
                     <tbody>
                       {progressTests.map((test, i) => {
-                        // Mirrors FailureAnalysisProgress.tsx's effectiveStatus: a still-pending
-                        // flaky test reads as "Flaky" (yellow), not as a red, unresolved failure.
-                        const pillStatus = test.status === 'pending' && test.testStatus === 'flaky' ? 'flaky' : test.status;
+                        // Unlike the live Progress tab's card badge, this column's own header is
+                        // "Status" with a fixed pending/in_progress/completed vocabulary — the text
+                        // always reflects that resolution state. The yellow tint is only a hint that
+                        // this particular pending item is flaky, not a fourth status value.
+                        const isPendingFlaky = test.status === 'pending' && test.testStatus === 'flaky';
                         return (
                         <tr key={`progress-${i}`} style={zebraRow(i)}>
                           <td style={{ ...tdStyle, fontWeight: '500' }}>{test.name}</td>
@@ -618,10 +620,10 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                               lineHeight: '1.2',
                               verticalAlign: 'middle',
                               textAlign: 'center',
-                              backgroundColor: pillStatus === 'completed' ? '#d1fae5' : pillStatus === 'in_progress' ? '#dbeafe' : pillStatus === 'flaky' ? '#fef9c3' : '#fee2e2',
-                              color: pillStatus === 'completed' ? '#065f46' : pillStatus === 'in_progress' ? '#1e40af' : pillStatus === 'flaky' ? '#a16207' : '#991b1b',
+                              backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : isPendingFlaky ? '#fef9c3' : '#fee2e2',
+                              color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : isPendingFlaky ? '#a16207' : '#991b1b',
                             }}>
-                              {pillStatus === 'flaky' ? 'Flaky' : pillStatus ? pillStatus.replace('_', ' ') : 'Not started'}
+                              {test.status ? test.status.replace('_', ' ') : 'Not started'}
                             </span>
                           </td>
                           <td style={tdStyle}>{test.assignee || '-'}</td>

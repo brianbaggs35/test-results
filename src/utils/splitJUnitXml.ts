@@ -1,4 +1,5 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import { FLAKY_GUARD_MAX_RATIO, isFlakyCandidateTestcase } from './xmlParser';
 
 // Matches src/utils/xmlParser.js's reader options exactly, so a testcase
 // carried through unchanged parses back to the identical shape.
@@ -33,15 +34,17 @@ function timeOf(node: XmlNode): number {
 export interface SplitResult {
   fileAXml: string;
   fileBXml: string;
+  // Failed/errored testcases, plus flaky ones the guard trusts (see isFlakyCandidateTestcase) —
+  // everything that was actually split rather than duplicated in both halves.
   totalFailed: number;
   countA: number;
   countB: number;
 }
 
 /**
- * Deterministically divides a JUnit XML report's failed/errored testcases
+ * Deterministically divides a JUnit XML report's failed/errored/flaky testcases
  * across two new, independently-valid JUnit XML documents — every passed
- * and skipped testcase is kept in both. Failures are grouped by their
+ * and skipped testcase is kept in both. Splittable testcases are grouped by their
  * enclosing <testsuite> name — JUnit XML's closest equivalent to "source
  * file" (reporters like Playwright's put the full relative path there, e.g.
  * "policies/show/owner/comments.spec.ts", so two files that merely share a
@@ -71,18 +74,42 @@ export function splitJUnitXml(xmlContent: string): SplitResult {
     throw new Error('Invalid JUnit XML format');
   }
 
-  // Group every failed/errored testcase by its enclosing suite's exact
-  // name — the unit two people must never split between them. A suite with
-  // no name falls back to its own index so nameless suites never collide
-  // with one another (never treated as the same file just because both
-  // happen to be nameless).
+  // A flaky testcase (see xmlParser.ts's isFlakyCandidateTestcase) needs the exact
+  // same plausibility guard xmlParser.ts applies before it's trusted — otherwise a
+  // project whose Playwright config captures video/trace unconditionally would have
+  // this file split nearly every "passed" testcase instead of duplicating it.
+  // Computed once, globally, before deciding what counts as splittable.
+  let flakyCandidateCount = 0;
+  let nonFailedCount = 0;
+  suites.forEach((suite) => {
+    toArray(suite.testcase).forEach((tc) => {
+      if (isFailedTestcase(tc)) return;
+      if (tc.skipped !== undefined) return;
+      nonFailedCount++;
+      if (isFlakyCandidateTestcase(tc)) flakyCandidateCount++;
+    });
+  });
+  const flakyGuardTripped = (nonFailedCount > 0 ? flakyCandidateCount / nonFailedCount : 1) > FLAKY_GUARD_MAX_RATIO;
+
+  // A testcase must move to exactly one half — never duplicated in both, the way an
+  // ordinary passed/skipped testcase is — when it's a real failure/error, or (guard
+  // permitting) flaky: something a person needs to look into, not just informational
+  // context. Two teammates must never end up independently investigating, or
+  // resolving on the Progress tab, the very same flaky test.
+  const needsSplitting = (tc: XmlNode): boolean =>
+    isFailedTestcase(tc) || (!flakyGuardTripped && isFlakyCandidateTestcase(tc));
+
+  // Group every splittable testcase by its enclosing suite's exact name — the unit
+  // two people must never split between them. A suite with no name falls back to its
+  // own index so nameless suites never collide with one another (never treated as
+  // the same file just because both happen to be nameless).
   const groups = new Map<string, Array<{ suiteIndex: number; testcaseIndex: number }>>();
   let totalFailed = 0;
   suites.forEach((suite, suiteIndex) => {
     const rawName = suite.name;
     const groupKey = rawName !== undefined && String(rawName) !== '' ? `n:${String(rawName)}` : `i:${suiteIndex}`;
     toArray(suite.testcase).forEach((tc, testcaseIndex) => {
-      if (!isFailedTestcase(tc)) return;
+      if (!needsSplitting(tc)) return;
       if (!groups.has(groupKey)) groups.set(groupKey, []);
       groups.get(groupKey)!.push({ suiteIndex, testcaseIndex });
       totalFailed++;
@@ -118,7 +145,7 @@ export function splitJUnitXml(xmlContent: string): SplitResult {
 
     suites.forEach((suite, suiteIndex) => {
       const kept = toArray(suite.testcase).filter((tc, testcaseIndex) => {
-        if (!isFailedTestcase(tc)) return true;
+        if (!needsSplitting(tc)) return true;
         const keep = keepFailed(suiteIndex, testcaseIndex);
         if (keep) count++;
         return keep;
