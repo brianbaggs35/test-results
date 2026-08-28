@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Suite 1" tests="30" failures="5" errors="0" time="4.23">
+    <testcase name="test1" classname="Suite1.TestClass1" time="0.17"/>
+    <testcase name="test2" classname="Suite1.TestClass2" time="0.15"/>
+    <testcase name="test3" classname="Suite1.TestClass3" time="0.13"/>
+    <testcase name="test4" classname="Suite1.TestClass4" time="0.11"/>
+    <testcase name="test5" classname="Suite1.TestClass5" time="0.18"/>
+    <testcase name="test6" classname="Suite1.TestClass6" time="0.16"/>
+    <testcase name="test7" classname="Suite1.TestClass7" time="0.14">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 1, test 7</failure>
+    </testcase>
+    <testcase name="test8" classname="Suite1.TestClass8" time="0.12"/>
+    <testcase name="test9" classname="Suite1.TestClass9" time="0.10"/>
+    <testcase name="test10" classname="Suite1.TestClass10" time="0.17"/>
+    <testcase name="test11" classname="Suite1.TestClass11" time="0.15"/>
+    <testcase name="test12" classname="Suite1.TestClass12" time="0.13"/>
+    <testcase name="test13" classname="Suite1.TestClass13" time="0.11"/>
+    <testcase name="test14" classname="Suite1.TestClass14" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 1, test 14</failure>
+    </testcase>
+    <testcase name="test15" classname="Suite1.TestClass15" time="0.16"/>
+    <testcase name="test16" classname="Suite1.TestClass16" time="0.14"/>
+    <testcase name="test17" classname="Suite1.TestClass17" time="0.12"/>
+    <testcase name="test18" classname="Suite1.TestClass18" time="0.10"/>
+    <testcase name="test19" classname="Suite1.TestClass19" time="0.17"/>
+    <testcase name="test20" classname="Suite1.TestClass20" time="0.15"/>
+    <testcase name="test21" classname="Suite1.TestClass21" time="0.13">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 1, test 21</failure>
+    </testcase>
+    <testcase name="test22" classname="Suite1.TestClass22" time="0.11"/>
+    <testcase name="test23" classname="Suite1.TestClass23" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 1, test 23</failure>
+    </testcase>
+    <testcase name="test24" classname="Suite1.TestClass24" time="0.16"/>
+    <testcase name="test25" classname="Suite1.TestClass25" time="0.14"/>
+    <testcase name="test26" classname="Suite1.TestClass26" time="0.12"/>
+    <testcase name="test27" classname="Suite1.TestClass27" time="0.10"/>
+    <testcase name="test28" classname="Suite1.TestClass28" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 1, test 28</failure>
+    </testcase>
+    <testcase name="test29" classname="Suite1.TestClass29" time="0.15"/>
+    <testcase name="test30" classname="Suite1.TestClass30" time="0.13"/>
+  </testsuite>
+  <testsuite name="Suite 2" tests="30" failures="5" errors="0" time="4.23">
+    <testcase name="test31" classname="Suite2.TestClass1" time="0.11"/>
+    <testcase name="test32" classname="Suite2.TestClass2" time="0.18"/>
+    <testcase name="test33" classname="Suite2.TestClass3" time="0.16"/>
+    <testcase name="test34" classname="Suite2.TestClass4" time="0.14"/>
+    <testcase name="test35" classname="Suite2.TestClass5" time="0.12">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 2, test 5</failure>
+    </testcase>
+    <testcase name="test36" classname="Suite2.TestClass6" time="0.10"/>
+    <testcase name="test37" classname="Suite2.TestClass7" time="0.17"/>
+    <testcase name="test38" classname="Suite2.TestClass8" time="0.15"/>
+    <testcase name="test39" classname="Suite2.TestClass9" time="0.13"/>
+    <testcase name="test40" classname="Suite2.TestClass10" time="0.11"/>
+    <testcase name="test41" classname="Suite2.TestClass11" time="0.18"/>
+    <testcase name="test42" classname="Suite2.TestClass12" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 2, test 12</failure>
+    </testcase>
+    <testcase name="test43" classname="Suite2.TestClass13" time="0.14"/>
+    <testcase name="test44" classname="Suite2.TestClass14" time="0.12"/>
+    <testcase name="test45" classname="Suite2.TestClass15" time="0.10"/>
+    <testcase name="test46" classname="Suite2.TestClass16" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 2, test 16</failure>
+    </testcase>
+    <testcase name="test47" classname="Suite2.TestClass17" time="0.15"/>
+    <testcase name="test48" classname="Suite2.TestClass18" time="0.13"/>
+    <testcase name="test49" classname="Suite2.TestClass19" time="0.11">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 2, test 19</failure>
+    </testcase>
+    <testcase name="test50" classname="Suite2.TestClass20" time="0.18"/>
+    <testcase name="test51" classname="Suite2.TestClass21" time="0.16"/>
+    <testcase name="test52" classname="Suite2.TestClass22" time="0.14"/>
+    <testcase name="test53" classname="Suite2.TestClass23" time="0.12"/>
+    <testcase name="test54" classname="Suite2.TestClass24" time="0.10"/>
+    <testcase name="test55" classname="Suite2.TestClass25" time="0.17"/>
+    <testcase name="test56" classname="Suite2.TestClass26" time="0.15">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 2, test 26</failure>
+    </testcase>
+    <testcase name="test57" classname="Suite2.TestClass27" time="0.13"/>
+    <testcase name="test58" classname="Suite2.TestClass28" time="0.11"/>
+    <testcase name="test59" classname="Suite2.TestClass29" time="0.18"/>
+    <testcase name="test60" classname="Suite2.TestClass30" time="0.16"/>
+  </testsuite>
+  <testsuite name="Suite 3" tests="30" failures="5" errors="0" time="4.14">
+    <testcase name="test61" classname="Suite3.TestClass1" time="0.14"/>
+    <testcase name="test62" classname="Suite3.TestClass2" time="0.12"/>
+    <testcase name="test63" classname="Suite3.TestClass3" time="0.10">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 3, test 3</failure>
+    </testcase>
+    <testcase name="test64" classname="Suite3.TestClass4" time="0.17"/>
+    <testcase name="test65" classname="Suite3.TestClass5" time="0.15"/>
+    <testcase name="test66" classname="Suite3.TestClass6" time="0.13"/>
+    <testcase name="test67" classname="Suite3.TestClass7" time="0.11"/>
+    <testcase name="test68" classname="Suite3.TestClass8" time="0.18"/>
+    <testcase name="test69" classname="Suite3.TestClass9" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 3, test 9</failure>
+    </testcase>
+    <testcase name="test70" classname="Suite3.TestClass10" time="0.14">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 3, test 10</failure>
+    </testcase>
+    <testcase name="test71" classname="Suite3.TestClass11" time="0.12"/>
+    <testcase name="test72" classname="Suite3.TestClass12" time="0.10"/>
+    <testcase name="test73" classname="Suite3.TestClass13" time="0.17"/>
+    <testcase name="test74" classname="Suite3.TestClass14" time="0.15"/>
+    <testcase name="test75" classname="Suite3.TestClass15" time="0.13"/>
+    <testcase name="test76" classname="Suite3.TestClass16" time="0.11"/>
+    <testcase name="test77" classname="Suite3.TestClass17" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 3, test 17</failure>
+    </testcase>
+    <testcase name="test78" classname="Suite3.TestClass18" time="0.16"/>
+    <testcase name="test79" classname="Suite3.TestClass19" time="0.14"/>
+    <testcase name="test80" classname="Suite3.TestClass20" time="0.12"/>
+    <testcase name="test81" classname="Suite3.TestClass21" time="0.10"/>
+    <testcase name="test82" classname="Suite3.TestClass22" time="0.17"/>
+    <testcase name="test83" classname="Suite3.TestClass23" time="0.15"/>
+    <testcase name="test84" classname="Suite3.TestClass24" time="0.13">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 3, test 24</failure>
+    </testcase>
+    <testcase name="test85" classname="Suite3.TestClass25" time="0.11"/>
+    <testcase name="test86" classname="Suite3.TestClass26" time="0.18"/>
+    <testcase name="test87" classname="Suite3.TestClass27" time="0.16"/>
+    <testcase name="test88" classname="Suite3.TestClass28" time="0.14"/>
+    <testcase name="test89" classname="Suite3.TestClass29" time="0.12"/>
+    <testcase name="test90" classname="Suite3.TestClass30" time="0.10"/>
+  </testsuite>
+  <testsuite name="Suite 4" tests="30" failures="7" errors="0" time="4.23">
+    <testcase name="test91" classname="Suite4.TestClass1" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 1</failure>
+    </testcase>
+    <testcase name="test92" classname="Suite4.TestClass2" time="0.15">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 2</failure>
+    </testcase>
+    <testcase name="test93" classname="Suite4.TestClass3" time="0.13"/>
+    <testcase name="test94" classname="Suite4.TestClass4" time="0.11"/>
+    <testcase name="test95" classname="Suite4.TestClass5" time="0.18"/>
+    <testcase name="test96" classname="Suite4.TestClass6" time="0.16"/>
+    <testcase name="test97" classname="Suite4.TestClass7" time="0.14"/>
+    <testcase name="test98" classname="Suite4.TestClass8" time="0.12">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 8</failure>
+    </testcase>
+    <testcase name="test99" classname="Suite4.TestClass9" time="0.10"/>
+    <testcase name="test100" classname="Suite4.TestClass10" time="0.17"/>
+    <testcase name="test101" classname="Suite4.TestClass11" time="0.15"/>
+    <testcase name="test102" classname="Suite4.TestClass12" time="0.13"/>
+    <testcase name="test103" classname="Suite4.TestClass13" time="0.11"/>
+    <testcase name="test104" classname="Suite4.TestClass14" time="0.18"/>
+    <testcase name="test105" classname="Suite4.TestClass15" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 15</failure>
+    </testcase>
+    <testcase name="test106" classname="Suite4.TestClass16" time="0.14"/>
+    <testcase name="test107" classname="Suite4.TestClass17" time="0.12"/>
+    <testcase name="test108" classname="Suite4.TestClass18" time="0.10"/>
+    <testcase name="test109" classname="Suite4.TestClass19" time="0.17"/>
+    <testcase name="test110" classname="Suite4.TestClass20" time="0.15"/>
+    <testcase name="test111" classname="Suite4.TestClass21" time="0.13"/>
+    <testcase name="test112" classname="Suite4.TestClass22" time="0.11">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 22</failure>
+    </testcase>
+    <testcase name="test113" classname="Suite4.TestClass23" time="0.18"/>
+    <testcase name="test114" classname="Suite4.TestClass24" time="0.16"/>
+    <testcase name="test115" classname="Suite4.TestClass25" time="0.14">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 25</failure>
+    </testcase>
+    <testcase name="test116" classname="Suite4.TestClass26" time="0.12"/>
+    <testcase name="test117" classname="Suite4.TestClass27" time="0.10"/>
+    <testcase name="test118" classname="Suite4.TestClass28" time="0.17"/>
+    <testcase name="test119" classname="Suite4.TestClass29" time="0.15">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 4, test 29</failure>
+    </testcase>
+    <testcase name="test120" classname="Suite4.TestClass30" time="0.13"/>
+  </testsuite>
+  <testsuite name="Suite 5" tests="30" failures="5" errors="0" time="4.23">
+    <testcase name="test121" classname="Suite5.TestClass1" time="0.11"/>
+    <testcase name="test122" classname="Suite5.TestClass2" time="0.18"/>
+    <testcase name="test123" classname="Suite5.TestClass3" time="0.16"/>
+    <testcase name="test124" classname="Suite5.TestClass4" time="0.14"/>
+    <testcase name="test125" classname="Suite5.TestClass5" time="0.12"/>
+    <testcase name="test126" classname="Suite5.TestClass6" time="0.10">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 5, test 6</failure>
+    </testcase>
+    <testcase name="test127" classname="Suite5.TestClass7" time="0.17"/>
+    <testcase name="test128" classname="Suite5.TestClass8" time="0.15"/>
+    <testcase name="test129" classname="Suite5.TestClass9" time="0.13"/>
+    <testcase name="test130" classname="Suite5.TestClass10" time="0.11"/>
+    <testcase name="test131" classname="Suite5.TestClass11" time="0.18"/>
+    <testcase name="test132" classname="Suite5.TestClass12" time="0.16"/>
+    <testcase name="test133" classname="Suite5.TestClass13" time="0.14">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 5, test 13</failure>
+    </testcase>
+    <testcase name="test134" classname="Suite5.TestClass14" time="0.12"/>
+    <testcase name="test135" classname="Suite5.TestClass15" time="0.10"/>
+    <testcase name="test136" classname="Suite5.TestClass16" time="0.17"/>
+    <testcase name="test137" classname="Suite5.TestClass17" time="0.15"/>
+    <testcase name="test138" classname="Suite5.TestClass18" time="0.13">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 5, test 18</failure>
+    </testcase>
+    <testcase name="test139" classname="Suite5.TestClass19" time="0.11"/>
+    <testcase name="test140" classname="Suite5.TestClass20" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 5, test 20</failure>
+    </testcase>
+    <testcase name="test141" classname="Suite5.TestClass21" time="0.16"/>
+    <testcase name="test142" classname="Suite5.TestClass22" time="0.14"/>
+    <testcase name="test143" classname="Suite5.TestClass23" time="0.12"/>
+    <testcase name="test144" classname="Suite5.TestClass24" time="0.10"/>
+    <testcase name="test145" classname="Suite5.TestClass25" time="0.17"/>
+    <testcase name="test146" classname="Suite5.TestClass26" time="0.15"/>
+    <testcase name="test147" classname="Suite5.TestClass27" time="0.13">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 5, test 27</failure>
+    </testcase>
+    <testcase name="test148" classname="Suite5.TestClass28" time="0.11"/>
+    <testcase name="test149" classname="Suite5.TestClass29" time="0.18"/>
+    <testcase name="test150" classname="Suite5.TestClass30" time="0.16"/>
+  </testsuite>
+  <testsuite name="Suite 6" tests="30" failures="4" errors="0" time="4.14">
+    <testcase name="test151" classname="Suite6.TestClass1" time="0.14"/>
+    <testcase name="test152" classname="Suite6.TestClass2" time="0.12"/>
+    <testcase name="test153" classname="Suite6.TestClass3" time="0.10"/>
+    <testcase name="test154" classname="Suite6.TestClass4" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 6, test 4</failure>
+    </testcase>
+    <testcase name="test155" classname="Suite6.TestClass5" time="0.15"/>
+    <testcase name="test156" classname="Suite6.TestClass6" time="0.13"/>
+    <testcase name="test157" classname="Suite6.TestClass7" time="0.11"/>
+    <testcase name="test158" classname="Suite6.TestClass8" time="0.18"/>
+    <testcase name="test159" classname="Suite6.TestClass9" time="0.16"/>
+    <testcase name="test160" classname="Suite6.TestClass10" time="0.14"/>
+    <testcase name="test161" classname="Suite6.TestClass11" time="0.12">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 6, test 11</failure>
+    </testcase>
+    <testcase name="test162" classname="Suite6.TestClass12" time="0.10"/>
+    <testcase name="test163" classname="Suite6.TestClass13" time="0.17"/>
+    <testcase name="test164" classname="Suite6.TestClass14" time="0.15"/>
+    <testcase name="test165" classname="Suite6.TestClass15" time="0.13"/>
+    <testcase name="test166" classname="Suite6.TestClass16" time="0.11"/>
+    <testcase name="test167" classname="Suite6.TestClass17" time="0.18"/>
+    <testcase name="test168" classname="Suite6.TestClass18" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 6, test 18</failure>
+    </testcase>
+    <testcase name="test169" classname="Suite6.TestClass19" time="0.14"/>
+    <testcase name="test170" classname="Suite6.TestClass20" time="0.12"/>
+    <testcase name="test171" classname="Suite6.TestClass21" time="0.10"/>
+    <testcase name="test172" classname="Suite6.TestClass22" time="0.17"/>
+    <testcase name="test173" classname="Suite6.TestClass23" time="0.15"/>
+    <testcase name="test174" classname="Suite6.TestClass24" time="0.13"/>
+    <testcase name="test175" classname="Suite6.TestClass25" time="0.11">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 6, test 25</failure>
+    </testcase>
+    <testcase name="test176" classname="Suite6.TestClass26" time="0.18"/>
+    <testcase name="test177" classname="Suite6.TestClass27" time="0.16"/>
+    <testcase name="test178" classname="Suite6.TestClass28" time="0.14"/>
+    <testcase name="test179" classname="Suite6.TestClass29" time="0.12"/>
+    <testcase name="test180" classname="Suite6.TestClass30" time="0.10"/>
+  </testsuite>
+  <testsuite name="Suite 7" tests="30" failures="7" errors="0" time="4.23">
+    <testcase name="test181" classname="Suite7.TestClass1" time="0.17"/>
+    <testcase name="test182" classname="Suite7.TestClass2" time="0.15">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 2</failure>
+    </testcase>
+    <testcase name="test183" classname="Suite7.TestClass3" time="0.13"/>
+    <testcase name="test184" classname="Suite7.TestClass4" time="0.11">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 4</failure>
+    </testcase>
+    <testcase name="test185" classname="Suite7.TestClass5" time="0.18"/>
+    <testcase name="test186" classname="Suite7.TestClass6" time="0.16"/>
+    <testcase name="test187" classname="Suite7.TestClass7" time="0.14"/>
+    <testcase name="test188" classname="Suite7.TestClass8" time="0.12"/>
+    <testcase name="test189" classname="Suite7.TestClass9" time="0.10">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 9</failure>
+    </testcase>
+    <testcase name="test190" classname="Suite7.TestClass10" time="0.17"/>
+    <testcase name="test191" classname="Suite7.TestClass11" time="0.15"/>
+    <testcase name="test192" classname="Suite7.TestClass12" time="0.13"/>
+    <testcase name="test193" classname="Suite7.TestClass13" time="0.11"/>
+    <testcase name="test194" classname="Suite7.TestClass14" time="0.18"/>
+    <testcase name="test195" classname="Suite7.TestClass15" time="0.16"/>
+    <testcase name="test196" classname="Suite7.TestClass16" time="0.14">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 16</failure>
+    </testcase>
+    <testcase name="test197" classname="Suite7.TestClass17" time="0.12"/>
+    <testcase name="test198" classname="Suite7.TestClass18" time="0.10"/>
+    <testcase name="test199" classname="Suite7.TestClass19" time="0.17"/>
+    <testcase name="test200" classname="Suite7.TestClass20" time="0.15"/>
+    <testcase name="test201" classname="Suite7.TestClass21" time="0.13"/>
+    <testcase name="test202" classname="Suite7.TestClass22" time="0.11"/>
+    <testcase name="test203" classname="Suite7.TestClass23" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 23</failure>
+    </testcase>
+    <testcase name="test204" classname="Suite7.TestClass24" time="0.16"/>
+    <testcase name="test205" classname="Suite7.TestClass25" time="0.14"/>
+    <testcase name="test206" classname="Suite7.TestClass26" time="0.12"/>
+    <testcase name="test207" classname="Suite7.TestClass27" time="0.10">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 27</failure>
+    </testcase>
+    <testcase name="test208" classname="Suite7.TestClass28" time="0.17"/>
+    <testcase name="test209" classname="Suite7.TestClass29" time="0.15"/>
+    <testcase name="test210" classname="Suite7.TestClass30" time="0.13">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 7, test 30</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="Suite 8" tests="30" failures="5" errors="0" time="4.23">
+    <testcase name="test211" classname="Suite8.TestClass1" time="0.11"/>
+    <testcase name="test212" classname="Suite8.TestClass2" time="0.18"/>
+    <testcase name="test213" classname="Suite8.TestClass3" time="0.16"/>
+    <testcase name="test214" classname="Suite8.TestClass4" time="0.14"/>
+    <testcase name="test215" classname="Suite8.TestClass5" time="0.12"/>
+    <testcase name="test216" classname="Suite8.TestClass6" time="0.10"/>
+    <testcase name="test217" classname="Suite8.TestClass7" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 8, test 7</failure>
+    </testcase>
+    <testcase name="test218" classname="Suite8.TestClass8" time="0.15"/>
+    <testcase name="test219" classname="Suite8.TestClass9" time="0.13"/>
+    <testcase name="test220" classname="Suite8.TestClass10" time="0.11"/>
+    <testcase name="test221" classname="Suite8.TestClass11" time="0.18"/>
+    <testcase name="test222" classname="Suite8.TestClass12" time="0.16"/>
+    <testcase name="test223" classname="Suite8.TestClass13" time="0.14"/>
+    <testcase name="test224" classname="Suite8.TestClass14" time="0.12">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 8, test 14</failure>
+    </testcase>
+    <testcase name="test225" classname="Suite8.TestClass15" time="0.10"/>
+    <testcase name="test226" classname="Suite8.TestClass16" time="0.17"/>
+    <testcase name="test227" classname="Suite8.TestClass17" time="0.15"/>
+    <testcase name="test228" classname="Suite8.TestClass18" time="0.13"/>
+    <testcase name="test229" classname="Suite8.TestClass19" time="0.11"/>
+    <testcase name="test230" classname="Suite8.TestClass20" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 8, test 20</failure>
+    </testcase>
+    <testcase name="test231" classname="Suite8.TestClass21" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 8, test 21</failure>
+    </testcase>
+    <testcase name="test232" classname="Suite8.TestClass22" time="0.14"/>
+    <testcase name="test233" classname="Suite8.TestClass23" time="0.12"/>
+    <testcase name="test234" classname="Suite8.TestClass24" time="0.10"/>
+    <testcase name="test235" classname="Suite8.TestClass25" time="0.17"/>
+    <testcase name="test236" classname="Suite8.TestClass26" time="0.15"/>
+    <testcase name="test237" classname="Suite8.TestClass27" time="0.13"/>
+    <testcase name="test238" classname="Suite8.TestClass28" time="0.11">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 8, test 28</failure>
+    </testcase>
+    <testcase name="test239" classname="Suite8.TestClass29" time="0.18"/>
+    <testcase name="test240" classname="Suite8.TestClass30" time="0.16"/>
+  </testsuite>
+  <testsuite name="Suite 9" tests="30" failures="5" errors="0" time="4.14">
+    <testcase name="test241" classname="Suite9.TestClass1" time="0.14"/>
+    <testcase name="test242" classname="Suite9.TestClass2" time="0.12"/>
+    <testcase name="test243" classname="Suite9.TestClass3" time="0.10"/>
+    <testcase name="test244" classname="Suite9.TestClass4" time="0.17"/>
+    <testcase name="test245" classname="Suite9.TestClass5" time="0.15">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 9, test 5</failure>
+    </testcase>
+    <testcase name="test246" classname="Suite9.TestClass6" time="0.13"/>
+    <testcase name="test247" classname="Suite9.TestClass7" time="0.11"/>
+    <testcase name="test248" classname="Suite9.TestClass8" time="0.18"/>
+    <testcase name="test249" classname="Suite9.TestClass9" time="0.16"/>
+    <testcase name="test250" classname="Suite9.TestClass10" time="0.14"/>
+    <testcase name="test251" classname="Suite9.TestClass11" time="0.12"/>
+    <testcase name="test252" classname="Suite9.TestClass12" time="0.10">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 9, test 12</failure>
+    </testcase>
+    <testcase name="test253" classname="Suite9.TestClass13" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 9, test 13</failure>
+    </testcase>
+    <testcase name="test254" classname="Suite9.TestClass14" time="0.15"/>
+    <testcase name="test255" classname="Suite9.TestClass15" time="0.13"/>
+    <testcase name="test256" classname="Suite9.TestClass16" time="0.11"/>
+    <testcase name="test257" classname="Suite9.TestClass17" time="0.18"/>
+    <testcase name="test258" classname="Suite9.TestClass18" time="0.16"/>
+    <testcase name="test259" classname="Suite9.TestClass19" time="0.14">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 9, test 19</failure>
+    </testcase>
+    <testcase name="test260" classname="Suite9.TestClass20" time="0.12"/>
+    <testcase name="test261" classname="Suite9.TestClass21" time="0.10"/>
+    <testcase name="test262" classname="Suite9.TestClass22" time="0.17"/>
+    <testcase name="test263" classname="Suite9.TestClass23" time="0.15"/>
+    <testcase name="test264" classname="Suite9.TestClass24" time="0.13"/>
+    <testcase name="test265" classname="Suite9.TestClass25" time="0.11"/>
+    <testcase name="test266" classname="Suite9.TestClass26" time="0.18">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 9, test 26</failure>
+    </testcase>
+    <testcase name="test267" classname="Suite9.TestClass27" time="0.16"/>
+    <testcase name="test268" classname="Suite9.TestClass28" time="0.14"/>
+    <testcase name="test269" classname="Suite9.TestClass29" time="0.12"/>
+    <testcase name="test270" classname="Suite9.TestClass30" time="0.10"/>
+  </testsuite>
+  <testsuite name="Suite 10" tests="30" failures="6" errors="0" time="4.23">
+    <testcase name="test271" classname="Suite10.TestClass1" time="0.17"/>
+    <testcase name="test272" classname="Suite10.TestClass2" time="0.15"/>
+    <testcase name="test273" classname="Suite10.TestClass3" time="0.13">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 10, test 3</failure>
+    </testcase>
+    <testcase name="test274" classname="Suite10.TestClass4" time="0.11"/>
+    <testcase name="test275" classname="Suite10.TestClass5" time="0.18"/>
+    <testcase name="test276" classname="Suite10.TestClass6" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 10, test 6</failure>
+    </testcase>
+    <testcase name="test277" classname="Suite10.TestClass7" time="0.14"/>
+    <testcase name="test278" classname="Suite10.TestClass8" time="0.12"/>
+    <testcase name="test279" classname="Suite10.TestClass9" time="0.10"/>
+    <testcase name="test280" classname="Suite10.TestClass10" time="0.17">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 10, test 10</failure>
+    </testcase>
+    <testcase name="test281" classname="Suite10.TestClass11" time="0.15"/>
+    <testcase name="test282" classname="Suite10.TestClass12" time="0.13"/>
+    <testcase name="test283" classname="Suite10.TestClass13" time="0.11"/>
+    <testcase name="test284" classname="Suite10.TestClass14" time="0.18"/>
+    <testcase name="test285" classname="Suite10.TestClass15" time="0.16"/>
+    <testcase name="test286" classname="Suite10.TestClass16" time="0.14"/>
+    <testcase name="test287" classname="Suite10.TestClass17" time="0.12">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 10, test 17</failure>
+    </testcase>
+    <testcase name="test288" classname="Suite10.TestClass18" time="0.10"/>
+    <testcase name="test289" classname="Suite10.TestClass19" time="0.17"/>
+    <testcase name="test290" classname="Suite10.TestClass20" time="0.15"/>
+    <testcase name="test291" classname="Suite10.TestClass21" time="0.13"/>
+    <testcase name="test292" classname="Suite10.TestClass22" time="0.11"/>
+    <testcase name="test293" classname="Suite10.TestClass23" time="0.18"/>
+    <testcase name="test294" classname="Suite10.TestClass24" time="0.16">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 10, test 24</failure>
+    </testcase>
+    <testcase name="test295" classname="Suite10.TestClass25" time="0.14"/>
+    <testcase name="test296" classname="Suite10.TestClass26" time="0.12"/>
+    <testcase name="test297" classname="Suite10.TestClass27" time="0.10"/>
+    <testcase name="test298" classname="Suite10.TestClass28" time="0.17"/>
+    <testcase name="test299" classname="Suite10.TestClass29" time="0.15">
+      <failure message="Test failed" type="AssertionError">Failure in Suite 10, test 29</failure>
+    </testcase>
+    <testcase name="test300" classname="Suite10.TestClass30" time="0.13"/>
+  </testsuite>
+</testsuites>

@@ -1,6 +1,5 @@
-import { stat } from 'node:fs/promises';
-
-import { test, expect } from './baseFixtures';
+import { stat } from 'node:fs/promises'
+import { test, expect } from './baseFixtures'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('http://localhost:5190/')
