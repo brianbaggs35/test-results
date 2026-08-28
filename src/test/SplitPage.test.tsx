@@ -98,7 +98,7 @@ describe('SplitPage', () => {
       await userEvent.click(screen.getByText('Split'));
 
       const result = await screen.findByTestId('split-result');
-      expect(result).toHaveTextContent('2 failed/errored tests split into');
+      expect(result).toHaveTextContent('2 failed, errored, or flaky tests split into 2 and 0');
       expect(screen.getByText(/Download File A/)).toBeInTheDocument();
       expect(screen.getByText(/Download File B/)).toBeInTheDocument();
     });

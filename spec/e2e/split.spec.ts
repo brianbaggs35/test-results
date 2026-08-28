@@ -26,7 +26,7 @@ test.describe('Split E2E Tests', () => {
 
     await page.getByRole('main').getByRole('button', { name: 'Split' }).click()
 
-    await expect(page.getByTestId('split-result')).toContainText('4 failed/errored tests split into 2 and 2. All passed and skipped tests are included in both files.')
+    await expect(page.getByTestId('split-result')).toContainText('4 failed, errored, or flaky tests split into 2 and 2. All other passed and skipped tests are included in both files')
 
     const [fileDownloadA] = await Promise.all([
       page.waitForEvent('download'),

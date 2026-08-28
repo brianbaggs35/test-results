@@ -167,8 +167,8 @@ export const SplitPage: React.FC<SplitPageProps> = ({ xmlContent, onCombined, se
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground mb-3">
-                    {splitResult.totalFailed} failed/errored test{splitResult.totalFailed !== 1 ? 's' : ''} split into{' '}
-                    <strong className="text-foreground">{splitResult.countA}</strong> and <strong className="text-foreground">{splitResult.countB}</strong>. All passed and
+                    {splitResult.totalFailed} failed, errored, or flaky test{splitResult.totalFailed !== 1 ? 's' : ''} split into{' '}
+                    <strong className="text-foreground">{splitResult.countA}</strong> and <strong className="text-foreground">{splitResult.countB}</strong>. All other passed and
                     skipped tests are included in both files.
                   </p>
                 )}
