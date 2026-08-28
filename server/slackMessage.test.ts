@@ -82,8 +82,8 @@ describe('buildSlackMessage', () => {
 
     expect(chartBlock.image_url).toContain('indexAxis%3A%27y%27');
 
-    // Matches MIN_SLICE_VISUAL_SHARE in slackMessage.ts.
-    const MIN_SHARE = 5 / 360;
+    // Matches MIN_SLICE_VISUAL_PIXELS / CHART_WIDTH in slackMessage.ts.
+    const MIN_SHARE = 2 / 320;
     const [passedShare, failedShare, skippedShare] = getChartDataValues(chartBlock.image_url!);
     // Both minority segments are true-tiny (well under the floor), so both
     // get lifted to exactly the floor.
@@ -95,9 +95,28 @@ describe('buildSlackMessage', () => {
     // time (see toVisualShares).
     expect(passedShare).toBeCloseTo(3722 / 3738, 5);
 
-    // The boost never touches what's actually displayed as text.
+    // The boost never touches what's actually displayed as text. (13
+    // skipped are excluded from the denominator, so it's 3738 - 13 = 3725,
+    // not the raw total.)
     const summarySection = blocks.find(b => b.type === 'section' && b.fields);
-    expect(summarySection?.fields?.[0].text).toContain('3722 / 3738 Passed');
+    expect(summarySection?.fields?.[0].text).toContain('3722 / 3725 Passed');
+  });
+
+  it('excludes skipped tests from the overall pass ratio and percentage (a skip is neither a pass nor a fail)', () => {
+    // The exact reported case: 5 failed, 9 skipped out of 3740 total.
+    // Previously rendered as "3726 / 3740 Passed", which reads as if 14
+    // tests failed instead of the real 5.
+    const testData: SlackTestData = {
+      summary: { total: 3740, passed: 3726, failed: 5, skipped: 9, time: 19410 },
+      suites: [],
+    };
+
+    const message = buildSlackMessage(testData, { title: 'Release-August-27 Critical', metadata: [] });
+
+    const blocks = getBlocks(message);
+    const summarySection = blocks.find(b => b.fields?.[0]?.text.startsWith('*Results:*'));
+    expect(summarySection?.fields?.[0].text).toBe('*Results:*\n3726 / 3731 Passed (99.86%)');
+    expect(message.text).toBe('Automated Testing Results: 3726 / 3731 passed (99.86%)');
   });
 
   it('leaves an already-visible split (e.g. 90/10) at its exact true proportion, not compressed toward the floor', () => {
@@ -261,7 +280,8 @@ describe('buildSlackMessage', () => {
 
     const suiteXIndex = blocks.findIndex(b => b.text?.text === ':x: *Suite X*');
     const suiteXFields = blocks[suiteXIndex + 1].fields;
-    expect(suiteXFields?.[0].text).toBe('*Results:*\n6 / 10 Passed (60.00%)');
+    // Suite X has 1 skipped test, excluded from the denominator: 10 - 1 = 9.
+    expect(suiteXFields?.[0].text).toBe('*Results:*\n6 / 9 Passed (66.66%)');
     expect(suiteXFields?.[1].text).toBe('*Duration:*\n53s');
   });
 

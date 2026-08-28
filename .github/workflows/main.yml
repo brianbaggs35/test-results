@@ -33,7 +33,7 @@ jobs:
       run: npm run lint
 
     - name: Run typescript checks
-      run: npx tsc
+      run: npm run typecheck
 
     - name: Run tests with coverage
       run: npm run test:coverage
