@@ -183,8 +183,10 @@ describe('publishPlugin', () => {
     const plugin = publishPlugin({ webhookUrl: 'https://hooks.slack.com/services/x' });
 
     expect(plugin.name).toBe('slack-publish');
-    // configureServer is typed as a Vite hook (function or {handler} object); invoke it directly.
-    const configureServer = plugin.configureServer as (server: { middlewares: { use: typeof use } }) => void;
+    // configureServer is typed as a Vite hook (function or {handler} object) that TS can't
+    // statically narrow to the plain-function form publishPlugin actually returns, so the
+    // direct cast needs to go through `unknown` first.
+    const configureServer = plugin.configureServer as unknown as (server: { middlewares: { use: typeof use } }) => void;
     configureServer({ middlewares: { use } });
 
     expect(use).toHaveBeenCalledWith('/api/publish', expect.any(Function));

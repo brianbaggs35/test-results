@@ -47,17 +47,21 @@ const CHART_WIDTH = 320;
 // replaced — just enough for the bar itself plus the legend below it.
 const CHART_HEIGHT = 110;
 // Guaranteed minimum share of the bar's total length for any non-zero
-// segment — about 4-5px at CHART_WIDTH, small enough to read as a thin
-// sliver rather than a chunky block, but wide enough to still be a visible
-// band of color rather than an antialiasing smudge. A real, common test run
-// might be 3722 passed / 3 failed — at true proportions that's a fraction
-// of a pixel wide, visually indistinguishable from zero. This is purely a
+// segment, expressed as a pixel width of CHART_WIDTH rather than a flat
+// percentage. A real, common test run might be 3726 passed / 5 failed / 9
+// skipped — at true proportions failed and skipped are each a fraction of
+// a pixel wide, visually indistinguishable from zero. This is purely a
 // VISUAL encoding choice: it never touches the real counts (still shown
 // accurately in the Results text and legend), only how much of the bar each
 // non-zero segment is drawn with, so a present failure/skip is always
 // actually visible — without inflating segments that are already
-// comfortably visible (see toVisualShares).
-const MIN_SLICE_VISUAL_SHARE = 5 / 360;
+// comfortably visible (see toVisualShares). Failed and skipped are floored
+// independently, so a run with both tiny (like the example above) ends up
+// with two boosted slivers, not one — kept to a couple of pixels each so
+// the combined boosted width still reads as barely-visible rather than a
+// chunky block.
+const MIN_SLICE_VISUAL_PIXELS = 2;
+const MIN_SLICE_VISUAL_SHARE = MIN_SLICE_VISUAL_PIXELS / CHART_WIDTH;
 // QuickChart defaults to a 2x (or higher) devicePixelRatio for crisper
 // images, which silently doubled the actual PNG size beyond CHART_WIDTH/
 // CHART_HEIGHT and rendered far larger in Slack than intended. Pinned to 1
@@ -126,9 +130,15 @@ const suitePassed = (suite: SlackTestSuite): number => suite.tests - suite.failu
 
 const suiteHasFailures = (suite: SlackTestSuite): boolean => suite.failures + suite.errors > 0;
 
+// Skipped tests never ran, so they're excluded from both sides of the
+// "X / Y Passed" ratio and its percentage — a skip shouldn't read as either
+// a pass or a fail. Applied to the overall summary and each suite
+// breakdown alike.
+const executedCount = (total: number, skipped: number): number => total - skipped;
+
 const attachmentColor = (summary: SlackTestData['summary']): 'good' | 'warning' | 'danger' => {
   if (summary.failed === 0) return 'good';
-  return passRateValue(summary.passed, summary.total) < 90 ? 'danger' : 'warning';
+  return passRateValue(summary.passed, executedCount(summary.total, summary.skipped)) < 90 ? 'danger' : 'warning';
 };
 
 // Floors each segment's true proportion at MIN_SLICE_VISUAL_SHARE — a
@@ -230,7 +240,8 @@ const buildChartUrl = (summary: SlackTestData['summary']): string | null => {
 export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMessageOptions): IncomingWebhookSendArguments {
   const { summary, suites } = testData;
   const { title, metadata } = options;
-  const overallPassRateText = formatPercent(summary.passed, summary.total);
+  const executedTotal = executedCount(summary.total, summary.skipped);
+  const overallPassRateText = formatPercent(summary.passed, executedTotal);
   const chartUrl = buildChartUrl(summary);
 
   const blocks: KnownBlock[] = [
@@ -241,7 +252,7 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*Results:*\n${summary.passed} / ${summary.total} Passed (${overallPassRateText}%)` },
+        { type: 'mrkdwn', text: `*Results:*\n${summary.passed} / ${executedTotal} Passed (${overallPassRateText}%)` },
         { type: 'mrkdwn', text: `*Duration:*\n${formatDuration(summary.time)}` },
       ],
     },
@@ -272,6 +283,7 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
 
     for (const suite of failedSuites.slice(0, MAX_FAILED_SUITES_SHOWN)) {
       const passed = suitePassed(suite);
+      const suiteExecuted = executedCount(suite.tests, suite.skipped);
       blocks.push({
         type: 'section',
         text: { type: 'mrkdwn', text: `:x: *${truncate(suite.name, SUITE_NAME_MAX_LENGTH)}*` },
@@ -279,7 +291,7 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
       blocks.push({
         type: 'section',
         fields: [
-          { type: 'mrkdwn', text: `*Results:*\n${passed} / ${suite.tests} Passed (${formatPercent(passed, suite.tests)}%)` },
+          { type: 'mrkdwn', text: `*Results:*\n${passed} / ${suiteExecuted} Passed (${formatPercent(passed, suiteExecuted)}%)` },
           { type: 'mrkdwn', text: `*Duration:*\n${formatDuration(suite.time)}` },
         ],
       });
@@ -295,7 +307,7 @@ export function buildSlackMessage(testData: SlackTestData, options: BuildSlackMe
   }
 
   return {
-    text: `Automated Testing Results: ${summary.passed} / ${summary.total} passed (${overallPassRateText}%)`,
+    text: `Automated Testing Results: ${summary.passed} / ${executedTotal} passed (${overallPassRateText}%)`,
     attachments: [
       {
         color: attachmentColor(summary),
