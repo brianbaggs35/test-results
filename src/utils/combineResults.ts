@@ -11,6 +11,37 @@ function testcaseKey(tc: TestCase, suiteName: string): string {
   return testIdentityKey(suiteName, tc.classname, tc.name);
 }
 
+// Both split halves auto-seed an identical untouched entry for every shared failed/flaky
+// test (same status/no notes), so comparing only the human-editable fields — not id/name/
+// suite/testStatus/errorMessage, which are derived from the test itself and updatedAt,
+// which differs just from each half being loaded at a different moment — is what tells a
+// genuine two-person edit conflict apart from that ordinary, silent-non-conflict case.
+function isEquivalentProgress(x: FailureProgressItem, y: FailureProgressItem): boolean {
+  return x.status === y.status && (x.notes || '') === (y.notes || '') && (x.assignee || '') === (y.assignee || '');
+}
+
+// Last-writer-wins (a plain object spread) would silently discard whichever side lost —
+// e.g. one teammate's notes and status vanishing with no trace. Warn and keep the more
+// recently updated entry instead, mirroring how testcase status conflicts are resolved below.
+function mergeProgress(
+  a: Record<string, FailureProgressItem>,
+  b: Record<string, FailureProgressItem>,
+  warnings: string[]
+): Record<string, FailureProgressItem> {
+  const merged: Record<string, FailureProgressItem> = { ...a };
+  Object.entries(b).forEach(([key, bItem]) => {
+    const aItem = merged[key];
+    if (!aItem || isEquivalentProgress(aItem, bItem)) {
+      merged[key] = bItem;
+      return;
+    }
+    const winner = (bItem.updatedAt ?? '') >= (aItem.updatedAt ?? '') ? bItem : aItem;
+    warnings.push(`Progress for "${aItem.name}" differs between the two files — kept the more recently updated entry.`);
+    merged[key] = winner;
+  });
+  return merged;
+}
+
 // When the same test has a different outcome between the two halves (a genuine rerun
 // difference, not the ordinary shared passed/skipped case), keep whichever outcome is
 // more "worth attention" rather than always favoring one hardcoded status.
@@ -91,6 +122,8 @@ export function combineExportBundles(a: ExportBundle, b: ExportBundle): CombineR
   const totalFlaky = mergedSuites.reduce((sum, s) => sum + s.testcases.filter((t) => t.status === 'flaky').length, 0);
   const totalTime = mergedSuites.reduce((sum, s) => sum + s.time, 0);
 
+  const flakyDetectionSkippedReason = a.testData.flakyDetectionSkippedReason ?? b.testData.flakyDetectionSkippedReason;
+
   const testData: TestData = {
     summary: {
       total: totalTests,
@@ -101,7 +134,8 @@ export function combineExportBundles(a: ExportBundle, b: ExportBundle): CombineR
       time: totalTime,
     },
     suites: mergedSuites,
+    ...(flakyDetectionSkippedReason ? { flakyDetectionSkippedReason } : {}),
   };
 
-  return { testData, progress: { ...a.progress, ...b.progress }, warnings };
+  return { testData, progress: mergeProgress(a.progress, b.progress, warnings), warnings };
 }

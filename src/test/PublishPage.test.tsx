@@ -237,6 +237,17 @@ describe('PublishPage', () => {
     expect(screen.queryByText('Select XML File')).not.toBeInTheDocument();
   });
 
+  it('should open the file picker when "Select XML File" is clicked', () => {
+    render(<PublishPage testData={null} />);
+
+    const input = screen.getByTestId('xml-file-input') as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, 'click');
+
+    fireEvent.click(screen.getByText('Select XML File'));
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('should show error when publishing without title', async () => {
     render(<PublishPage testData={sampleTestData} />);
 

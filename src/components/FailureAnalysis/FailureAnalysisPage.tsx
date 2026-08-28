@@ -58,6 +58,15 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
     setCurrentPage(1);
   };
 
+  // Independent of statusFilter (which defaults to 'failed'), so the empty state below
+  // reflects whether there's anything to look at at all, not just the current filter.
+  const hasAnyFailureOrFlaky = useMemo(() => {
+    if (!testData) return false;
+    return testData.suites.some(suite =>
+      suite.testcases.some(test => test.status === 'failed' || test.status === 'flaky')
+    );
+  }, [testData]);
+
   const filteredTests = useMemo(() => {
     if (!testData) return [];
     return testData.suites
@@ -107,7 +116,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
     failedCount > 0 ? `${failedCount} failed` : null,
     flakyCount > 0 ? `${flakyCount} flaky` : null,
   ].filter(Boolean).join(' and ');
-  if (filteredTests.length === 0) {
+  if (!hasAnyFailureOrFlaky) {
     return (
       <EmptyState
         variant="success"

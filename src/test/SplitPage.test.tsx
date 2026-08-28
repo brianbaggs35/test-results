@@ -77,6 +77,17 @@ describe('SplitPage', () => {
       expect(screen.getByText('Split').closest('button')).not.toBeDisabled();
     });
 
+    it('opens the file picker when "Choose XML File" is clicked', async () => {
+      render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
+
+      const input = screen.getByLabelText('Upload XML file to split') as HTMLInputElement;
+      const clickSpy = vi.spyOn(input, 'click');
+
+      await userEvent.click(screen.getByText('Choose XML File'));
+
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('splits an uploaded file and shows the resulting counts', async () => {
       render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
 

@@ -18,6 +18,9 @@ export const formatDuration = (seconds: number): string => {
 export const formatPercent = (value: number, total: number): string => {
   if (total === 0) return '0.00';
   const rawPercent = (value / total) * 100;
-  const flooredToTwoDecimals = Math.floor(rawPercent * 100) / 100;
+  // The tiny epsilon absorbs floating-point representation error (e.g. 58 * 100 can
+  // evaluate to 5799.999999999999) so an exact percentage like 58.00 doesn't floor
+  // down to 57.99 — it's far too small to ever mask a genuinely-lower value.
+  const flooredToTwoDecimals = Math.floor(rawPercent * 100 + 1e-9) / 100;
   return flooredToTwoDecimals.toFixed(2);
 };
