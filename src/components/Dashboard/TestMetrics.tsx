@@ -1,6 +1,6 @@
 import { PieChart, Pie, Tooltip, Cell, ResponsiveContainer, type PieLabelRenderProps } from 'recharts';
 import { CheckCircleIcon, XCircleIcon, ClockIcon, AlertTriangleIcon, TrendingUpIcon } from 'lucide-react';
-import { formatDuration } from '../../utils/formatting';
+import { formatDuration, formatPercent } from '../../utils/formatting';
 import type { TestData } from '../../types';
 import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +30,11 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
     color: '#DC2626',
     description: `${summary.failed} tests failed`
   }, {
+    name: 'Flaky',
+    value: summary.flaky,
+    color: '#EAB308',
+    description: `${summary.flaky} tests failed on an initial attempt but passed on retry`
+  }, {
     name: 'Skipped',
     value: summary.skipped,
     color: '#FBBF24',
@@ -54,7 +59,7 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
           <p className="font-medium">{data.name}</p>
           <p className="text-muted-foreground">{data.description}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {(data.value / summary.total * 100).toFixed(1)}% of total
+            {formatPercent(data.value, summary.total)}% of total
           </p>
         </div>;
     }
@@ -79,15 +84,17 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
       return null;
     }
     return <text x={x} y={y} fill="currentColor" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium text-foreground">
-        {value} ({(percent * 100).toFixed(1)}%)
+        {value} ({formatPercent(percent, 1)}%)
       </text>;
   };
 
-  const successRate = (summary.passed / (summary.passed + summary.failed + summary.skipped) * 100).toFixed(1);
+  // Flaky wasn't a clean first-try pass, so — like failed/skipped — it counts against the rate.
+  const successRate = formatPercent(summary.passed, summary.total);
 
   const stats = [
     { key: 'passed', label: 'Passed', value: summary.passed, icon: CheckCircleIcon, ring: 'ring-success/20', chip: 'bg-success/15 text-success', bar: 'bg-success' },
     { key: 'failed', label: 'Failed', value: summary.failed, icon: XCircleIcon, ring: 'ring-destructive/20', chip: 'bg-destructive/15 text-destructive', bar: 'bg-destructive' },
+    { key: 'flaky', label: 'Flaky', value: summary.flaky, icon: AlertTriangleIcon, ring: 'ring-flaky/20', chip: 'bg-flaky/15 text-flaky', bar: 'bg-flaky' },
     { key: 'skipped', label: 'Skipped', value: summary.skipped, icon: AlertTriangleIcon, ring: 'ring-warning/20', chip: 'bg-warning/15 text-warning', bar: 'bg-warning' },
   ] as const;
 
@@ -97,7 +104,7 @@ export const TestMetrics: React.FC<TestMetricsProps> = ({
           <CardTitle>Test Execution Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-2 gap-4 mb-6">
             {stats.map(({ key, label, value, icon: Icon, ring, chip, bar }) => {
               const pct = summary.total > 0 ? (value / summary.total * 100) : 0;
               return (

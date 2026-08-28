@@ -14,6 +14,7 @@ interface RawTestCase {
   failure?: string | RawFailureOrError;
   error?: string | RawFailureOrError;
   skipped?: string;
+  'system-out'?: string;
 }
 
 interface RawTestSuite {
@@ -35,6 +36,25 @@ interface RawJUnitXML {
   testsuites?: RawTestSuites;
   testsuite?: RawTestSuite;
 }
+
+// Playwright's JUnit reporter writes this marker into <system-out> whenever it
+// attaches a video/trace/error-context file to a test *attempt* — which, under the
+// standard retain-on-failure/on-first-retry config, only happens when that attempt
+// failed. A testcase with no <failure>/<error> (so the *final* attempt passed) but
+// with this marker in its system-out therefore failed at least once before passing
+// on retry: flaky. There is no dedicated "flaky" or retry-count field anywhere in
+// JUnit XML or Playwright's reporter output, so this structural side-effect is the
+// only reliable signal available — verified against two real result files where
+// every flaky/failed/clean-pass test matched this pattern with no exceptions.
+const ATTACHMENT_MARKER = '[[ATTACHMENT|';
+
+// If detecting flaky tests this way would flag more than half of the tests that
+// would otherwise be "passed", that's no longer plausible as genuine flakiness
+// (real suites have flaky tests as a small minority) — it much more likely means
+// this project's Playwright config captures video/trace/screenshots for every
+// test, not just failing attempts, which would make every passing test look
+// flaky. In that case, skip flaky-marking entirely rather than mislabel the file.
+const FLAKY_GUARD_MAX_RATIO = 0.5;
 
 export const parseJUnitXML = (xmlContent: string): TestData => {
   const parser = new XMLParser({
@@ -66,6 +86,9 @@ const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
   let totalFailed = 0;
   let totalSkipped = 0;
   let totalTime = 0;
+  // Testcases that resolved to "passed" but show retry-artifact evidence — finalized
+  // as flaky (or left as passed, see FLAKY_GUARD_MAX_RATIO) once every suite is processed.
+  const flakyCandidates: TestCase[] = [];
   const processedSuites: TestSuite[] = suitesArray.map(suite => {
     // Extract basic suite info
     const suiteInfo: TestSuite = {
@@ -119,7 +142,7 @@ const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
         } else if (testcase.skipped) {
           status = 'skipped';
         }
-        return {
+        const testCase: TestCase = {
           name: testcase.name || 'Unnamed Test',
           classname: testcase.classname || '',
           time: Number(testcase.time ?? '0'),
@@ -127,20 +150,50 @@ const processTestSuites = (suites: RawTestSuite | RawTestSuite[]): TestData => {
           errorMessage,
           failureDetails
         };
+        if (status === 'passed' && testcase['system-out']?.includes(ATTACHMENT_MARKER)) {
+          flakyCandidates.push(testCase);
+        }
+        return testCase;
       });
     }
     return suiteInfo;
   });
-  // Calculate passed tests
+  // Calculate passed tests (still includes flaky candidates at this point)
   totalPassed = totalTests - totalFailed - totalSkipped;
+
+  let totalFlaky = 0;
+  let flakyDetectionSkippedReason: string | undefined;
+  if (flakyCandidates.length > 0) {
+    const candidateRatio = totalPassed > 0 ? flakyCandidates.length / totalPassed : 1;
+    if (candidateRatio > FLAKY_GUARD_MAX_RATIO) {
+      flakyDetectionSkippedReason =
+        `Flaky-test detection was skipped: ${flakyCandidates.length} of ${totalPassed} passing tests had debug ` +
+        `attachments, which usually means this project's Playwright config captures video/trace for every test, ` +
+        `not just failures.`;
+    } else {
+      flakyCandidates.forEach(testCase => {
+        testCase.status = 'flaky';
+        testCase.failureDetails = {
+          type: 'Flaky',
+          message: 'This test failed on an initial attempt but passed on retry.',
+          stackTrace: ''
+        };
+      });
+      totalFlaky = flakyCandidates.length;
+      totalPassed -= totalFlaky;
+    }
+  }
+
   return {
     summary: {
       total: totalTests,
       passed: totalPassed,
       failed: totalFailed,
       skipped: totalSkipped,
+      flaky: totalFlaky,
       time: totalTime
     },
-    suites: processedSuites
+    suites: processedSuites,
+    ...(flakyDetectionSkippedReason ? { flakyDetectionSkippedReason } : {})
   };
 };

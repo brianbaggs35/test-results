@@ -59,6 +59,7 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
         <option value="all">All</option>
         <option value="passed">Passed</option>
         <option value="failed">Failed</option>
+        <option value="flaky">Flaky</option>
         <option value="skipped">Skipped</option>
       </select>
       <select
@@ -106,6 +107,7 @@ describe('TestResultsList', () => {
         passed: 3,
         failed: 2,
         skipped: 1,
+        flaky: 0,
         time: 120.0
       },
       suites: [
@@ -335,6 +337,7 @@ describe('TestResultsList', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: []
@@ -546,8 +549,41 @@ describe('TestResultsList', () => {
     };
 
     render(<TestResultsList testData={testDataWithClassFilter} />);
-    
+
     // The component should handle classname filtering
     expect(screen.getByText('Test Class A')).toBeInTheDocument();
+  });
+
+  it('should tint a flaky test row and filter to it via the status dropdown', async () => {
+    const user = userEvent.setup();
+    const flakyTestData: TestData = {
+      summary: { total: 2, passed: 0, failed: 0, skipped: 0, flaky: 2, time: 2.0 },
+      suites: [
+        {
+          name: 'Suite 1',
+          tests: 2,
+          failures: 0,
+          errors: 0,
+          skipped: 0,
+          time: 2.0,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [
+            { name: 'Flaky Test', status: 'flaky', suite: 'Suite 1', time: 1.0, classname: 'C' },
+            { name: 'Other Flaky Test', status: 'flaky', suite: 'Suite 1', time: 1.0, classname: 'C' }
+          ]
+        }
+      ]
+    };
+
+    render(<TestResultsList testData={flakyTestData} />);
+
+    const row = screen.getByText('Flaky Test').closest('tr');
+    expect(row).toHaveClass('bg-flaky/5');
+
+    const statusFilter = screen.getByTestId('status-filter');
+    await user.selectOptions(statusFilter, 'flaky');
+
+    expect(screen.getByText('Flaky Test')).toBeInTheDocument();
+    expect(screen.getByText('Other Flaky Test')).toBeInTheDocument();
   });
 });

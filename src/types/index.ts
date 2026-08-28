@@ -3,12 +3,13 @@ export interface TestSummary {
   passed: number;
   failed: number;
   skipped: number;
+  flaky: number;
   time: number;
 }
 
 export interface TestCase {
   name: string;
-  status: 'passed' | 'failed' | 'skipped';
+  status: 'passed' | 'failed' | 'skipped' | 'flaky';
   suite?: string;
   classname?: string;
   time: number;
@@ -34,6 +35,13 @@ export interface TestSuite {
 export interface TestData {
   summary: TestSummary;
   suites: TestSuite[];
+  /**
+   * Set when flaky-test detection was skipped for this file because too many
+   * passing tests showed retry artifacts to plausibly all be genuine flakiness
+   * (see the plausibility guard in xmlParser.ts) — most likely this project's
+   * Playwright config captures video/trace for every test, not just failures.
+   */
+  flakyDetectionSkippedReason?: string;
 }
 
 export interface ReportConfig {
@@ -43,6 +51,7 @@ export interface ReportConfig {
   includeExecutiveSummary: boolean;
   includeTestMetrics: boolean;
   includeFailedTests: boolean;
+  includeFlakyTests: boolean;
   includeAllTests: boolean;
   includeResolutionProgress: boolean;
 }
@@ -52,6 +61,8 @@ export interface FailureProgressItem {
   name: string;
   suite: string;
   errorMessage?: string;
+  /** The test's own outcome (failed vs. failed-then-passed-on-retry) — independent of `status` below. */
+  testStatus: 'failed' | 'flaky';
   status: 'pending' | 'in_progress' | 'completed';
   notes?: string;
   updatedAt?: string;

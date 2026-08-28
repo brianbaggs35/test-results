@@ -25,12 +25,13 @@ function bundle(suites: TestSuite[], progress: ExportBundle['progress'] = {}): E
       acc.total += s.tests;
       acc.failed += s.failures + s.errors;
       acc.skipped += s.skipped;
+      acc.flaky += s.testcases.filter((t) => t.status === 'flaky').length;
       acc.time += s.time;
       return acc;
     },
-    { total: 0, passed: 0, failed: 0, skipped: 0, time: 0 },
+    { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, time: 0 },
   );
-  summary.passed = summary.total - summary.failed - summary.skipped;
+  summary.passed = summary.total - summary.failed - summary.skipped - summary.flaky;
   return { version: 1, testData: { summary, suites }, progress };
 }
 
@@ -69,11 +70,11 @@ describe('combineExportBundles', () => {
   it('merges progress maps from both bundles without collisions', () => {
     const a = bundle(
       [suite({ name: 'S', testcases: [tc({ name: 'f1', status: 'failed' })] })],
-      { 'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'completed' } },
+      { 'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed', status: 'completed' } },
     );
     const b = bundle(
       [suite({ name: 'S', testcases: [tc({ name: 'f2', status: 'failed' })] })],
-      { 'S-f2': { id: 'S-f2', name: 'f2', suite: 'S', status: 'in_progress' } },
+      { 'S-f2': { id: 'S-f2', name: 'f2', suite: 'S', testStatus: 'failed', status: 'in_progress' } },
     );
 
     const { progress } = combineExportBundles(a, b);
@@ -178,11 +179,11 @@ describe('combineExportBundles', () => {
     const idB = testIdentityKey('S', 'ClassB', 'test1');
     const a = bundle(
       [suite({ name: 'S', testcases: [tc({ name: 'test1', classname: 'ClassA', status: 'failed' })] })],
-      { [idA]: { id: idA, name: 'test1', suite: 'S', status: 'completed', notes: 'Alice fixed this' } },
+      { [idA]: { id: idA, name: 'test1', suite: 'S', testStatus: 'failed', status: 'completed', notes: 'Alice fixed this' } },
     );
     const b = bundle(
       [suite({ name: 'S', testcases: [tc({ name: 'test1', classname: 'ClassB', status: 'failed' })] })],
-      { [idB]: { id: idB, name: 'test1', suite: 'S', status: 'in_progress', notes: 'Bob investigating' } },
+      { [idB]: { id: idB, name: 'test1', suite: 'S', testStatus: 'failed', status: 'in_progress', notes: 'Bob investigating' } },
     );
 
     const { progress } = combineExportBundles(a, b);
@@ -211,5 +212,50 @@ describe('combineExportBundles', () => {
       .flatMap((s) => s.testcases.map((t) => t.name));
     expect(new Set(dupNames)).toEqual(new Set(['alpha', 'bravo', 'charlie', 'delta']));
     expect(testData.summary.failed).toBe(4);
+  });
+
+  it('sums flaky testcases into summary.flaky and excludes them from passed', () => {
+    const a = bundle([
+      suite({ name: 'S', testcases: [tc({ name: 'flaky1', status: 'flaky' }), tc({ name: 'clean', status: 'passed' })] }),
+    ]);
+    const b = bundle([
+      suite({ name: 'S', testcases: [tc({ name: 'flaky1', status: 'flaky' }), tc({ name: 'clean', status: 'passed' })] }),
+    ]);
+
+    const { testData } = combineExportBundles(a, b);
+
+    expect(testData.summary.flaky).toBe(1);
+    expect(testData.summary.passed).toBe(1);
+    expect(testData.summary.total).toBe(2);
+  });
+
+  it('prefers flaky over passed when the same test has conflicting status between files', () => {
+    const a = bundle([suite({ name: 'S', testcases: [tc({ name: 'unstable', status: 'passed' })] })]);
+    const b = bundle([suite({ name: 'S', testcases: [tc({ name: 'unstable', status: 'flaky' })] })]);
+
+    const { testData, warnings } = combineExportBundles(a, b);
+
+    expect(warnings).toContainEqual(expect.stringMatching(/kept the flaky one/));
+    expect(testData.suites[0].testcases[0].status).toBe('flaky');
+  });
+
+  it('prefers failed over flaky when the same test has conflicting status between files', () => {
+    const a = bundle([suite({ name: 'S', testcases: [tc({ name: 'unstable', status: 'flaky' })] })]);
+    const b = bundle([suite({ name: 'S', testcases: [tc({ name: 'unstable', status: 'failed' })] })]);
+
+    const { testData, warnings } = combineExportBundles(a, b);
+
+    expect(warnings).toContainEqual(expect.stringMatching(/kept the failed one/));
+    expect(testData.suites[0].testcases[0].status).toBe('failed');
+  });
+
+  it('prefers flaky over skipped when the same test has conflicting status between files', () => {
+    const a = bundle([suite({ name: 'S', testcases: [tc({ name: 'unstable', status: 'skipped' })] })]);
+    const b = bundle([suite({ name: 'S', testcases: [tc({ name: 'unstable', status: 'flaky' })] })]);
+
+    const { testData, warnings } = combineExportBundles(a, b);
+
+    expect(warnings).toContainEqual(expect.stringMatching(/kept the flaky one/));
+    expect(testData.suites[0].testcases[0].status).toBe('flaky');
   });
 });

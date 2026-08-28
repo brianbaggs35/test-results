@@ -18,6 +18,7 @@ describe('FailureAnalysis', () => {
         passed: 5,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 50.0
       },
       suites: [
@@ -61,6 +62,7 @@ describe('FailureAnalysis', () => {
         passed: 3,
         failed: 2,
         skipped: 0,
+        flaky: 0,
         time: 50.0
       },
       suites: [
@@ -124,6 +126,7 @@ describe('FailureAnalysis', () => {
         passed: 1,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 25.0
       },
       suites: [
@@ -168,6 +171,7 @@ describe('FailureAnalysis', () => {
         passed: 0,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 15.0
       },
       suites: [
@@ -205,6 +209,7 @@ describe('FailureAnalysis', () => {
         passed: 0,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 15.0
       },
       suites: [
@@ -240,6 +245,7 @@ describe('FailureAnalysis', () => {
         passed: 0,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 15.0
       },
       suites: [
@@ -279,6 +285,7 @@ describe('FailureAnalysis', () => {
         passed: 2,
         failed: 2,
         skipped: 0,
+        flaky: 0,
         time: 40.0
       },
       suites: [

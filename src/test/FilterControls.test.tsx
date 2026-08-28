@@ -199,6 +199,16 @@ describe('FilterControls', () => {
     expect(screen.getByDisplayValue('All Status')).toBeInTheDocument();
   });
 
+  it('should include a Flaky option among the default status options', () => {
+    const propsWithoutStatusOptions = { ...defaultProps };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (propsWithoutStatusOptions as any).statusOptions;
+
+    render(<FilterControls {...propsWithoutStatusOptions} showFilters={true} />);
+
+    expect(screen.getByRole('option', { name: 'Flaky' })).toBeInTheDocument();
+  });
+
   it('should display selected filter values correctly', () => {
     render(<FilterControls 
       {...defaultProps} 

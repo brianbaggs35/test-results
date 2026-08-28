@@ -1,6 +1,6 @@
-import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon } from 'lucide-react';
+import { BookOpenIcon, CheckIcon, XIcon, AlertCircleIcon, AlertTriangleIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, type PieLabelRenderProps } from 'recharts';
-import { formatDuration } from '../../utils/formatting';
+import { formatDuration, formatPercent } from '../../utils/formatting';
 import { TestData, ReportConfig, TestCase } from '../../types';
 import { useChartRenderComplete } from '../../hooks/useChartRenderComplete';
 
@@ -72,9 +72,15 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
 
   useChartRenderComplete([testData]);
 
+  // When flaky tests aren't included in this report, fold them back into Passed so the
+  // pie chart and summary table still sum to the full total — a viewer who never sees
+  // "flaky" mentioned anywhere in the report shouldn't see the numbers come up short.
+  const displayPassed = config.includeFlakyTests ? summary.passed : summary.passed + summary.flaky;
+
   const statusData = [
-    { name: 'Passed', value: summary.passed, color: '#10B981' },
+    { name: 'Passed', value: displayPassed, color: '#10B981' },
     { name: 'Failed', value: summary.failed, color: '#EF4444' },
+    ...(config.includeFlakyTests ? [{ name: 'Flaky', value: summary.flaky, color: '#EAB308' }] : []),
     { name: 'Skipped', value: summary.skipped, color: '#F59E0B' },
   ];
 
@@ -90,6 +96,8 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
         return <CheckIcon className="w-3 h-3 text-green-500" />;
       case 'failed':
         return <XIcon className="w-3 h-3 text-red-500" />;
+      case 'flaky':
+        return <AlertTriangleIcon className="w-3 h-3 text-yellow-600" />;
       default:
         return <AlertCircleIcon className="w-3 h-3 text-yellow-500" />;
     }
@@ -103,7 +111,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    const label = `${value} (${(percent * 100).toFixed(0)}%)`;
+    const label = `${value} (${formatPercent(percent, 1)}%)`;
     return (
       <g>
         {/* White outline for readability on all segment colors */}
@@ -132,7 +140,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
           <p className="font-medium text-gray-900">{data.name}</p>
           <p className="text-gray-600">{data.value} test{data.value !== 1 ? 's' : ''}</p>
           <p className="text-gray-500">
-            {summary.total > 0 ? (data.value / summary.total * 100).toFixed(1) : '0.0'}% of total
+            {formatPercent(data.value, summary.total)}% of total
           </p>
         </div>
       );
@@ -281,7 +289,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
               }}>
                 <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pass Rate</div>
                 <div style={{ fontSize: '22px', fontWeight: '700', color: '#10b981' }}>
-                  {summary.total > 0 ? (summary.passed / summary.total * 100).toFixed(1) : '0.0'}%
+                  {formatPercent(displayPassed, summary.total)}%
                 </div>
               </div>
               <div style={{
@@ -300,7 +308,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
               }}>
                 <p style={{ color: '#dc2626', fontSize: '11px', fontWeight: '500', marginTop: '0', marginBottom: '4px' }}>
                   {summary.failed} test{summary.failed > 1 ? 's' : ''} failed
-                  ({summary.total > 0 ? (summary.failed / summary.total * 100).toFixed(1) : '0.0'}% of total)
+                  ({formatPercent(summary.failed, summary.total)}% of total)
                 </p>
                 <ul style={{ margin: '0', paddingLeft: '16px' }}>
                   {failedTests.slice(0, 5).map((test, i) => (
@@ -390,22 +398,30 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                   <tr style={zebraRow(1)}>
                     <td style={{ ...tdStyle, fontWeight: '500' }}>Passed</td>
                     <td style={{ ...tdStyle, color: '#059669', fontWeight: '600' }}>
-                      {summary.passed} ({summary.total > 0 ? (summary.passed / summary.total * 100).toFixed(1) : '0.0'}%)
+                      {displayPassed} ({formatPercent(displayPassed, summary.total)}%)
                     </td>
                   </tr>
                   <tr style={zebraRow(2)}>
                     <td style={{ ...tdStyle, fontWeight: '500' }}>Failed</td>
                     <td style={{ ...tdStyle, color: '#dc2626', fontWeight: '600' }}>
-                      {summary.failed} ({summary.total > 0 ? (summary.failed / summary.total * 100).toFixed(1) : '0.0'}%)
+                      {summary.failed} ({formatPercent(summary.failed, summary.total)}%)
                     </td>
                   </tr>
-                  <tr style={zebraRow(3)}>
+                  {config.includeFlakyTests && (
+                    <tr style={zebraRow(3)}>
+                      <td style={{ ...tdStyle, fontWeight: '500' }}>Flaky</td>
+                      <td style={{ ...tdStyle, color: '#ca8a04', fontWeight: '600' }}>
+                        {summary.flaky} ({formatPercent(summary.flaky, summary.total)}%)
+                      </td>
+                    </tr>
+                  )}
+                  <tr style={zebraRow(config.includeFlakyTests ? 4 : 3)}>
                     <td style={{ ...tdStyle, fontWeight: '500' }}>Skipped</td>
                     <td style={{ ...tdStyle, color: '#d97706', fontWeight: '600' }}>
-                      {summary.skipped} ({summary.total > 0 ? (summary.skipped / summary.total * 100).toFixed(1) : '0.0'}%)
+                      {summary.skipped} ({formatPercent(summary.skipped, summary.total)}%)
                     </td>
                   </tr>
-                  <tr style={zebraRow(4)}>
+                  <tr style={zebraRow(config.includeFlakyTests ? 5 : 4)}>
                     <td style={{ ...tdStyle, fontWeight: '500' }}>Duration</td>
                     <td style={{ ...tdStyle, fontWeight: '600' }}>{formatDuration(summary.time)}</td>
                   </tr>
@@ -501,7 +517,7 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                             {getStatusIcon(test.status)}
                             <span style={{
                               marginLeft: '4px',
-                              color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : '#d97706',
+                              color: test.status === 'passed' ? '#059669' : test.status === 'failed' ? '#dc2626' : test.status === 'flaky' ? '#ca8a04' : '#d97706',
                               fontWeight: '500',
                             }}>
                               {test.status.charAt(0).toUpperCase() + test.status.slice(1)}

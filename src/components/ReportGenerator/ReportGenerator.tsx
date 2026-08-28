@@ -18,6 +18,7 @@ const CONTENT_OPTIONS = [
   { key: 'includeExecutiveSummary', label: 'Include Executive Summary' },
   { key: 'includeTestMetrics', label: 'Include Test Metrics and Charts' },
   { key: 'includeFailedTests', label: 'Include Failed Tests Details' },
+  { key: 'includeFlakyTests', label: 'Include Flaky Tests' },
   { key: 'includeAllTests', label: 'Include All Test Cases' },
   { key: 'includeResolutionProgress', label: 'Include Failure Resolution Progress' },
 ] as const;
@@ -33,6 +34,7 @@ export const ReportGenerator = ({
     includeExecutiveSummary: true,
     includeTestMetrics: true,
     includeFailedTests: true,
+    includeFlakyTests: false, // Flaky status is internal-use only, so reports leaving the team default to excluding it
     includeAllTests: false,
     includeResolutionProgress: false // Add new config option
   });

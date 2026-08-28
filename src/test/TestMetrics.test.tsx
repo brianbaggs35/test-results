@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { TestMetrics } from '../components/Dashboard/TestMetrics';
+import { formatPercent } from '../utils/formatting';
 
 // Type definitions for recharts mock props
 interface PieLabelProps {
@@ -130,6 +131,7 @@ describe('TestMetrics', () => {
       passed: 85,
       failed: 10,
       skipped: 5,
+      flaky: 0,
       time: 120.5
     },
     suites: [
@@ -232,6 +234,7 @@ describe('TestMetrics', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: []
@@ -240,8 +243,8 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={emptyTestData} />);
 
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
-    // passed, failed, skipped stat tiles, plus the donut chart's center total (also 0)
-    expect(screen.getAllByText('0')).toHaveLength(4);
+    // passed, failed, flaky, skipped stat tiles, plus the donut chart's center total (also 0)
+    expect(screen.getAllByText('0')).toHaveLength(5);
   });
 
   it('should handle test data with no testcases in suites', () => {
@@ -251,6 +254,7 @@ describe('TestMetrics', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: [
@@ -270,8 +274,8 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={noTestCasesData} />);
 
     expect(screen.getByText('Test Execution Summary')).toBeInTheDocument();
-    // passed, failed, skipped stat tiles, plus the donut chart's center total (also 0)
-    expect(screen.getAllByText('0')).toHaveLength(4);
+    // passed, failed, flaky, skipped stat tiles, plus the donut chart's center total (also 0)
+    expect(screen.getAllByText('0')).toHaveLength(5);
   });
 
   it('should process test suites and create module data', () => {
@@ -302,8 +306,8 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={mockTestData} />);
 
     expect(screen.getByText('Success Rate:')).toBeInTheDocument();
-    // Success rate = passed / (passed + failed + skipped) * 100 = 85 / 100 * 100 = 85.0%
-    expect(screen.getByText('85.0%')).toBeInTheDocument();
+    // Success rate = passed / total * 100 = 85 / 100 * 100 = 85.00% (2dp, floored)
+    expect(screen.getByText('85.00%')).toBeInTheDocument();
   });
 
   it('should handle zero total for success rate calculation', () => {
@@ -313,6 +317,7 @@ describe('TestMetrics', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: []
@@ -320,15 +325,15 @@ describe('TestMetrics', () => {
 
     render(<TestMetrics testData={zeroTestData} />);
 
-    // When total is 0, success rate calculation should handle division by zero
-    // 0 / 0 * 100 = NaN, which toFixed(1) converts to "NaN"
-    expect(screen.getByText(/NaN%|0\.0%/)).toBeInTheDocument();
+    // When total is 0, formatPercent short-circuits to '0.00' rather than dividing by zero.
+    expect(screen.getByText('0.00%')).toBeInTheDocument();
   });
 
-  it('should render alert triangle icon for skipped tests', () => {
+  it('should render alert triangle icons for skipped and flaky tests', () => {
     render(<TestMetrics testData={mockTestData} />);
 
-    expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
+    // Both the Skipped and Flaky stat tiles use the warning-triangle icon.
+    expect(screen.getAllByTestId('alert-triangle-icon')).toHaveLength(2);
   });
 
   it('should render CustomTooltip with correct data when active', () => {
@@ -389,6 +394,7 @@ describe('TestMetrics', () => {
         passed: 0,
         failed: 20,
         skipped: 0,
+        flaky: 0,
         time: 45.8
       },
       suites: []
@@ -398,8 +404,8 @@ describe('TestMetrics', () => {
 
     // Failed stat tile, plus the donut chart's center total (also 20, since every test failed)
     expect(screen.getAllByText('20')).toHaveLength(2);
-    expect(screen.getAllByText('0')).toHaveLength(2); // Passed and skipped both 0
-    expect(screen.getByText('0.0%')).toBeInTheDocument(); // 0% success rate
+    expect(screen.getAllByText('0')).toHaveLength(3); // Passed, flaky, and skipped all 0
+    expect(screen.getByText('0.00%')).toBeInTheDocument(); // 0% success rate
   });
 
   it('should render all skipped tests scenario', () => {
@@ -409,6 +415,7 @@ describe('TestMetrics', () => {
         passed: 0,
         failed: 0,
         skipped: 15,
+        flaky: 0,
         time: 0
       },
       suites: []
@@ -418,8 +425,8 @@ describe('TestMetrics', () => {
 
     // Skipped stat tile, plus the donut chart's center total (also 15, since every test was skipped)
     expect(screen.getAllByText('15')).toHaveLength(2);
-    expect(screen.getAllByText('0')).toHaveLength(2); // Passed and failed both 0
-    expect(screen.getByText('0.0%')).toBeInTheDocument(); // 0% success rate
+    expect(screen.getAllByText('0')).toHaveLength(3); // Passed, failed, and flaky all 0
+    expect(screen.getByText('0.00%')).toBeInTheDocument(); // 0% success rate
   });
 
   it('should render CustomTooltip with active payload data', () => {
@@ -464,7 +471,7 @@ describe('TestMetrics', () => {
               <p className="font-medium text-gray-900">{data.name}</p>
               <p className="text-gray-600">{data.description}</p>
               <p className="text-sm text-gray-500 mt-1">
-                {(data.value / summary.total * 100).toFixed(1)}% of total
+                {formatPercent(data.value, summary.total)}% of total
               </p>
             </div>;
         }
@@ -489,7 +496,7 @@ describe('TestMetrics', () => {
     expect(screen.getByTestId('custom-tooltip')).toBeInTheDocument();
     expect(screen.getByText('Passed')).toBeInTheDocument();
     expect(screen.getByText('85 tests passed successfully')).toBeInTheDocument();
-    expect(screen.getByText('85.0% of total')).toBeInTheDocument();
+    expect(screen.getByText('85.00% of total')).toBeInTheDocument();
   });
 
   it('should render CustomizedLabel for different segment sizes', () => {
@@ -521,7 +528,7 @@ describe('TestMetrics', () => {
           return null;
         }
         return <text x={x} y={y} fill="#4B5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-medium">
-            {value} ({(percent * 100).toFixed(1)}%)
+            {value} ({formatPercent(percent, 1)}%)
           </text>;
       };
 
@@ -540,11 +547,11 @@ describe('TestMetrics', () => {
     render(<TestLabelComponent />);
 
     // Should render labels for large segments (85%)
-    expect(screen.getByText('85 (85.0%)')).toBeInTheDocument();
+    expect(screen.getByText('85 (85.00%)')).toBeInTheDocument();
     // Should render labels for medium segments (5%)
-    expect(screen.getByText('5 (5.0%)')).toBeInTheDocument();
+    expect(screen.getByText('5 (5.00%)')).toBeInTheDocument();
     // Should render decimal precision for high percentages like 99.7%
-    expect(screen.getByText('99.7 (99.7%)')).toBeInTheDocument();
+    expect(screen.getByText('99.7 (99.70%)')).toBeInTheDocument();
     // Small segments (1%) should not render - can't easily test null return
   });
 
@@ -556,6 +563,7 @@ describe('TestMetrics', () => {
         passed: 997, // 99.7% pass rate
         failed: 2,
         skipped: 1,
+        flaky: 0,
         time: 150.0
       },
       suites: []
@@ -564,7 +572,7 @@ describe('TestMetrics', () => {
     render(<TestMetrics testData={highPassRateData} />);
 
     // The success rate should show decimal precision
-    expect(screen.getByText('99.7%')).toBeInTheDocument();
+    expect(screen.getByText('99.70%')).toBeInTheDocument();
   });
 
   it('should render Legend with custom formatter', () => {
@@ -621,7 +629,7 @@ describe('TestMetrics', () => {
   it('should give the pie label a theme-aware color instead of a hardcoded hex value', () => {
     render(<TestMetrics testData={mockTestData} />);
 
-    const label = screen.getByText('85 (85.0%)');
+    const label = screen.getByText('85 (85.00%)');
     expect(label).toHaveAttribute('fill', 'currentColor');
     expect(label).toHaveClass('text-foreground');
   });

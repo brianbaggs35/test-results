@@ -31,6 +31,7 @@ const STATUS_BORDER: Record<string, string> = {
   completed: 'border-success/30 bg-success/5',
   in_progress: 'border-primary/30 bg-primary/5',
   pending: 'border-destructive/30 bg-destructive/5',
+  flaky: 'border-flaky/30 bg-flaky/5',
 };
 
 export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = ({
@@ -66,18 +67,25 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     // Load progress data from localStorage
     const savedProgress = localStorage.getItem('testFixProgress');
     if (savedProgress) {
-      setProgressData(JSON.parse(savedProgress));
+      const parsed: Record<string, FailureProgressItem> = JSON.parse(savedProgress);
+      // Progress saved before flaky tracking existed has no testStatus — every entry
+      // saved back then was necessarily a failed test, since flaky wasn't tracked yet.
+      Object.values(parsed).forEach(item => {
+        if (!item.testStatus) item.testStatus = 'failed';
+      });
+      setProgressData(parsed);
     } else {
-      // Initialize progress data for failed tests
+      // Initialize progress data for failed and flaky tests
       const initialProgress: { [key: string]: FailureProgressItem } = {};
       testData.suites.forEach(suite => {
-        suite.testcases.filter(test => test.status === 'failed').forEach(test => {
+        suite.testcases.filter(test => test.status === 'failed' || test.status === 'flaky').forEach(test => {
           const id = testIdentityKey(suite.name, test.classname, test.name);
           initialProgress[id] = {
             id,
             name: test.name,
             suite: suite.name,
             errorMessage: test.errorMessage || undefined,
+            testStatus: test.status === 'flaky' ? 'flaky' : 'failed',
             status: 'pending',
             notes: '',
             updatedAt: new Date().toISOString()
@@ -183,7 +191,8 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     { value: 'all', label: 'All Statuses' },
     { value: 'pending', label: 'Pending' },
     { value: 'in_progress', label: 'In Progress' },
-    { value: 'completed', label: 'Completed' }
+    { value: 'completed', label: 'Completed' },
+    { value: 'flaky', label: 'Flaky' }
   ];
 
   // Reset filters function
@@ -198,8 +207,13 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
   // Filter tests based on search and filter criteria (memoized to prevent infinite re-renders)
   const filteredTests = useMemo(() => {
     return failedTests.filter(test => {
-      // Status filter
-      if (statusFilter !== 'all' && test.status !== statusFilter) return false;
+      // Status filter — 'flaky' filters by the test's own outcome, everything else
+      // (pending/in_progress/completed) filters by resolution-workflow status.
+      if (statusFilter === 'flaky') {
+        if (test.testStatus !== 'flaky') return false;
+      } else if (statusFilter !== 'all' && test.status !== statusFilter) {
+        return false;
+      }
 
       // Suite filter
       if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
@@ -279,11 +293,11 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
     const modalTest: TestCase = {
       ...testDetails,
       suite: test.suite,
-      status: 'failed' as const,
+      status: test.testStatus,
       errorMessage: testDetails.errorMessage || test.errorMessage,
       failureDetails: testDetails.failureDetails || {
         message: testDetails.errorMessage || test.errorMessage || 'Unknown error',
-        type: 'Error',
+        type: test.testStatus === 'flaky' ? 'Flaky' : 'Error',
         stackTrace: testDetails.errorMessage || test.errorMessage || 'No stack trace available'
       }
     };
@@ -364,7 +378,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="bg-muted/40">
               <CardContent className="flex justify-between items-center py-4">
-                <span className="text-muted-foreground">Total Failed Tests</span>
+                <span className="text-muted-foreground">Total Tracked Tests</span>
                 <span className="text-xl font-bold text-foreground">
                   {totalTests}
                 </span>
@@ -426,7 +440,13 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
           <div className="space-y-4">
             {paginatedTests.map(test => {
               const safeId = test.id.replace(/\s+/g, '_');
-              return <div key={test.id} className={cn('border rounded-lg overflow-hidden', STATUS_BORDER[test.status])}>
+              // A still-unresolved item is colored by outcome (red for failed, yellow for flaky) since
+              // "Pending" alone is just the default no-progress state, not a meaningful color on its
+              // own — and failed/pending share the exact same icon+color, so a flaky item left as-is
+              // would otherwise look identical to a failed one. Once a human moves it to In Progress or
+              // Completed, their own progress is the more useful signal, so outcome no longer overrides.
+              const effectiveStatus = test.status === 'pending' && test.testStatus === 'flaky' ? 'flaky' : test.status;
+              return <div key={test.id} className={cn('border rounded-lg overflow-hidden', STATUS_BORDER[effectiveStatus])}>
                 <div className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -435,7 +455,7 @@ export const FailureAnalysisProgress: React.FC<FailureAnalysisProgressProps> = (
                         onCheckedChange={() => toggleTestSelection(test.id)}
                         aria-label={`Select ${test.name}`}
                       />
-                      <StatusBadge status={test.status} compact />
+                      <StatusBadge status={effectiveStatus} compact />
                       <div>
                         <h4 className="text-lg font-medium text-foreground">
                           {test.name}

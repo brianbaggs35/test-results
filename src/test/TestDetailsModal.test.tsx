@@ -294,4 +294,32 @@ describe('TestDetailsModal', () => {
     expect(suiteValue.parentElement).toHaveClass('min-w-0');
     expect(classnameValue.parentElement).toHaveClass('min-w-0');
   });
+
+  it('should render modal with flaky test details, including the synthetic Flaky failure type', () => {
+    const flakyTest: TestCase = {
+      name: 'Import Big File Test',
+      status: 'flaky',
+      suite: 'Import Suite',
+      time: 30.5,
+      errorMessage: null,
+      failureDetails: {
+        type: 'Flaky',
+        message: 'This test failed on an initial attempt but passed on retry.',
+        stackTrace: ''
+      }
+    };
+
+    render(<TestDetailsModal test={flakyTest} onClose={mockOnClose} />);
+
+    expect(screen.getByText('Import Big File Test')).toBeInTheDocument();
+    expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
+    // "Flaky" appears twice: the status badge label and the Failure Type box's value.
+    expect(screen.getAllByText('Flaky')).toHaveLength(2);
+    expect(screen.getByText('Failure Type')).toBeInTheDocument();
+    // No real error text was captured for the failed attempt, so no red Error Summary box.
+    expect(screen.queryByText('Error Summary')).not.toBeInTheDocument();
+    // No stack trace text either — the terminal block should not render an empty shell.
+    expect(screen.queryByText('Stack Trace')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('terminal-icon')).not.toBeInTheDocument();
+  });
 });

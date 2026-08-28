@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Suite A" tests="4" failures="1" errors="0" time="10.0">
+    <testcase name="test1" classname="SuiteA.TestClass1" time="0.5"/>
+    <testcase name="test2" classname="SuiteA.TestClass2" time="0.5">
+      <failure message="Test failed" type="AssertionError">First failure in Suite A</failure>
+    </testcase>
+    <testcase name="test3" classname="SuiteA.TestClass3" time="8.5">
+      <system-out><![CDATA[
+[[ATTACHMENT|../test-results/suite-a-test3-chromium/video.webm]]
+
+[[ATTACHMENT|../test-results/suite-a-test3-chromium/trace.zip]]
+]]></system-out>
+    </testcase>
+    <testcase name="test4" classname="SuiteA.TestClass4" time="0.5"/>
+  </testsuite>
+  <testsuite name="Suite B" tests="3" failures="0" errors="0" time="2.0">
+    <testcase name="test1" classname="SuiteB.TestClass1" time="0.5"/>
+    <testcase name="test2" classname="SuiteB.TestClass2" time="0.5"/>
+    <testcase name="test3" classname="SuiteB.TestClass3" time="1.0"/>
+  </testsuite>
+</testsuites>

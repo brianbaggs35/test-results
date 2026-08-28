@@ -11,6 +11,7 @@ const mockTestData = {
     passed: 85,
     failed: 10,
     skipped: 5,
+    flaky: 0,
     time: 123.45
   },
   suites: []
@@ -23,6 +24,7 @@ const mockConfig = {
   includeExecutiveSummary: true,
   includeTestMetrics: true,
   includeFailedTests: true,
+  includeFlakyTests: false,
   includeAllTests: false,
   includeResolutionProgress: false
 };

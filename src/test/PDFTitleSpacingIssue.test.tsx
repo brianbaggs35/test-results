@@ -21,7 +21,7 @@ vi.mock('lucide-react', () => ({
 
 describe('PDF Title Spacing Issue', () => {
   const mockTestData: TestData = {
-    summary: { total: 10, passed: 8, failed: 2, skipped: 0, time: 120.5 },
+    summary: { total: 10, passed: 8, failed: 2, skipped: 0, flaky: 0, time: 120.5 },
     suites: [{
       name: 'Test Suite', tests: 10, failures: 2, errors: 0, skipped: 0,
       time: 120.5, timestamp: '2024-01-01T12:00:00Z',
@@ -36,7 +36,7 @@ describe('PDF Title Spacing Issue', () => {
     title: 'Automated Test Results Report', author: 'Test Author',
     projectName: 'Test Project',
     includeExecutiveSummary: true, includeTestMetrics: true,
-    includeFailedTests: true, includeAllTests: false, includeResolutionProgress: false,
+    includeFailedTests: true, includeFlakyTests: false, includeAllTests: false, includeResolutionProgress: false,
   };
 
   beforeEach(() => { vi.clearAllMocks(); });

@@ -36,7 +36,7 @@ describe('ReportPreview', () => {
 
   beforeEach(() => {
     mockTestData = {
-      summary: { total: 9, passed: 5, failed: 4, skipped: 0, time: 120.5 },
+      summary: { total: 9, passed: 5, failed: 4, skipped: 0, flaky: 0, time: 120.5 },
       suites: [
         {
           name: 'Suite A', tests: 4, failures: 2, errors: 0, skipped: 0,
@@ -71,7 +71,7 @@ describe('ReportPreview', () => {
     mockConfig = {
       title: 'Test Report', author: 'Test Author', projectName: 'Test Project',
       includeExecutiveSummary: true, includeTestMetrics: true,
-      includeFailedTests: true, includeAllTests: true, includeResolutionProgress: false,
+      includeFailedTests: true, includeFlakyTests: false, includeAllTests: true, includeResolutionProgress: false,
     };
   });
 
@@ -129,7 +129,7 @@ describe('ReportPreview', () => {
   });
 
   it('should handle test data with empty suites', () => {
-    const empty = { summary: { total: 0, passed: 0, failed: 0, skipped: 0, time: 0 }, suites: [] };
+    const empty = { summary: { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, time: 0 }, suites: [] };
     render(<ReportPreview testData={empty} config={mockConfig} onBack={() => {}} />);
     expect(screen.getByText('Back to Configuration')).toBeInTheDocument();
   });

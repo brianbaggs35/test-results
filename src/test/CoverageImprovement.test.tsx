@@ -95,6 +95,7 @@ describe('Coverage Improvement Tests', () => {
       passed: 997, // 99.7% pass rate
       failed: 2,
       skipped: 1,
+      flaky: 0,
       time: 120.5
     },
     suites: [
@@ -139,9 +140,10 @@ describe('Coverage Improvement Tests', () => {
     const edgeCaseData = {
       summary: {
         total: 300,
-        passed: 299, // 99.666...% pass rate 
+        passed: 299, // 99.666...% pass rate
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 45.3
       },
       suites: [
@@ -163,8 +165,8 @@ describe('Coverage Improvement Tests', () => {
 
     render(<TestMetrics testData={edgeCaseData} />);
     
-    // Should show the precise percentage
-    expect(screen.getByText('99.7%')).toBeInTheDocument();
+    // Should show the precise, floored percentage — 299/300 = 99.666...%, floored to 99.66%.
+    expect(screen.getByText('99.66%')).toBeInTheDocument();
   });
 
   it('should handle zero total tests without division by zero', () => {
@@ -174,6 +176,7 @@ describe('Coverage Improvement Tests', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: []

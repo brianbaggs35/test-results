@@ -18,7 +18,7 @@ function makeBundle(failName: string): ExportBundle {
   return {
     version: 1,
     testData: {
-      summary: { total: 2, passed: 1, failed: 1, skipped: 0, time: 2 },
+      summary: { total: 2, passed: 1, failed: 1, skipped: 0, flaky: 0, time: 2 },
       suites: [
         {
           name: 'Suite',
@@ -35,7 +35,7 @@ function makeBundle(failName: string): ExportBundle {
         },
       ],
     },
-    progress: { [`Suite-${failName}`]: { id: `Suite-${failName}`, name: failName, suite: 'Suite', status: 'pending' } },
+    progress: { [`Suite-${failName}`]: { id: `Suite-${failName}`, name: failName, suite: 'Suite', testStatus: 'failed', status: 'pending' } },
   };
 }
 

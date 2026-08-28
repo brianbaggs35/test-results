@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type Status = 'passed' | 'failed' | 'skipped' | 'pending' | 'in_progress' | 'completed';
+export type Status = 'passed' | 'failed' | 'skipped' | 'flaky' | 'pending' | 'in_progress' | 'completed';
 
 const STATUS_CONFIG: Record<Status, { label: string; icon: LucideIcon; className: string }> = {
   passed: {
@@ -34,6 +34,11 @@ const STATUS_CONFIG: Record<Status, { label: string; icon: LucideIcon; className
     label: 'Skipped',
     icon: AlertTriangleIcon,
     className: 'bg-warning/10 text-warning border-warning/20',
+  },
+  flaky: {
+    label: 'Flaky',
+    icon: AlertTriangleIcon,
+    className: 'bg-flaky/10 text-flaky border-flaky/20',
   },
   in_progress: {
     label: 'In Progress',

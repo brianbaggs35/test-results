@@ -19,6 +19,7 @@ vi.mock('lucide-react', () => ({
   CheckIcon: () => <div data-testid="check-icon" />,
   XIcon: () => <div data-testid="x-icon" />,
   AlertCircleIcon: () => <div data-testid="alert-circle-icon" />,
+  AlertTriangleIcon: () => <div data-testid="alert-triangle-icon" />,
 }));
 
 describe('PDFPreviewFrame', () => {
@@ -27,7 +28,7 @@ describe('PDFPreviewFrame', () => {
 
   beforeEach(() => {
     mockTestData = {
-      summary: { total: 100, passed: 75, failed: 20, skipped: 5, time: 120.5 },
+      summary: { total: 100, passed: 75, failed: 20, skipped: 5, flaky: 0, time: 120.5 },
       suites: [
         {
           name: 'Suite 1', tests: 50, failures: 10, errors: 0, skipped: 2,
@@ -56,6 +57,7 @@ describe('PDFPreviewFrame', () => {
       includeExecutiveSummary: true,
       includeTestMetrics: true,
       includeFailedTests: true,
+      includeFlakyTests: false,
       includeAllTests: true,
       includeResolutionProgress: true,
     };
@@ -104,7 +106,7 @@ describe('PDFPreviewFrame', () => {
     // Total appears in summary cards and metrics table
     expect(screen.getAllByText('100').length).toBeGreaterThanOrEqual(1);
     // Pass rate
-    expect(screen.getAllByText('75.0%').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('75.00%').length).toBeGreaterThanOrEqual(1);
   });
 
   it('should render executive summary section heading with number', () => {
@@ -232,7 +234,7 @@ describe('PDFPreviewFrame', () => {
 
   it('should handle empty test data without crashing', () => {
     const empty: TestData = {
-      summary: { total: 0, passed: 0, failed: 0, skipped: 0, time: 0 },
+      summary: { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, time: 0 },
       suites: [],
     };
     render(<PDFPreviewFrame testData={empty} config={mockConfig} />);
@@ -320,12 +322,12 @@ describe('PDFPreviewFrame', () => {
 
   it('should display failed test count in summary with correct percentage', () => {
     render(<PDFPreviewFrame testData={mockTestData} config={mockConfig} />);
-    expect(screen.getByText(/20\.0% of total/)).toBeInTheDocument();
+    expect(screen.getByText(/20\.00% of total/)).toBeInTheDocument();
   });
 
   it('should limit failed tests in executive summary to first 5', () => {
     const data: TestData = {
-      summary: { total: 10, passed: 0, failed: 10, skipped: 0, time: 10 },
+      summary: { total: 10, passed: 0, failed: 10, skipped: 0, flaky: 0, time: 10 },
       suites: [{
         name: 'S', tests: 10, failures: 10, errors: 0, skipped: 0, time: 10, timestamp: '',
         testcases: Array.from({ length: 10 }, (_, i) => ({
@@ -374,5 +376,56 @@ describe('PDFPreviewFrame', () => {
     expect(totalCards.length).toBeGreaterThan(0);
     // 1 completed + 1 in progress + 1 not started = 3 total
     expect(screen.getAllByText('3').length).toBeGreaterThan(0);
+  });
+});
+
+describe('PDFPreviewFrame flaky tests', () => {
+  const flakyTestData: TestData = {
+    summary: { total: 4, passed: 2, failed: 1, skipped: 0, flaky: 1, time: 10 },
+    suites: [
+      {
+        name: 'Suite', tests: 4, failures: 1, errors: 0, skipped: 0,
+        time: 10, timestamp: '2024-01-01T12:00:00Z',
+        testcases: [
+          { name: 'Passing 1', status: 'passed' as const, suite: 'Suite', time: 1 },
+          { name: 'Passing 2', status: 'passed' as const, suite: 'Suite', time: 1 },
+          { name: 'Failing', status: 'failed' as const, suite: 'Suite', time: 1, errorMessage: 'boom' },
+          { name: 'Flaky Test', status: 'flaky' as const, suite: 'Suite', time: 1 },
+        ],
+      },
+    ],
+  };
+  const summaryOnlyConfig: ReportConfig = {
+    title: 'Report', author: 'A', projectName: 'P',
+    includeExecutiveSummary: true, includeTestMetrics: true, includeFailedTests: false,
+    includeFlakyTests: false, includeAllTests: false, includeResolutionProgress: false,
+  };
+
+  it('should fold flaky tests back into Passed when includeFlakyTests is off, so numbers still sum to the total', () => {
+    render(<PDFPreviewFrame testData={flakyTestData} config={summaryOnlyConfig} />);
+
+    // 2 real passes + 1 flaky folded in = 3 shown as "Passed"
+    expect(screen.getByText('3 (75.00%)')).toBeInTheDocument();
+    expect(screen.queryByText('Flaky')).not.toBeInTheDocument();
+  });
+
+  it('should show a distinct Flaky row and pie slice, and stop folding into Passed, when includeFlakyTests is on', () => {
+    render(<PDFPreviewFrame testData={flakyTestData} config={{ ...summaryOnlyConfig, includeFlakyTests: true }} />);
+
+    // Real passes only now
+    expect(screen.getByText('2 (50.00%)')).toBeInTheDocument();
+    expect(screen.getByText('Flaky')).toBeInTheDocument();
+    // Failed and Flaky are both 1 of 4 (25.00%) — same text, two separate rows.
+    expect(screen.getAllByText('1 (25.00%)')).toHaveLength(2);
+  });
+
+  it('should render the flaky row in the All Test Cases table with its own icon and status text', () => {
+    const config: ReportConfig = { ...summaryOnlyConfig, includeTestMetrics: false, includeAllTests: true };
+    render(<PDFPreviewFrame testData={flakyTestData} config={config} />);
+
+    expect(screen.getByText('Flaky Test')).toBeInTheDocument();
+    expect(screen.getByTestId('alert-triangle-icon')).toBeInTheDocument();
+    // The capitalized status text next to the icon in the All Tests row.
+    expect(screen.getByText('Flaky')).toBeInTheDocument();
   });
 });

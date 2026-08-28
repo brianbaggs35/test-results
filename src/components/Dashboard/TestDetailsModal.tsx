@@ -101,7 +101,7 @@ export const TestDetailsModal = ({
             </div>
           </div>
           {/* Error Details */}
-          {test.status === 'failed' && <div className="space-y-4">
+          {(test.status === 'failed' || test.status === 'flaky') && <div className="space-y-4">
               {error && <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">
                     Error Summary
@@ -123,7 +123,7 @@ export const TestDetailsModal = ({
                         </p>
                       </div>
                     </div>}
-                  <div>
+                  {stackTraceText && <div>
                     <h4 className="text-sm font-medium text-muted-foreground mb-2">
                       Stack Trace
                     </h4>
@@ -168,7 +168,7 @@ export const TestDetailsModal = ({
                       </pre>
                       <FloatingScrollbar targetRef={stackTraceRef} />
                     </div>
-                  </div>
+                  </div>}
                 </>}
             </div>}
         </div>

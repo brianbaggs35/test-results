@@ -21,7 +21,7 @@ vi.mock('lucide-react', () => ({
 
 describe('PDF Scaling Fix', () => {
   const mockTestData: TestData = {
-    summary: { total: 9, passed: 5, failed: 4, skipped: 0, time: 4.5 },
+    summary: { total: 9, passed: 5, failed: 4, skipped: 0, flaky: 0, time: 4.5 },
     suites: [{
       name: 'Suite A', tests: 2, failures: 1, errors: 0, skipped: 0,
       time: 1.0, timestamp: '2024-01-01T00:00:00Z',
@@ -35,7 +35,7 @@ describe('PDF Scaling Fix', () => {
   const mockConfig: ReportConfig = {
     title: 'Test Report', author: 'Author', projectName: 'Project',
     includeExecutiveSummary: true, includeTestMetrics: true,
-    includeFailedTests: true, includeAllTests: true, includeResolutionProgress: true,
+    includeFailedTests: true, includeFlakyTests: false, includeAllTests: true, includeResolutionProgress: true,
   };
 
   it('should render PDF preview frame with A4 width (794px)', () => {

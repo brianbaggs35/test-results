@@ -67,7 +67,7 @@ vi.mock('../utils/xmlParser', () => ({
       throw new Error('Invalid XML');
     }
     return {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
       suites: [{ 
         name: 'Test', 
         tests: 1,
@@ -105,7 +105,7 @@ describe('Dashboard', () => {
 
   it('should not show file uploader when test data is available', () => {
     const testData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
       suites: []
     };
     
@@ -116,7 +116,7 @@ describe('Dashboard', () => {
 
   it('should show test metrics and results list when test data is available', () => {
     const testData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
       suites: []
     };
     
@@ -141,7 +141,7 @@ describe('Dashboard', () => {
     // Wait for async operation to complete
     await waitFor(() => {
       expect(mockOnDataUpload).toHaveBeenCalledWith({
-        summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
         suites: [{ 
           name: 'Test', 
           tests: 1,
@@ -223,7 +223,7 @@ describe('Dashboard', () => {
 
   it('should pass testData correctly to child components', () => {
     const testData = {
-      summary: { total: 5, passed: 3, failed: 2, skipped: 0, time: 10.0 },
+      summary: { total: 5, passed: 3, failed: 2, skipped: 0, flaky: 0, time: 10.0 },
       suites: [
         { 
           name: 'Suite1', 
@@ -256,7 +256,7 @@ describe('Dashboard', () => {
 
   describe('loading a different file while test data is already shown', () => {
     const testData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
       suites: []
     };
 
@@ -283,7 +283,7 @@ describe('Dashboard', () => {
 
       await waitFor(() => {
         expect(mockOnDataUpload).toHaveBeenCalledWith({
-          summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 1.0 },
+          summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
           suites: [{
             name: 'Test',
             tests: 1,
@@ -315,5 +315,31 @@ describe('Dashboard', () => {
       // The previously loaded data stays on screen — a failed reload doesn't wipe it.
       expect(screen.getByTestId('test-metrics')).toBeInTheDocument();
     });
+  });
+
+  it('should show a notice when flaky-test detection was skipped for the loaded file', () => {
+    const testData = {
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
+      suites: [],
+      flakyDetectionSkippedReason: 'Flaky-test detection was skipped: 3 of 4 passing tests had debug attachments.',
+    };
+
+    render(<Dashboard onDataUpload={mockOnDataUpload} testData={testData} />);
+
+    expect(screen.getByTestId('flaky-detection-skipped')).toBeInTheDocument();
+    expect(
+      screen.getByText('Flaky-test detection was skipped: 3 of 4 passing tests had debug attachments.')
+    ).toBeInTheDocument();
+  });
+
+  it('should not show the flaky-detection notice when the reason is absent', () => {
+    const testData = {
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 1.0 },
+      suites: [],
+    };
+
+    render(<Dashboard onDataUpload={mockOnDataUpload} testData={testData} />);
+
+    expect(screen.queryByTestId('flaky-detection-skipped')).not.toBeInTheDocument();
   });
 });

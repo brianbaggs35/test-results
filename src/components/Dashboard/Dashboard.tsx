@@ -97,6 +97,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </Alert>
           </CardContent>
         )}
+        {testData?.flakyDetectionSkippedReason && (
+          <CardContent>
+            <Alert className="border-flaky/30 bg-flaky/5 text-flaky [&>svg]:text-flaky" data-testid="flaky-detection-skipped">
+              <AlertCircleIcon className="size-4" />
+              <AlertDescription className="text-flaky">{testData.flakyDetectionSkippedReason}</AlertDescription>
+            </Alert>
+          </CardContent>
+        )}
       </Card>
       {testData && <>
           <TestMetrics testData={testData} />

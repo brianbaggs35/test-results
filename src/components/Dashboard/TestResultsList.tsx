@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Pagination } from '@/components/shared/Pagination';
 import { FloatingScrollbar } from '@/components/shared/FloatingScrollbar';
+import { cn } from '@/lib/utils';
 
 interface TestWithSuite extends TestCase {
   suite: string;
@@ -139,7 +140,7 @@ export const TestResultsList: React.FC<TestResultsListProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTests.length > 0 ? paginatedTests.map((test, index) => <TableRow key={index} onClick={() => setSelectedTest(test)} className={test.status === 'failed' ? 'bg-destructive/5 cursor-pointer' : 'cursor-pointer'}>
+            {paginatedTests.length > 0 ? paginatedTests.map((test, index) => <TableRow key={index} onClick={() => setSelectedTest(test)} className={cn('cursor-pointer', test.status === 'failed' && 'bg-destructive/5', test.status === 'flaky' && 'bg-flaky/5')}>
                   <TableCell className="font-medium text-foreground">
                     {test.name}
                   </TableCell>
