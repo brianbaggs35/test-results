@@ -74,6 +74,7 @@ describe('pdfGenerator', () => {
         passed: 75,
         failed: 20,
         skipped: 5,
+        flaky: 0,
         time: 120.5,
       },
       suites: [{
@@ -100,6 +101,7 @@ describe('pdfGenerator', () => {
       includeExecutiveSummary: true,
       includeTestMetrics: true,
       includeFailedTests: true,
+      includeFlakyTests: false,
       includeAllTests: true,
       includeResolutionProgress: true,
     }

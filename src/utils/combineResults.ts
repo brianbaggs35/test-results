@@ -11,6 +11,16 @@ function testcaseKey(tc: TestCase, suiteName: string): string {
   return testIdentityKey(suiteName, tc.classname, tc.name);
 }
 
+// When the same test has a different outcome between the two halves (a genuine rerun
+// difference, not the ordinary shared passed/skipped case), keep whichever outcome is
+// more "worth attention" rather than always favoring one hardcoded status.
+const STATUS_PRIORITY: Record<TestCase['status'], number> = {
+  failed: 3,
+  flaky: 2,
+  skipped: 1,
+  passed: 0,
+};
+
 /**
  * Merges two exported bundles (each a split's testData + that person's
  * progress notes) back into one combined report. Passed/skipped testcases
@@ -50,8 +60,9 @@ export function combineExportBundles(a: ExportBundle, b: ExportBundle): CombineR
       if (!existing) {
         testcaseByKey.set(key, tc);
       } else if (existing.status !== tc.status) {
-        warnings.push(`"${tc.name}" in suite "${name}" has a different status between the two files — kept the failed one.`);
-        if (tc.status === 'failed') testcaseByKey.set(key, tc);
+        const winner = STATUS_PRIORITY[tc.status] > STATUS_PRIORITY[existing.status] ? tc : existing;
+        warnings.push(`"${tc.name}" in suite "${name}" has a different status between the two files — kept the ${winner.status} one.`);
+        if (winner === tc) testcaseByKey.set(key, tc);
       }
       // Same key, same status (the ordinary shared passed/skipped case): keep the first, they're identical.
     });
@@ -77,14 +88,16 @@ export function combineExportBundles(a: ExportBundle, b: ExportBundle): CombineR
   const totalTests = mergedSuites.reduce((sum, s) => sum + s.tests, 0);
   const totalFailed = mergedSuites.reduce((sum, s) => sum + s.failures + s.errors, 0);
   const totalSkipped = mergedSuites.reduce((sum, s) => sum + s.skipped, 0);
+  const totalFlaky = mergedSuites.reduce((sum, s) => sum + s.testcases.filter((t) => t.status === 'flaky').length, 0);
   const totalTime = mergedSuites.reduce((sum, s) => sum + s.time, 0);
 
   const testData: TestData = {
     summary: {
       total: totalTests,
-      passed: totalTests - totalFailed - totalSkipped,
+      passed: totalTests - totalFailed - totalSkipped - totalFlaky,
       failed: totalFailed,
       skipped: totalSkipped,
+      flaky: totalFlaky,
       time: totalTime,
     },
     suites: mergedSuites,

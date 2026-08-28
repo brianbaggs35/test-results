@@ -57,6 +57,7 @@ function createLargeTestData(numFailedTests: number) {
       passed: 0,
       failed: numFailedTests,
       skipped: 0,
+      flaky: 0,
       time: suites.reduce((total, suite) => total + suite.time, 0)
     },
     suites 
@@ -77,11 +78,14 @@ vi.mock('../components/Dashboard/TestDetailsModal', () => ({
 }));
 
 vi.mock('../components/Dashboard/FilterControls', () => ({
-  FilterControls: ({ searchTerm, setSearchTerm, resetFilters, showFilters }: { 
-    searchTerm: string; 
-    setSearchTerm: (term: string) => void; 
-    resetFilters: () => void; 
-    showFilters: boolean; 
+  FilterControls: ({ searchTerm, setSearchTerm, statusFilter, setStatusFilter, resetFilters, showFilters, statusOptions }: {
+    searchTerm: string;
+    setSearchTerm: (term: string) => void;
+    statusFilter: string;
+    setStatusFilter: (status: string) => void;
+    resetFilters: () => void;
+    showFilters: boolean;
+    statusOptions?: Array<{ value: string; label: string }>;
   }) => (
     <div data-testid="filter-controls">
       <input
@@ -90,6 +94,11 @@ vi.mock('../components/Dashboard/FilterControls', () => ({
         onChange={(e) => setSearchTerm(e.target.value)}
         placeholder="Search tests..."
       />
+      <select data-testid="status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        {statusOptions?.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
       <button data-testid="reset-filters" onClick={resetFilters}>
         Reset Filters
       </button>
@@ -116,6 +125,7 @@ describe('FailureAnalysisPage', () => {
       passed: 1,
       failed: 2,
       skipped: 0,
+      flaky: 0,
       time: 4.4
     },
     suites: [
@@ -279,6 +289,7 @@ describe('FailureAnalysisPage', () => {
         passed: 1,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0.5
       },
       suites: [
@@ -316,6 +327,7 @@ describe('FailureAnalysisPage', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: []
@@ -333,6 +345,7 @@ describe('FailureAnalysisPage', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       },
       suites: [
@@ -361,6 +374,7 @@ describe('FailureAnalysisPage', () => {
         passed: 0,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 1.0
       },
       suites: [
@@ -514,5 +528,55 @@ describe('FailureAnalysisPage', () => {
       
       expect(screen.getByText('Showing 51 to 100 of 200 results')).toBeInTheDocument();
     }, 10000); // Increase timeout to 10 seconds
+  });
+
+  describe('Flaky tests', () => {
+    const mixedTestData = {
+      summary: { total: 3, passed: 0, failed: 1, skipped: 0, flaky: 1, time: 3 },
+      suites: [
+        {
+          name: 'Suite 1',
+          tests: 2,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 2,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [
+            { name: 'Really Failed', status: 'failed' as const, time: 1, errorMessage: 'boom' },
+            { name: 'Flaky One', status: 'flaky' as const, time: 1 },
+          ],
+        },
+      ],
+    };
+
+    it('should hide flaky tests from the default (Failed) view', () => {
+      render(<FailureAnalysisPage testData={mixedTestData} />);
+
+      expect(screen.getByText('Really Failed')).toBeInTheDocument();
+      expect(screen.queryByText('Flaky One')).not.toBeInTheDocument();
+      expect(screen.getByText('1 failed test detected')).toBeInTheDocument();
+    });
+
+    it('should show flaky tests with yellow styling when the Flaky filter is selected', () => {
+      render(<FailureAnalysisPage testData={mixedTestData} />);
+
+      fireEvent.change(screen.getByTestId('status-filter'), { target: { value: 'flaky' } });
+
+      expect(screen.queryByText('Really Failed')).not.toBeInTheDocument();
+      const flakyRow = screen.getByText('Flaky One').closest('button');
+      expect(flakyRow).toHaveClass('bg-flaky/5');
+      expect(flakyRow).not.toHaveClass('bg-destructive/5');
+    });
+
+    it('should show both failed and flaky tests, in their own colors, under the All filter', () => {
+      render(<FailureAnalysisPage testData={mixedTestData} />);
+
+      fireEvent.change(screen.getByTestId('status-filter'), { target: { value: 'all' } });
+
+      expect(screen.getByText('1 failed and 1 flaky tests detected')).toBeInTheDocument();
+      expect(screen.getByText('Really Failed').closest('button')).toHaveClass('bg-destructive/5');
+      expect(screen.getByText('Flaky One').closest('button')).toHaveClass('bg-flaky/5');
+    });
   });
 });

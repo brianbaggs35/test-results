@@ -9,6 +9,7 @@ const makeItems = (n: number) =>
     id: `Suite-test${i}`,
     name: `test${i}`,
     suite: `Suite`,
+    testStatus: 'failed' as const,
     status: 'pending' as const,
     notes: i === 0 ? 'existing note' : '',
     assignee: '',
@@ -608,7 +609,7 @@ describe('BulkCommentModal', () => {
 
     it('should sanitize ids with spaces for HTML attributes', () => {
       const itemsWithSpaces = [
-        { id: 'Suite A-test 1', name: 'test 1', suite: 'Suite A', status: 'pending' as const, notes: '', assignee: '' },
+        { id: 'Suite A-test 1', name: 'test 1', suite: 'Suite A', testStatus: 'failed' as const, status: 'pending' as const, notes: '', assignee: '' },
       ];
       render(
         <BulkCommentModal selectedItems={itemsWithSpaces} onApply={onApply} onClose={onClose} />,

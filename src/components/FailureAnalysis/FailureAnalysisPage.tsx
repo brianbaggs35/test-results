@@ -5,6 +5,7 @@ import { FilterControls } from '../Dashboard/FilterControls';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Pagination } from '@/components/shared/Pagination';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import type { TestData, TestCase } from '../../types';
 
 interface TestWithSuite extends TestCase {
@@ -16,6 +17,12 @@ interface FailureAnalysisPageProps {
 }
 
 const PAGE_SIZE = 50;
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'flaky', label: 'Flaky' },
+];
 
 export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
   testData
@@ -56,13 +63,14 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
     return testData.suites
       .flatMap(suite =>
         suite.testcases
-          .filter(test => test.status === 'failed')
+          .filter(test => test.status === 'failed' || test.status === 'flaky')
           .map(test => ({
             ...test,
             suite: suite.name
           } as TestWithSuite))
       )
       .filter(test => {
+        if (statusFilter !== 'all' && test.status !== statusFilter) return false;
         if (suiteFilter !== 'all' && test.suite !== suiteFilter) return false;
         if (classNameFilter !== 'all' && test.classname !== classNameFilter) return false;
         if (searchTerm &&
@@ -70,7 +78,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
             !test.suite.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;
       });
-  }, [testData, suiteFilter, classNameFilter, searchTerm]);
+  }, [testData, statusFilter, suiteFilter, classNameFilter, searchTerm]);
 
   if (!testData) {
     return (
@@ -93,6 +101,12 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
   const startIndex = (validCurrentPage - 1) * PAGE_SIZE;
   const endIndex = startIndex + PAGE_SIZE;
   const paginatedTests = filteredTests.slice(startIndex, endIndex);
+  const failedCount = filteredTests.filter(test => test.status === 'failed').length;
+  const flakyCount = filteredTests.filter(test => test.status === 'flaky').length;
+  const countDescription = [
+    failedCount > 0 ? `${failedCount} failed` : null,
+    flakyCount > 0 ? `${flakyCount} flaky` : null,
+  ].filter(Boolean).join(' and ');
   if (filteredTests.length === 0) {
     return (
       <EmptyState
@@ -108,8 +122,7 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
         <CardHeader className="space-y-1">
           <h2 className="text-2xl font-bold text-foreground">Failure Analysis</h2>
           <p className="text-sm text-muted-foreground">
-            {filteredTests.length} failed test
-            {filteredTests.length > 1 ? 's' : ''} detected
+            {countDescription} test{filteredTests.length !== 1 ? 's' : ''} detected
             {filteredTests.length > PAGE_SIZE && (
               <span className="ml-2">
                 (Showing {startIndex + 1}-{Math.min(endIndex, filteredTests.length)} of {filteredTests.length})
@@ -118,13 +131,15 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
           </p>
         </CardHeader>
         <CardContent>
-          <FilterControls searchTerm={searchTerm} setSearchTerm={setSearchTerm} statusFilter={statusFilter} setStatusFilter={setStatusFilter} suiteFilter={suiteFilter} setSuiteFilter={setSuiteFilter} classNameFilter={classNameFilter} setClassNameFilter={setClassNameFilter} showFilters={showFilters} setShowFilters={setShowFilters} suites={suites} classNames={classNames} resetFilters={resetFilters} />
+          <FilterControls searchTerm={searchTerm} setSearchTerm={setSearchTerm} statusFilter={statusFilter} setStatusFilter={setStatusFilter} suiteFilter={suiteFilter} setSuiteFilter={setSuiteFilter} classNameFilter={classNameFilter} setClassNameFilter={setClassNameFilter} showFilters={showFilters} setShowFilters={setShowFilters} suites={suites} classNames={classNames} resetFilters={resetFilters} statusOptions={STATUS_OPTIONS} />
           <div className="grid gap-3">
-            {paginatedTests.map((test, index) => <button key={index} className="w-full text-left rounded-lg border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors" onClick={() => setSelectedTest(test)}>
+            {paginatedTests.map((test, index) => {
+              const isFlaky = test.status === 'flaky';
+              return <button key={index} className={cn('w-full text-left rounded-lg border transition-colors', isFlaky ? 'border-flaky/20 bg-flaky/5 hover:bg-flaky/10' : 'border-destructive/20 bg-destructive/5 hover:bg-destructive/10')} onClick={() => setSelectedTest(test)}>
                 <div className="px-6 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <AlertTriangleIcon className="w-5 h-5 text-destructive" />
+                      <AlertTriangleIcon className={cn('w-5 h-5', isFlaky ? 'text-flaky' : 'text-destructive')} />
                       <div>
                         <h4 className="text-lg font-medium text-foreground">
                           {test.name}
@@ -140,7 +155,8 @@ export const FailureAnalysisPage: React.FC<FailureAnalysisPageProps> = ({
                     </div>
                   </div>
                 </div>
-              </button>)}
+              </button>;
+            })}
           </div>
 
           {filteredTests.length > PAGE_SIZE && (

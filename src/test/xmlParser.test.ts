@@ -17,6 +17,7 @@ describe('parseJUnitXML', () => {
         passed: 2,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 1.5
       });
 
@@ -57,6 +58,7 @@ describe('parseJUnitXML', () => {
         passed: 1,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 1.5
       });
 
@@ -111,6 +113,7 @@ describe('parseJUnitXML', () => {
         passed: 1,
         failed: 0,
         skipped: 1,
+        flaky: 0,
         time: 1.0
       });
 
@@ -177,6 +180,7 @@ describe('parseJUnitXML', () => {
         passed: 2,
         failed: 1,
         skipped: 0,
+        flaky: 0,
         time: 1.5
       });
 
@@ -278,7 +282,7 @@ describe('parseJUnitXML', () => {
 
       const result = parseJUnitXML(xml);
 
-      expect(result.summary).toEqual({ total: 0, passed: 0, failed: 0, skipped: 0, time: 0 });
+      expect(result.summary).toEqual({ total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, time: 0 });
       expect(result.suites).toEqual([]);
     });
 
@@ -443,6 +447,199 @@ describe('parseJUnitXML', () => {
         classname: '',
         time: 0
       });
+    });
+  });
+
+  describe('flaky test detection', () => {
+    it('should mark a passing testcase as flaky when its system-out contains a Playwright attachment marker', () => {
+      // Three clean passes alongside the one flaky candidate keeps the candidate ratio
+      // (1/4 = 25%) comfortably under the plausibility guard, isolating this test to
+      // just the marker-detection behavior rather than the guard's own threshold.
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="4" failures="0" errors="0" time="13">
+  <testcase name="import big file" classname="e2e/import.spec.ts" time="9.5">
+    <system-out><![CDATA[
+[[ATTACHMENT|../test-results/e2e-import-chromium/video.webm]]
+
+[[ATTACHMENT|../test-results/e2e-import-chromium/trace.zip]]
+]]></system-out>
+  </testcase>
+  <testcase name="clean1" classname="e2e/other.spec.ts" time="1"/>
+  <testcase name="clean2" classname="e2e/other.spec.ts" time="1"/>
+  <testcase name="clean3" classname="e2e/other.spec.ts" time="1.5"/>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].status).toBe('flaky');
+      expect(result.suites[0].testcases[0].errorMessage).toBeNull();
+      expect(result.suites[0].testcases[0].failureDetails).toEqual({
+        type: 'Flaky',
+        message: 'This test failed on an initial attempt but passed on retry.',
+        stackTrace: ''
+      });
+      expect(result.summary).toEqual({
+        total: 4, passed: 3, failed: 0, skipped: 0, flaky: 1, time: 13
+      });
+      expect(result.flakyDetectionSkippedReason).toBeUndefined();
+    });
+
+    it('should not flag a passing testcase whose system-out is unrelated console output', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="1" failures="0" errors="0" time="1">
+  <testcase name="logs something" classname="C" time="1">
+    <system-out><![CDATA[hello from console.log, nothing attached here]]></system-out>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].status).toBe('passed');
+      expect(result.summary.flaky).toBe(0);
+      expect(result.summary.passed).toBe(1);
+    });
+
+    it('should not flag a failed testcase even if its system-out also contains an attachment marker', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="1" failures="1" errors="0" time="1">
+  <testcase name="really fails" classname="C" time="1">
+    <system-out><![CDATA[[[ATTACHMENT|../test-results/x/video.webm]]]]></system-out>
+    <failure message="boom" type="Error">Stack trace</failure>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].status).toBe('failed');
+      expect(result.summary.flaky).toBe(0);
+      expect(result.summary.failed).toBe(1);
+    });
+
+    it('should not flag a skipped testcase even if its system-out contains an attachment marker', () => {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="1" failures="0" errors="0" skipped="1" time="0">
+  <testcase name="skipped anyway" classname="C" time="0" skipped="true">
+    <system-out><![CDATA[[[ATTACHMENT|../test-results/x/video.webm]]]]></system-out>
+  </testcase>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].status).toBe('skipped');
+      expect(result.summary.flaky).toBe(0);
+      expect(result.summary.skipped).toBe(1);
+    });
+
+    it('should skip flaky-marking entirely when more than half of the passing tests show attachment evidence', () => {
+      // 3 of 4 "passed" testcases have the marker — implausible as genuine flakiness,
+      // more likely a config that captures video/trace for every test.
+      const candidate = (name: string) => `
+  <testcase name="${name}" classname="C" time="1">
+    <system-out><![CDATA[[[ATTACHMENT|../test-results/${name}/video.webm]]]]></system-out>
+  </testcase>`;
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="4" failures="0" errors="0" time="4">
+  ${candidate('a')}
+  ${candidate('b')}
+  ${candidate('c')}
+  <testcase name="d" classname="C" time="1"/>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases.every((t) => t.status === 'passed')).toBe(true);
+      expect(result.summary).toEqual({
+        total: 4, passed: 4, failed: 0, skipped: 0, flaky: 0, time: 4
+      });
+      expect(result.flakyDetectionSkippedReason).toMatch(/3 of 4 passing tests had debug attachments/);
+    });
+
+    it('should still detect flaky tests when the candidate ratio is exactly at the guard threshold', () => {
+      // 1 of 2 = 50%, not *greater than* the 50% max ratio, so detection still applies.
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="2" failures="0" errors="0" time="2">
+  <testcase name="flaky-one" classname="C" time="1">
+    <system-out><![CDATA[[[ATTACHMENT|../test-results/x/video.webm]]]]></system-out>
+  </testcase>
+  <testcase name="clean-one" classname="C" time="1"/>
+</testsuite>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.suites[0].testcases[0].status).toBe('flaky');
+      expect(result.suites[0].testcases[1].status).toBe('passed');
+      expect(result.summary.flaky).toBe(1);
+      expect(result.flakyDetectionSkippedReason).toBeUndefined();
+    });
+
+    it('should not divide by zero when candidates exist but the suite declares zero total tests', () => {
+      // Malformed/inconsistent XML: the suite's own `tests` attribute (which the summary
+      // math is derived from) undercounts relative to its actual <testcase> children.
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Suite" tests="0" failures="0" errors="0" time="1">
+  <testcase name="flaky-one" classname="C" time="1">
+    <system-out><![CDATA[[[ATTACHMENT|../test-results/x/video.webm]]]]></system-out>
+  </testcase>
+</testsuite>`;
+
+      expect(() => parseJUnitXML(xml)).not.toThrow();
+      const result = parseJUnitXML(xml);
+      // totalPassed (derived from the declared "tests" count) is 0, so the ratio is
+      // forced to 1 (100%) rather than dividing by zero — the guard correctly fires.
+      expect(result.flakyDetectionSkippedReason).toBeDefined();
+      expect(result.suites[0].testcases[0].status).toBe('passed');
+    });
+
+    it('should match Playwright\'s own ground truth on a real trimmed run (5 failed, 3 flaky, rest passed)', () => {
+      // A representative trim of a real results.xml this feature was built against —
+      // shaped exactly like Playwright's actual output (retry1-suffixed attachments and
+      // an <error>/<failure> element with a "Retry #1" section for genuine failures;
+      // a single, un-suffixed attachment set and no failure/error element for flaky
+      // tests; nothing at all for clean passes) — verified against Playwright's own
+      // console summary for that run, which reported exactly 5 failed / 3 flaky.
+      const cleanPass = (n: number) => `<testcase name="clean${n}" classname="e2e/clean.spec.ts" time="1.0"/>`;
+      const flakyCase = (n: number) => `
+<testcase name="flaky${n}" classname="e2e/flaky.spec.ts" time="30.0">
+<system-out><![CDATA[
+[[ATTACHMENT|../test-results/flaky${n}-chromium/video.webm]]
+[[ATTACHMENT|../test-results/flaky${n}-chromium/trace.zip]]
+]]></system-out>
+</testcase>`;
+      const failedCase = (n: number) => `
+<testcase name="failed${n}" classname="e2e/failed.spec.ts" time="30.0">
+<system-out><![CDATA[
+[[ATTACHMENT|../test-results/failed${n}-chromium/video.webm]]
+[[ATTACHMENT|../test-results/failed${n}-chromium-retry1/video.webm]]
+]]></system-out>
+<error message="Timed out" type="Error"><![CDATA[
+Timed out waiting for element
+Retry #1 ───────────────────────
+Timed out waiting for element
+]]></error>
+</testcase>`;
+
+      const passedCases = Array.from({ length: 50 }, (_, i) => cleanPass(i)).join('\n');
+      const flakyCases = Array.from({ length: 3 }, (_, i) => flakyCase(i)).join('\n');
+      const failedCases = Array.from({ length: 5 }, (_, i) => failedCase(i)).join('\n');
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="58" failures="0" skipped="0" errors="5" time="500">
+<testsuite name="Trimmed" tests="58" failures="0" errors="5" skipped="0" time="500">
+${passedCases}
+${flakyCases}
+${failedCases}
+</testsuite>
+</testsuites>`;
+
+      const result = parseJUnitXML(xml);
+
+      expect(result.summary).toEqual({
+        total: 58, passed: 50, failed: 5, skipped: 0, flaky: 3, time: 500
+      });
+      const statuses = result.suites[0].testcases.map((t) => t.status);
+      expect(statuses.filter((s) => s === 'passed')).toHaveLength(50);
+      expect(statuses.filter((s) => s === 'flaky')).toHaveLength(3);
+      expect(statuses.filter((s) => s === 'failed')).toHaveLength(5);
     });
   });
 });

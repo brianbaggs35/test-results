@@ -83,6 +83,7 @@ export const FilterControls = ({
                     <option value="all">All Status</option>
                     <option value="passed">Passed</option>
                     <option value="failed">Failed</option>
+                    <option value="flaky">Flaky</option>
                     <option value="skipped">Skipped</option>
                   </>
                 )}

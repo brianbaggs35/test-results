@@ -33,6 +33,12 @@
   --success-foreground: oklch(0.982 0.018 155.826);
   --warning: oklch(0.666 0.179 58.318);
   --warning-foreground: oklch(0.987 0.022 95.277);
+  /* A true yellow (hue ~76), deliberately distinct from --warning's amber/orange
+     (hue ~58) — skipped already uses --warning, and both statuses appear together
+     on the Dashboard/Report pie charts and stat grids, so they need to read as
+     clearly different colors, not two shades of the same one. */
+  --flaky: oklch(0.681 0.162 75.834);
+  --flaky-foreground: oklch(0.987 0.026 102.212);
 
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
@@ -70,6 +76,8 @@
   --success-foreground: oklch(0.982 0.018 155.826);
   --warning: oklch(0.769 0.188 70.08);
   --warning-foreground: oklch(0.279 0.077 45.635);
+  --flaky: oklch(0.852 0.199 91.936);
+  --flaky-foreground: oklch(0.286 0.066 53.813);
 
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
@@ -106,6 +114,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-flaky: var(--flaky);
+  --color-flaky-foreground: var(--flaky-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

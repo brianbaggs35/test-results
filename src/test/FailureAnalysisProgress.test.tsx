@@ -60,6 +60,7 @@ function createTestDataWithFailures(numFailedTests: number) {
       passed: 0,
       failed: numFailedTests,
       skipped: 0,
+      flaky: 0,
       time: suites.reduce((total, suite) => total + suite.time, 0)
     },
     suites
@@ -140,7 +141,7 @@ describe('FailureAnalysisProgress', () => {
       render(<FailureAnalysisProgress testData={testData} />);
 
       expect(screen.getByText('Failure Resolution Progress')).toBeInTheDocument();
-      expect(screen.getByText('Total Failed Tests')).toBeInTheDocument();
+      expect(screen.getByText('Total Tracked Tests')).toBeInTheDocument();
       expect(screen.getByText('25')).toBeInTheDocument(); // Total count
       expect(screen.getByText('25 tests tracked')).toBeInTheDocument();
     });
@@ -943,6 +944,74 @@ describe('FailureAnalysisProgress', () => {
       expect(noteElements.length).toBe(2);
       // Last Updated text should appear for items with notes
       expect(screen.getAllByText(/Last Updated:/).length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Flaky tests', () => {
+    const mixedTestData = {
+      summary: { total: 2, passed: 0, failed: 1, skipped: 0, flaky: 1, time: 2 },
+      suites: [
+        {
+          name: 'Suite1',
+          tests: 2,
+          failures: 1,
+          errors: 0,
+          skipped: 0,
+          time: 2,
+          timestamp: '2024-01-01T12:00:00Z',
+          testcases: [
+            { name: 'reallyFailed', classname: 'Class1', status: 'failed' as const, time: 1, errorMessage: 'boom' },
+            { name: 'flakyOne', classname: 'Class2', status: 'flaky' as const, time: 1 },
+          ],
+        },
+      ],
+    };
+
+    it('should track flaky tests alongside failed ones, each tagged with their own outcome', () => {
+      render(<FailureAnalysisProgress testData={mixedTestData} />);
+
+      expect(screen.getByText('2 tests tracked')).toBeInTheDocument();
+      expect(screen.getByText('reallyFailed')).toBeInTheDocument();
+      expect(screen.getByText('flakyOne')).toBeInTheDocument();
+    });
+
+    it('should filter to only flaky-outcome tests via the Flaky status option', () => {
+      render(<FailureAnalysisProgress testData={mixedTestData} />);
+
+      fireEvent.change(screen.getByTestId('status-filter'), { target: { value: 'flaky' } });
+
+      expect(screen.getByText('flakyOne')).toBeInTheDocument();
+      expect(screen.queryByText('reallyFailed')).not.toBeInTheDocument();
+    });
+
+    it('should show the flaky outcome (not "failed") in the stack trace modal for a flaky item', async () => {
+      const user = userEvent.setup();
+      render(<FailureAnalysisProgress testData={mixedTestData} />);
+
+      const viewButtons = screen.getAllByText('View Stack Trace');
+      // flakyOne is the second seeded item (Object.values preserves insertion order).
+      await user.click(viewButtons[1]);
+
+      expect(screen.getByTestId('test-details-modal')).toBeInTheDocument();
+      expect(screen.getByText('Test: flakyOne')).toBeInTheDocument();
+    });
+
+    it('should backfill testStatus as failed for progress saved before flaky tracking existed', () => {
+      const matchingId = testIdentityKey('Suite1', 'Class1', 'reallyFailed');
+      const getItemSpy = vi.spyOn(window.localStorage, 'getItem').mockReturnValue(JSON.stringify({
+        [matchingId]: {
+          id: matchingId,
+          name: 'reallyFailed',
+          suite: 'Suite1',
+          status: 'pending',
+          // No testStatus — this is what pre-flaky-feature localStorage data looks like.
+        },
+      }));
+
+      expect(() => render(<FailureAnalysisProgress testData={mixedTestData} />)).not.toThrow();
+
+      expect(screen.getByText('reallyFailed')).toBeInTheDocument();
+      getItemSpy.mockRestore();
     });
   });
 });

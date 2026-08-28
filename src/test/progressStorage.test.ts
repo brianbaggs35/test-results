@@ -3,7 +3,7 @@ import { syncProgressStorageForNewXml, PROGRESS_STORAGE_PREFIX } from '../utils/
 import type { TestData } from '../types';
 
 const testData: TestData = {
-  summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+  summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
   suites: [
     {
       name: 'S',
@@ -21,7 +21,7 @@ const testData: TestData = {
 // Same suite/test identity as `testData`, but every outcome-ish field differs — a
 // rerun of the same suite should still be treated as "the same XML".
 const rerunOfTestData: TestData = {
-  summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 99 },
+  summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 99 },
   suites: [
     {
       name: 'S',
@@ -37,7 +37,7 @@ const rerunOfTestData: TestData = {
 };
 
 const otherTestData: TestData = {
-  summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+  summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
   suites: [
     {
       name: 'Z',

@@ -38,11 +38,11 @@ test.describe('XML e2e tests', () => {
   })
 
   test('should show the correct success rate', async ({ page }) => {
-    await expect(page.locator('p.text-lg.font-bold.text-foreground').last()).toContainText('55.6%')
+    await expect(page.locator('p.text-lg.font-bold.text-foreground').last()).toContainText('55.55%')
   })
 
   test('should show the pie chart with correct percentages', async ({ page }) => {
-    await expect(page.getByRole('application')).toContainText('5 (55.6%)4 (44.4%)')
+    await expect(page.getByRole('application')).toContainText('5 (55.55%)4 (44.44%)')
   })
 
   test('test results should show up correctly', async ({ page }) => {

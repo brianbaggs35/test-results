@@ -15,6 +15,7 @@ vi.mock('../components/ReportGenerator/ReportPreview', () => ({
       {config.includeExecutiveSummary && <span data-testid="preview-exec-summary">Executive Summary</span>}
       {config.includeTestMetrics && <span data-testid="preview-metrics">Test Metrics</span>}
       {config.includeFailedTests && <span data-testid="preview-failed">Failed Tests</span>}
+      {config.includeFlakyTests && <span data-testid="preview-flaky">Flaky Tests</span>}
       {config.includeAllTests && <span data-testid="preview-all">All Tests</span>}
       {config.includeResolutionProgress && <span data-testid="preview-progress">Resolution Progress</span>}
     </div>
@@ -38,6 +39,7 @@ describe('ReportGenerator', () => {
         passed: 75,
         failed: 20,
         skipped: 5,
+        flaky: 0,
         time: 120.5
       },
       suites: [
@@ -102,6 +104,8 @@ describe('ReportGenerator', () => {
     expect(screen.getByLabelText('Include Executive Summary')).toBeChecked();
     expect(screen.getByLabelText('Include Test Metrics and Charts')).toBeChecked();
     expect(screen.getByLabelText('Include Failed Tests Details')).toBeChecked();
+    // Flaky is internal-use-only info, so a report defaults to excluding it.
+    expect(screen.getByLabelText('Include Flaky Tests')).not.toBeChecked();
     expect(screen.getByLabelText('Include All Test Cases')).not.toBeChecked();
     expect(screen.getByLabelText('Include Failure Resolution Progress')).not.toBeChecked();
   });
@@ -195,6 +199,16 @@ describe('ReportGenerator', () => {
     expect(screen.queryByTestId('preview-exec-summary')).not.toBeInTheDocument();
     expect(screen.queryByTestId('preview-metrics')).not.toBeInTheDocument();
     expect(screen.getByTestId('preview-failed')).toBeInTheDocument(); // Still checked
+  });
+
+  it('should pass includeFlakyTests through to the preview once checked', async () => {
+    const user = userEvent.setup();
+    render(<ReportGenerator testData={mockTestData} />);
+
+    await user.click(screen.getByLabelText('Include Flaky Tests'));
+    await user.click(screen.getByText('Preview Report'));
+
+    expect(screen.getByTestId('preview-flaky')).toBeInTheDocument();
   });
 
   it('should switch to the Dashboard tab when "Go to Dashboard" is clicked with no data', () => {

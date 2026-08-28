@@ -32,7 +32,7 @@ function createMockFile(content: string, name: string, type = 'text/xml'): File 
 }
 
 const sampleTestData: TestData = {
-  summary: { total: 10, passed: 8, failed: 2, skipped: 0, time: 12.3 },
+  summary: { total: 10, passed: 8, failed: 2, skipped: 0, flaky: 0, time: 12.3 },
   suites: [
     {
       name: 'Suite A',

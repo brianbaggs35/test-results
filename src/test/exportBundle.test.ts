@@ -3,7 +3,7 @@ import { buildExportBundle, exportProgressBundle, readExportBundle, importProgre
 import type { TestData } from '../types';
 
 const testData: TestData = {
-  summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+  summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
   suites: [
     {
       name: 'S',
@@ -18,10 +18,10 @@ const testData: TestData = {
   ],
 };
 
-const progress = { 'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'pending' as const } };
+const progress = { 'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed' as const, status: 'pending' as const } };
 
 const otherTestData: TestData = {
-  summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+  summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
   suites: [
     {
       name: 'Z',
@@ -46,7 +46,7 @@ describe('buildExportBundle', () => {
     // Same suite/test identity as `testData`, but every outcome-ish field differs:
     // status flipped to passed, timings and timestamp changed, and different summary totals.
     const rerun: TestData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 99 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 99 },
       suites: [
         {
           name: 'S',
@@ -79,7 +79,7 @@ describe('buildExportBundle', () => {
     // concatenate to "A-B-C" if joined with a plain delimiter — the hash must
     // tell them apart.
     const suiteABtestC: TestData = {
-      summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+      summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
       suites: [
         {
           name: 'A-B',
@@ -94,7 +94,7 @@ describe('buildExportBundle', () => {
       ],
     };
     const suiteAtestBC: TestData = {
-      summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+      summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
       suites: [
         {
           name: 'A',
@@ -120,7 +120,7 @@ describe('buildExportBundle', () => {
     // so a suite with two same-named tests from different classes looked
     // structurally identical to one with only a single test of that name.
     const oneClass: TestData = {
-      summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+      summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
       suites: [
         {
           name: 'S',
@@ -135,7 +135,7 @@ describe('buildExportBundle', () => {
       ],
     };
     const otherClass: TestData = {
-      summary: { total: 1, passed: 0, failed: 1, skipped: 0, time: 1 },
+      summary: { total: 1, passed: 0, failed: 1, skipped: 0, flaky: 0, time: 1 },
       suites: [
         {
           name: 'S',
@@ -209,7 +209,7 @@ describe('readExportBundle', () => {
 
 describe('importProgressBundle', () => {
   const currentProgress = {
-    'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'pending' as const, errorMessage: 'current error' },
+    'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed' as const, status: 'pending' as const, errorMessage: 'current error' },
   };
 
   it('applies status/notes/assignee from the file onto matching current entries, keeping identity fields from the loaded XML', async () => {
@@ -219,12 +219,13 @@ describe('importProgressBundle', () => {
         name: 'stale-name',
         suite: 'stale-suite',
         errorMessage: 'stale error',
+        testStatus: 'failed',
         status: 'completed',
         notes: 'fixed it',
         assignee: 'Alice',
         updatedAt: '2024-02-02T00:00:00Z',
       },
-      'S-f2': { id: 'S-f2', name: 'f2', suite: 'S', status: 'pending' },
+      'S-f2': { id: 'S-f2', name: 'f2', suite: 'S', testStatus: 'failed', status: 'pending' },
     });
     const file = new File([JSON.stringify(importedBundle)], 'export.json');
 
@@ -237,6 +238,7 @@ describe('importProgressBundle', () => {
       name: 'f1',
       suite: 'S',
       errorMessage: 'current error',
+      testStatus: 'failed',
       status: 'completed',
       notes: 'fixed it',
       assignee: 'Alice',
@@ -248,10 +250,10 @@ describe('importProgressBundle', () => {
   it('leaves entries with no matching id in the file untouched', async () => {
     const currentWithExtra = {
       ...currentProgress,
-      'S-other': { id: 'S-other', name: 'other', suite: 'S', status: 'in_progress' as const },
+      'S-other': { id: 'S-other', name: 'other', suite: 'S', testStatus: 'failed' as const, status: 'in_progress' as const },
     };
     const importedBundle = await buildExportBundle(testData, {
-      'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'completed' as const },
+      'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed' as const, status: 'completed' as const },
     });
     const file = new File([JSON.stringify(importedBundle)], 'export.json');
 
@@ -262,7 +264,7 @@ describe('importProgressBundle', () => {
 
   it('rejects a file whose tests do not overlap the currently loaded XML at all', async () => {
     const importedBundle = await buildExportBundle(otherTestData, {
-      'Z-z1': { id: 'Z-z1', name: 'z1', suite: 'Z', status: 'completed' },
+      'Z-z1': { id: 'Z-z1', name: 'z1', suite: 'Z', testStatus: 'failed', status: 'completed' },
     });
     const file = new File([JSON.stringify(importedBundle)], 'export-a.json');
 
@@ -273,12 +275,12 @@ describe('importProgressBundle', () => {
 
   it('does not reject when at least one test overlaps, even if others do not', async () => {
     const mixedTestData: TestData = {
-      summary: { total: 2, passed: 0, failed: 2, skipped: 0, time: 2 },
+      summary: { total: 2, passed: 0, failed: 2, skipped: 0, flaky: 0, time: 2 },
       suites: [...testData.suites, ...otherTestData.suites],
     };
     const importedBundle = await buildExportBundle(mixedTestData, {
-      'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'completed' },
-      'Z-z1': { id: 'Z-z1', name: 'z1', suite: 'Z', status: 'completed' },
+      'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed', status: 'completed' },
+      'Z-z1': { id: 'Z-z1', name: 'z1', suite: 'Z', testStatus: 'failed', status: 'completed' },
     });
     const file = new File([JSON.stringify(importedBundle)], 'export.json');
 
@@ -290,7 +292,7 @@ describe('importProgressBundle', () => {
 
   it('accepts a rerun of the same suite (same names, different outcomes/timing/summary) via the structure hash', async () => {
     const rerunTestData: TestData = {
-      summary: { total: 1, passed: 1, failed: 0, skipped: 0, time: 99 },
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0, flaky: 0, time: 99 },
       suites: [
         {
           name: 'S',
@@ -305,7 +307,7 @@ describe('importProgressBundle', () => {
       ],
     };
     const importedBundle = await buildExportBundle(testData, {
-      'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'completed', notes: 'fixed', assignee: 'Bob' },
+      'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed', status: 'completed', notes: 'fixed', assignee: 'Bob' },
     });
     const file = new File([JSON.stringify(importedBundle)], 'export.json');
 
@@ -319,7 +321,7 @@ describe('importProgressBundle', () => {
     const legacyBundle = {
       version: 1 as const,
       testData,
-      progress: { 'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', status: 'completed' as const } },
+      progress: { 'S-f1': { id: 'S-f1', name: 'f1', suite: 'S', testStatus: 'failed' as const, status: 'completed' as const } },
     };
     const file = new File([JSON.stringify(legacyBundle)], 'export.json');
 
@@ -332,7 +334,7 @@ describe('importProgressBundle', () => {
     const legacyBundle = {
       version: 1 as const,
       testData: otherTestData,
-      progress: { 'Z-z1': { id: 'Z-z1', name: 'z1', suite: 'Z', status: 'completed' as const } },
+      progress: { 'Z-z1': { id: 'Z-z1', name: 'z1', suite: 'Z', testStatus: 'failed' as const, status: 'completed' as const } },
     };
     const file = new File([JSON.stringify(legacyBundle)], 'export.json');
 

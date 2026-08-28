@@ -15,6 +15,7 @@ describe('Types', () => {
         passed: 8,
         failed: 1,
         skipped: 1,
+        flaky: 0,
         time: 120.5
       };
 
@@ -31,6 +32,7 @@ describe('Types', () => {
         passed: 0,
         failed: 0,
         skipped: 0,
+        flaky: 0,
         time: 0
       };
 
@@ -177,6 +179,7 @@ describe('Types', () => {
           passed: 2,
           failed: 1,
           skipped: 0,
+          flaky: 0,
           time: 15.5
         },
         suites: [
@@ -221,6 +224,7 @@ describe('Types', () => {
           passed: 3,
           failed: 1,
           skipped: 0,
+          flaky: 0,
           time: 20.0
         },
         suites: [
@@ -268,6 +272,7 @@ describe('Types', () => {
         includeExecutiveSummary: true,
         includeTestMetrics: true,
         includeFailedTests: true,
+        includeFlakyTests: false,
         includeAllTests: false,
         includeResolutionProgress: false
       };
@@ -290,6 +295,7 @@ describe('Types', () => {
         includeExecutiveSummary: true,
         includeTestMetrics: true,
         includeFailedTests: true,
+        includeFlakyTests: true,
         includeAllTests: true,
         includeResolutionProgress: true
       };
@@ -301,6 +307,7 @@ describe('Types', () => {
         includeExecutiveSummary: false,
         includeTestMetrics: false,
         includeFailedTests: false,
+        includeFlakyTests: false,
         includeAllTests: false,
         includeResolutionProgress: false
       };
@@ -326,6 +333,7 @@ describe('Types', () => {
         includeExecutiveSummary: true,
         includeTestMetrics: true,
         includeFailedTests: true,
+        includeFlakyTests: false,
         includeAllTests: false,
         includeResolutionProgress: false
       };
@@ -344,6 +352,7 @@ describe('Types', () => {
         passed: 85,
         failed: 10,
         skipped: 5,
+        flaky: 0,
         time: 300.75
       };
 
@@ -400,6 +409,7 @@ describe('Types', () => {
         includeExecutiveSummary: true,
         includeTestMetrics: true,
         includeFailedTests: true,
+        includeFlakyTests: false,
         includeAllTests: false,
         includeResolutionProgress: true
       };
