@@ -620,8 +620,8 @@ export const PDFPreviewFrame = ({ testData, config }: PDFPreviewFrameProps) => {
                               lineHeight: '1.2',
                               verticalAlign: 'middle',
                               textAlign: 'center',
-                              backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : isPendingFlaky ? '#fef9c3' : '#fee2e2',
-                              color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : isPendingFlaky ? '#a16207' : '#991b1b',
+                                backgroundColor: test.status === 'completed' ? '#d1fae5' : test.status === 'in_progress' ? '#dbeafe' : isPendingFlaky ? '#fee2e2' : '#fee2e2',
+                                color: test.status === 'completed' ? '#065f46' : test.status === 'in_progress' ? '#1e40af' : isPendingFlaky ? '#991b1b' : '#991b1b',
                             }}>
                               {test.status ? test.status.replace('_', ' ') : 'Not started'}
                             </span>
