@@ -103,7 +103,7 @@ failure details are included in that request — only the three counts.
 This project has comprehensive test coverage with:
 
 - **789 Vitest tests** covering unit, component, hook, and Slack-publishing functionality
-- **65 Playwright end-to-end tests** covering upload, filtering, search, split/combine, sharded-run combining, bulk actions, report generation, and publishing flows
+- **67 Playwright end-to-end tests** covering upload, filtering, search, split/combine, sharded-run combining, bulk actions, report generation, and publishing flows
 - **Vitest** testing framework (v8 coverage provider) with React Testing Library
 - **Playwright** e2e testing with istanbul/nyc coverage reporting
 

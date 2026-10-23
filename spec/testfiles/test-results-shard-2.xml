@@ -1,6 +1,112 @@
-<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="2.7960429999999996">
-<testsuite name="theme.spec.ts" timestamp="2026-10-23T10:06:36.594Z" hostname="chromium" tests="1" failures="0" skipped="0" time="0.964" errors="0">
-<testcase name="Theme tests › should switch to dark theme" classname="theme.spec.ts" time="0.964">
-</testcase>
-</testsuite>
+<testsuites id="" name="" tests="12" failures="1" errors="0" skipped="0" time="103.570">
+  <testsuite name="e2e/cloud_scanning/show/owner/false_positive.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="2" failures="1" skipped="0" time="51.521" errors="0">
+    <testcase name="Cloud scanning show false positives › Mark cloud scanning control as false positive" classname="e2e/cloud_scanning/show/owner/false_positive.spec.ts" time="8.067"></testcase>
+    <testcase system-out="
+[[ATTACHMENT|../securicy-app/test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/trace.zip]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/trace.zip]]
+" name="Cloud scanning show false positives › Reset false positive cloud scanning control" classname="e2e/cloud_scanning/show/owner/false_positive.spec.ts" time="43.454">
+      <failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">  [chromium] › e2e/cloud_scanning/show/owner/false_positive.spec.ts:55:3 › Cloud scanning show false positives › Reset false positive cloud scanning control @regression @critical 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole(&apos;heading&apos;, { name: &apos;DESCRIPTION&apos; })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect &quot;toBeVisible&quot; getByRole(&apos;heading&apos;, { name: &apos;DESCRIPTION&apos; }) with timeout 10000ms
+      - waiting for getByRole(&apos;heading&apos;, { name: &apos;DESCRIPTION&apos; })
+
+
+      62 |     await helper.clickCloudScanControl(&apos;1.1 Maintain current contact details&apos;)
+      63 |
+    &gt; 64 |     await expect(page.getByRole(&apos;heading&apos;, { name: &apos;DESCRIPTION&apos; })).toBeVisible()
+         |                                                                      ^
+      65 |
+      66 |     await expect(page.locator(&apos;turbo-frame[data-control-frame=&quot;aws_compliance.control.cis_v500_1_1&quot;]&apos;)).toContainText(&apos;Ensure contact email and telephone details for AWS accounts are current.&apos;)
+      67 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/cloud_scanning/show/owner/false_positive.spec.ts:64:70
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole(&apos;link&apos;, { name: &apos;Reset&apos; })
+
+
+      66 |     await expect(page.locator(&apos;turbo-frame[data-control-frame=&quot;aws_compliance.control.cis_v500_1_1&quot;]&apos;)).toContainText(&apos;Ensure contact email and telephone details for AWS accounts are current.&apos;)
+      67 |
+    &gt; 68 |     await page.getByRole(&apos;link&apos;, { name: &apos;Reset&apos; }).click()
+         |                                                     ^
+      69 |
+      70 |     await expect(helper.getNotification()).toContainText(&apos;Control status reset&apos;)
+      71 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/cloud_scanning/show/owner/false_positive.spec.ts:68:53
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-cloud_scanning-show-ow-f4b22-tive-cloud-scanning-control-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="e2e/assessments/index/admin/create.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="2" failures="0" skipped="0" time="10.937" errors="0">
+    <testcase name="Assessment Creation › Navigate to new assessment page and create new assessment" classname="e2e/assessments/index/admin/create.spec.ts" time="5.267"></testcase>
+    <testcase name="Assessment Creation › Create assessment with custom title" classname="e2e/assessments/index/admin/create.spec.ts" time="5.67"></testcase>
+  </testsuite>
+  <testsuite name="e2e/assessments/index/owner/create.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="2" failures="0" skipped="0" time="9.95" errors="0">
+    <testcase name="Assessment Creation › Create a new assessment" classname="e2e/assessments/index/owner/create.spec.ts" time="4.896"></testcase>
+    <testcase name="Assessment Creation › Create assessment with custom title" classname="e2e/assessments/index/owner/create.spec.ts" time="5.054"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/admin/assign.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="2" failures="0" skipped="0" time="7.075" errors="0">
+    <testcase name="Audit manager assignments › Assign stakeholders to audit" classname="e2e/audit_manager/index/admin/assign.spec.ts" time="3.53"></testcase>
+    <testcase name="Audit manager assignments › Assign auditors to audit" classname="e2e/audit_manager/index/admin/assign.spec.ts" time="3.545"></testcase>
+  </testsuite>
+  <testsuite name="e2e/assessments/show/owner/report.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="3.66" errors="0">
+    <testcase name="Assessment Download Report › Click download report button" classname="e2e/assessments/show/owner/report.spec.ts" time="3.66"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/admin/create.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="11.661" errors="0">
+    <testcase name="Audit manager add new audit › Create new audit" classname="e2e/audit_manager/index/admin/create.spec.ts" time="11.661"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/auditor/actions_menu.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.331" errors="0">
+    <testcase name="Audit manager index actions menu › View audit" classname="e2e/audit_manager/index/auditor/actions_menu.spec.ts" time="4.331"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/member_assignee/view.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.435" errors="0">
+    <testcase name="Audit manager member assignee › Member should be able to view an assigned requirement" classname="e2e/audit_manager/index/member_assignee/view.spec.ts" time="4.435"></testcase>
+  </testsuite>
 </testsuites>

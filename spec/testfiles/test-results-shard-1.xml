@@ -1,18 +1,413 @@
-<testsuites id="" name="" tests="6" failures="0" skipped="0" errors="0" time="6.870154">
-<testsuite name="dashboard.spec.ts" timestamp="2026-10-23T10:06:25.405Z" hostname="chromium" tests="3" failures="0" skipped="0" time="2.087" errors="0">
-<testcase name="Dashboard E2E Tests › should display the dashboard title" classname="dashboard.spec.ts" time="0.747">
-</testcase>
-<testcase name="Dashboard E2E Tests › should be able to switch between tabs" classname="dashboard.spec.ts" time="0.71">
-</testcase>
-<testcase name="Dashboard E2E Tests › Upload sample XML file" classname="dashboard.spec.ts" time="0.63">
-</testcase>
-</testsuite>
-<testsuite name="search.spec.ts" timestamp="2026-10-23T10:06:25.405Z" hostname="chromium" tests="3" failures="0" skipped="0" time="2.541" errors="0">
-<testcase name="Search tests › should search for a test on the dashboard then clear" classname="search.spec.ts" time="0.989">
-</testcase>
-<testcase name="Search tests › should search for a test on the failures page then clear" classname="search.spec.ts" time="0.825">
-</testcase>
-<testcase name="Search tests › should search for a test on the progress page then clear" classname="search.spec.ts" time="0.727">
-</testcase>
-</testsuite>
+<testsuites id="" name="" tests="13" failures="1" errors="2" skipped="1" time="56.519">
+  <testsuite name="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="7" failures="1" skipped="0" time="31.17" errors="2">
+    <testcase name="Custom course with vimeo video › Create custom course with embedded vimeo video" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="3.24"></testcase>
+    <testcase name="Custom course with vimeo video › Add question one true or false" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="2.791"></testcase>
+    <testcase name="Custom course with vimeo video › Add question two true or false" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="2.718"></testcase>
+    <testcase name="Custom course with vimeo video › Activate course" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="1.594"></testcase>
+    <testcase system-out="
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/trace.zip]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/trace.zip]]
+" name="Custom course with vimeo video › Enroll in custom course" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="14.086">
+      <failure message="expect(locator).toContainText(expected) failed" type="expect.toContainText">  [chromium] › e2e/awareness_training/index/admin/custom_vimeo.spec.ts:110:3 › Custom course with vimeo video › Enroll in custom course @regression @critical 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: locator(&apos;#assigned_users_course_0afc3dfd-ed42-4ad9-acec-f8a5d18b84ce&apos;)
+    Timeout: 10000ms
+    - Expected substring  -  1
+    + Received string     + 31
+
+    - O owner_user_of_organization_0
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    + A
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    + admin_user_of_organization_0
+    +
+    + testing+admin_user_of_organization_0@carbidesecure.com
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+    +
+
+    Call log:
+      - Expect &quot;toContainText&quot; locator(&apos;#assigned_users_course_0afc3dfd-ed42-4ad9-acec-f8a5d18b84ce&apos;) with timeout 10000ms
+      - waiting for locator(&apos;#assigned_users_course_0afc3dfd-ed42-4ad9-acec-f8a5d18b84ce&apos;)
+        24 × locator resolved to &lt;div id=&quot;assigned_users_course_0afc3dfd-ed42-4ad9-acec-f8a5d18b84ce&quot;&gt;…&lt;/div&gt;
+           - unexpected value &quot;
+    
+    
+    
+    
+    
+    
+    
+    A
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    admin_user_of_organization_0
+    
+    testing+admin_user_of_organization_0@carbidesecure.com
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    &quot;
+
+
+      119 |     await expect(helper.getNotification()).toContainText(&apos;You are now enrolled in course Custom Course&apos;)
+      120 |
+    &gt; 121 |     await expect(page.locator(`#assigned_users_course_${title.id}`)).toContainText(&apos;O owner_user_of_organization_0&apos;)
+          |                                                                      ^
+      122 |   })
+      123 |
+      124 |   test(&apos;Complete custom course with correct answers&apos;, async ({ page, helper }) =&gt; {
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:121:70
+
+    &quot;afterAll&quot; hook timeout of 30000ms exceeded.
+
+      183 | })
+      184 |
+    &gt; 185 | test.afterAll(async ({ browser }) =&gt; {
+          |      ^
+      186 |   const memberContext = await browser.newContext({ storageState: storageStatePath(&apos;default/member_user_of_organization_0&apos;) }),
+      187 |     page = await memberContext.newPage()
+      188 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:185:6
+
+    Error: locator.click: Test ended.
+    Call log:
+      - waiting for locator(&apos;#actions_menu_course_0afc3dfd-ed42-4ad9-acec-f8a5d18b84ce&apos;)
+
+
+      191 |   const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      192 |
+    &gt; 193 |   await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                          ^
+      194 |
+      195 |   await page.locator(`#card_course_${title.id}`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).first().click()
+      196 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:193:58
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/error-context.md
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      113 |     const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      114 |
+    &gt; 115 |     await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                      ^
+      116 |
+      117 |     await page.getByRole(&apos;link&apos;, { name: &apos;Enroll&apos; }).click()
+      118 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:115:54
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      191 |   const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      192 |
+    &gt; 193 |   await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                    ^
+      194 |
+      195 |   await page.locator(`#card_course_${title.id}`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).first().click()
+      196 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:193:52
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/error-context.md
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-awareness_training-ind-f7cef-deo-Enroll-in-custom-course-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+</failure>
+    </testcase>
+    <testcase system-out="
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/trace.zip]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/trace.zip]]
+" name="Custom course with vimeo video › Complete custom course with correct answers" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="3.507">
+      <error message="Cannot read properties of null (reading &apos;id&apos;)" type="TypeError">  [chromium] › e2e/awareness_training/index/admin/custom_vimeo.spec.ts:124:3 › Custom course with vimeo video › Complete custom course with correct answers @regression @critical 
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      127 |     const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      128 |
+    &gt; 129 |     await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                      ^
+      130 |
+      131 |     await page.locator(`ul[aria-labelledby=&quot;actions_menu_course_${title.id}&quot;]`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).click()
+      132 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:129:54
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      191 |   const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      192 |
+    &gt; 193 |   await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                    ^
+      194 |
+      195 |   await page.locator(`#card_course_${title.id}`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).first().click()
+      196 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:193:52
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/error-context.md
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      127 |     const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      128 |
+    &gt; 129 |     await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                      ^
+      130 |
+      131 |     await page.locator(`ul[aria-labelledby=&quot;actions_menu_course_${title.id}&quot;]`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).click()
+      132 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:129:54
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      191 |   const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      192 |
+    &gt; 193 |   await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                    ^
+      194 |
+      195 |   await page.locator(`#card_course_${title.id}`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).first().click()
+      196 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:193:52
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/error-context.md
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-awareness_training-ind-558f9-course-with-correct-answers-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+</error>
+    </testcase>
+    <testcase system-out="
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/trace.zip]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/video.webm]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/error-context.md]]
+
+[[ATTACHMENT|../securicy-app/test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/trace.zip]]
+" name="Custom course with vimeo video › Add member to custom course" classname="e2e/awareness_training/index/admin/custom_vimeo.spec.ts" time="3.234">
+      <error message="Cannot read properties of null (reading &apos;id&apos;)" type="TypeError">  [chromium] › e2e/awareness_training/index/admin/custom_vimeo.spec.ts:168:3 › Custom course with vimeo video › Add member to custom course @regression @critical 
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      171 |     const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      172 |
+    &gt; 173 |     await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                      ^
+      174 |
+      175 |     await page.getByRole(&apos;link&apos;, { name: &apos;Assign Users&apos; }).click()
+      176 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:173:54
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      191 |   const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      192 |
+    &gt; 193 |   await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                    ^
+      194 |
+      195 |   await page.locator(`#card_course_${title.id}`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).first().click()
+      196 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:193:52
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/error-context.md
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      171 |     const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      172 |
+    &gt; 173 |     await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                      ^
+      174 |
+      175 |     await page.getByRole(&apos;link&apos;, { name: &apos;Assign Users&apos; }).click()
+      176 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:173:54
+
+    TypeError: Cannot read properties of null (reading &apos;id&apos;)
+
+      191 |   const title = await appEval(`Course.find_by(title: &quot;Custom Course&quot;)`)
+      192 |
+    &gt; 193 |   await page.locator(`#actions_menu_course_${title.id}`).click()
+          |                                                    ^
+      194 |
+      195 |   await page.locator(`#card_course_${title.id}`).getByRole(&apos;link&apos;, { name: &apos;View Course&apos; }).first().click()
+      196 |
+        at /Users/brianbaggs/Dev/securicy-app/spec/playwright/playwright/e2e/awareness_training/index/admin/custom_vimeo.spec.ts:193:52
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/error-context.md
+
+    Error Context: ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/trace.zip
+    Usage:
+
+        yarn playwright show-trace ../../../test-results/e2e-awareness_training-ind-4eb13-Add-member-to-custom-course-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+</error>
+    </testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/show/admin/export.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="1" time="0" errors="0">
+    <testcase skipped="" name="Audit manager show export › Export audit" classname="e2e/audit_manager/show/admin/export.spec.ts">
+      <properties>
+        <property name="fixme" value=""></property>
+      </properties>
+    </testcase>
+  </testsuite>
+  <testsuite name="e2e/assessments/show/admin/report.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="3.914" errors="0">
+    <testcase name="Assessment Download Report › View report by clicking download button" classname="e2e/assessments/show/admin/report.spec.ts" time="3.914"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/admin/assign_default_evidence.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="7.022" errors="0">
+    <testcase name="Audit manager index › Assign default evidence to audit requirement" classname="e2e/audit_manager/index/admin/assign_default_evidence.spec.ts" time="7.022"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/admin/unarchive.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="5.765" errors="0">
+    <testcase name="Audit manager index actions menu › Unarchive audit" classname="e2e/audit_manager/index/admin/unarchive.spec.ts" time="5.765"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/member_assignee/permissions.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.35" errors="0">
+    <testcase name="Audit manager permissions › Member assignee should only have access to assigned requirements" classname="e2e/audit_manager/index/member_assignee/permissions.spec.ts" time="4.35"></testcase>
+  </testsuite>
+  <testsuite name="e2e/audit_manager/index/member_stakeholder/actions_menu.spec.ts" timestamp="2026-10-22T19:19:00.819Z" hostname="chromium" tests="1" failures="0" skipped="0" time="4.298" errors="0">
+    <testcase name="Audit manager index actions menu › View audit" classname="e2e/audit_manager/index/member_stakeholder/actions_menu.spec.ts" time="4.298"></testcase>
+  </testsuite>
 </testsuites>
