@@ -24,7 +24,7 @@ test.describe('Clear test data', () => {
 
     await expect(page.getByTestId('stat-flaky')).toContainText('0Flaky')
 
-    await expect(page.evaluate(() => localStorage.getItem('testFixProgress_structureHash'))).resolves.not.toBeNull()
+    await expect(page.evaluate(() => localStorage.getItem('testFixProgress_resultsHash'))).resolves.not.toBeNull()
 
     await page.getByRole('button', { name: 'Clear Test Data' }).click()
 
@@ -38,7 +38,7 @@ test.describe('Clear test data', () => {
 
     await expect(page.getByTestId('stat-flaky')).toBeHidden()
 
-    await expect(page.evaluate(() => localStorage.getItem('testFixProgress_structureHash'))).resolves.toBeNull()
+    await expect(page.evaluate(() => localStorage.getItem('testFixProgress_resultsHash'))).resolves.toBeNull()
   })
 
   test('should cancel clearing the test data', async ({ page }) => {
