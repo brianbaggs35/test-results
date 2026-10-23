@@ -199,7 +199,7 @@ describe('SplitPage', () => {
       expect(Object.keys(storedProgress).sort()).toEqual(['Suite-fail1', 'Suite-fail2']);
     });
 
-    it('also stores a structure hash for the combined result, so a later upload can tell it apart from a different XML', async () => {
+    it('also stores a results hash for the combined result, so a later upload can tell it apart from a different XML', async () => {
       const setItemSpy = vi.spyOn(window.localStorage, 'setItem');
       render(<SplitPage xmlContent={null} onCombined={onCombined} setActiveTab={setActiveTab} />);
 
@@ -213,7 +213,7 @@ describe('SplitPage', () => {
 
       // Written after the progress blob, so combine-result's own `setItem('testFixProgress', ...)`
       // assertion (mock.calls[0]) keeps indexing the right call.
-      expect(setItemSpy).toHaveBeenCalledWith('testFixProgress_structureHash', expect.any(String));
+      expect(setItemSpy).toHaveBeenCalledWith('testFixProgress_resultsHash', expect.any(String));
     });
 
     it('navigates to the report tab when "Continue to Report" is clicked', async () => {
