@@ -30,6 +30,9 @@ vi.mock('../components/Layout/Navbar', () => ({
       <button data-testid="split-tab" onClick={() => setActiveTab('split')}>
         Split {activeTab === 'split' && '(active)'}
       </button>
+      <button data-testid="shard-tab" onClick={() => setActiveTab('shard')}>
+        Shard {activeTab === 'shard' && '(active)'}
+      </button>
       <button data-testid="bogus-tab" onClick={() => setActiveTab('bogus')}>
         Bogus
       </button>
@@ -100,6 +103,28 @@ vi.mock('../components/Split/SplitPage', () => ({
       {xmlContent ? <div data-testid="split-xml-content">XML content available</div> : null}
       <button data-testid="combine-and-go-to-report" onClick={() => { onCombined({ combined: true }); setActiveTab('report'); }}>
         Combine
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('../components/Shard/ShardPage', () => ({
+  ShardPage: ({
+    onDataUpload,
+    onXmlContent,
+    setActiveTab,
+  }: {
+    onDataUpload: (data: unknown) => void;
+    onXmlContent: (content: string) => void;
+    setActiveTab: (tab: string) => void;
+  }) => (
+    <div data-testid="shard-page">
+      Shard Page
+      <button
+        data-testid="shard-and-go-to-dashboard"
+        onClick={() => { onDataUpload({ sharded: true }); onXmlContent('<testsuites>sharded</testsuites>'); setActiveTab('dashboard'); }}
+      >
+        Combine Shards
       </button>
     </div>
   ),
@@ -287,5 +312,27 @@ describe('App', () => {
     fireEvent.click(screen.getByTestId('combine-and-go-to-report'));
 
     expect(syncProgressStorageForNewXml).not.toHaveBeenCalled();
+  });
+
+  it('should switch to shard tab when clicked', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('shard-tab'));
+
+    expect(screen.getByTestId('shard-page')).toBeInTheDocument();
+    expect(screen.getByText('Shard (active)')).toBeInTheDocument();
+  });
+
+  it('loads combined shard data into the dashboard and treats it like any other XML upload', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('shard-tab'));
+    fireEvent.click(screen.getByTestId('shard-and-go-to-dashboard'));
+
+    expect(screen.getByTestId('dashboard')).toBeInTheDocument();
+    expect(screen.getByTestId('test-data')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(syncProgressStorageForNewXml).toHaveBeenCalledWith({ sharded: true });
+    });
   });
 });

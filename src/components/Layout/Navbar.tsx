@@ -5,6 +5,7 @@ import {
   ListChecksIcon,
   SendIcon,
   SplitIcon,
+  BoxesIcon,
   FlaskConicalIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'progress', label: 'Progress', icon: ListChecksIcon },
   { id: 'report', label: 'Report', icon: FileTextIcon },
   { id: 'split', label: 'Split', icon: SplitIcon },
+  { id: 'shard', label: 'Shard', icon: BoxesIcon },
   { id: 'publish', label: 'Publish', icon: SendIcon },
 ];
 
