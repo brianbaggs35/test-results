@@ -177,6 +177,61 @@ line 2 with &amp; special &gt; chars</failure></testcase>
     expect(result.warnings).toEqual([]);
   });
 
+  it('deduplicates an exact-duplicate suite across files, keeping only one copy', () => {
+    // Regression test: a suite that's byte-for-byte identical in two files used to be
+    // kept twice, inflating summary.total/failed above what the Progress tab (which
+    // dedupes failing tests by identity) would show for the very same merged result.
+    const shared = `<testsuite name="Shared" tests="2" failures="1" errors="0" skipped="0" time="1.5">
+      <testcase name="t1" classname="C" time="1" />
+      <testcase name="t2" classname="C" time="0.5"><failure message="m" type="E">x</failure></testcase>
+    </testsuite>`;
+    const shard1 = file('shard-1.xml', `${shared}<testsuite name="Only1" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
+    const shard2 = file('shard-2.xml', `${shared}<testsuite name="Only2" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
+
+    const result = mergeJUnitXml([shard1, shard2]);
+
+    expect(result.suiteCount).toBe(3);
+    expect(result.warnings).toContainEqual(
+      expect.stringMatching(/Suite "Shared" was identical.*counted once, not 2 times/)
+    );
+    const data = parseJUnitXML(result.xml);
+    expect(data.summary.total).toBe(4);
+    expect(data.summary.failed).toBe(1);
+  });
+
+  it('suppresses the per-suite warning when a duplicate is already explained by a whole-file-identical warning', () => {
+    const shard = file('a.xml', `<testsuite name="Solo" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
+    const duplicate: JUnitXmlFile = { name: 'a.xml', xml: shard.xml };
+
+    const result = mergeJUnitXml([shard, duplicate]);
+
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toMatch(/byte-for-byte identical/);
+    expect(result.suiteCount).toBe(1);
+  });
+
+  it('uses "uploaded N times" wording when duplicate files share a name but aren\'t fully identical', () => {
+    const shared = `<testsuite name="Shared" tests="1" failures="0" errors="0" skipped="0" time="1" />`;
+    const shard1 = file('results.xml', `${shared}<testsuite name="Extra1" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
+    const shard2 = file('results.xml', `${shared}<testsuite name="Extra2" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
+
+    const result = mergeJUnitXml([shard1, shard2]);
+
+    expect(result.warnings).toContainEqual(expect.stringMatching(/uploaded 2 times as "results\.xml"/));
+    expect(result.suiteCount).toBe(3);
+  });
+
+  it('keeps every copy and warns when a same-named suite genuinely differs between files, even if duplicated 3+ times', () => {
+    const shard1 = file('a.xml', `<testsuite name="Flaky" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
+    const shard2 = file('b.xml', `<testsuite name="Flaky" tests="1" failures="1" errors="0" skipped="0" time="1" />`);
+    const shard3 = file('c.xml', `<testsuite name="Flaky" tests="1" failures="0" errors="1" skipped="0" time="1" />`);
+
+    const result = mergeJUnitXml([shard1, shard2, shard3]);
+
+    expect(result.suiteCount).toBe(3);
+    expect(result.warnings).toContainEqual(expect.stringMatching(/Suite "Flaky" appears in more than one file \(a\.xml, b\.xml, c\.xml\) with different contents/));
+  });
+
   it('produces a single (non-array) testsuite element when only one suite exists in total', () => {
     const only = file('a.xml', `<testsuite name="Solo" tests="1" failures="0" errors="0" skipped="0" time="1" />`);
 

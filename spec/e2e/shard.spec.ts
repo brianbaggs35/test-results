@@ -78,7 +78,7 @@ test.describe('Shard E2E Tests', () => {
     await expect(page.getByRole('button', { name: 'Combine Shards' })).toBeDisabled()
   })
 
-  test('should combine three shards and warn when a suite reappears across files', async ({ page }) => {
+  test('should combine three shards, de-duplicating a suite that genuinely reappears across files', async ({ page }) => {
     await page.getByRole('button', { name: 'Shard' }).click()
 
     const [fileUpload] = await Promise.all([
@@ -96,12 +96,22 @@ test.describe('Shard E2E Tests', () => {
 
     await page.getByRole('button', { name: 'Combine Shards' }).click()
 
-    await expect(page.getByText(/Suite ".*false_positive\.spec\.ts" appears in more than one file/)).toBeVisible()
+    await expect(page.getByText(/Suite ".*false_positive\.spec\.ts" was identical.*counted once, not 2 times/)).toBeVisible()
 
-    await expect(page.getByTestId('shard-result')).toContainText('Combined 33 tests (5 failed) from 3 files across 20 suites.')
+    await expect(page.getByTestId('shard-result')).toContainText('Combined 31 tests (4 failed) from 3 files across 19 suites.')
+
+    // The de-duplication keeps the Dashboard's raw per-suite count and the Progress
+    // tab's per-test-identity count in agreement, instead of silently disagreeing.
+    await page.getByRole('button', { name: 'View in Dashboard' }).click()
+
+    await expect(page.getByTestId('stat-failed')).toContainText('4Failed')
+
+    await page.getByRole('button', { name: 'Progress' }).click()
+
+    await expect(page.getByText('Total Tracked Tests').locator('..').getByText('4')).toBeVisible()
   })
 
-  test('should warn when the same shard report is uploaded twice', async ({ page }) => {
+  test('should treat the same shard report uploaded twice as one copy, not a double-count', async ({ page }) => {
     await page.getByRole('button', { name: 'Shard' }).click()
 
     const [firstUpload] = await Promise.all([
@@ -124,6 +134,15 @@ test.describe('Shard E2E Tests', () => {
 
     await expect(page.getByText(/are byte-for-byte identical/)).toBeVisible()
 
-    await expect(page.getByTestId('shard-result')).toContainText('Combined 26 tests (6 failed) from 2 files across 14 suites.')
+    // Deduplicated down to exactly what shard-1 alone contains — not doubled.
+    await expect(page.getByTestId('shard-result')).toContainText('Combined 13 tests (3 failed) from 2 files across 7 suites.')
+
+    await page.getByRole('button', { name: 'View in Dashboard' }).click()
+
+    await expect(page.getByTestId('stat-failed')).toContainText('3Failed')
+
+    await page.getByRole('button', { name: 'Progress' }).click()
+
+    await expect(page.getByText('Total Tracked Tests').locator('..').getByText('3')).toBeVisible()
   })
 })
