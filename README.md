@@ -8,6 +8,7 @@ A React-based web application for analyzing JUnit XML test results with comprehe
 - **Failure Analysis**: Detailed analysis of failed tests with filtering capabilities
 - **Progress Tracking**: Track resolution progress for failed tests, add notes/assignees, and view the full stack trace
 - **Split & Combine**: Split a run's failures evenly between teammates, then combine each teammate's exported progress back into one report
+- **Shard**: Combine the separate JUnit XML reports produced by a sharded Playwright run (e.g. `--shard=1/3`) back into one JUnit XML file
 - **Publish**: Send a summary of the loaded results directly to a Slack channel via an Incoming Webhook
 - **Report Generation**: Generate and preview PDF reports from test data
 - **Light/Dark Mode**: Toggle between light and dark themes, persisted across sessions
@@ -101,8 +102,8 @@ failure details are included in that request — only the three counts.
 
 This project has comprehensive test coverage with:
 
-- **653 Vitest tests** covering unit, component, hook, and Slack-publishing functionality
-- **47 Playwright end-to-end tests** covering upload, filtering, search, split/combine, bulk actions, report generation, and publishing flows
+- **789 Vitest tests** covering unit, component, hook, and Slack-publishing functionality
+- **65 Playwright end-to-end tests** covering upload, filtering, search, split/combine, sharded-run combining, bulk actions, report generation, and publishing flows
 - **Vitest** testing framework (v8 coverage provider) with React Testing Library
 - **Playwright** e2e testing with istanbul/nyc coverage reporting
 
@@ -119,7 +120,7 @@ Vendored shadcn/ui primitives under `src/components/ui/` are excluded from cover
 
 ### Test Categories
 
-1. **Unit Tests**: Utility functions (xmlParser, parseTestPath, formatting, splitJUnitXml, combineResults, exportBundle, testIdentity)
+1. **Unit Tests**: Utility functions (xmlParser, parseTestPath, formatting, splitJUnitXml, mergeJUnitXml, combineResults, exportBundle, testIdentity)
 2. **Component Tests**: React components with mocked dependencies
 3. **Integration Tests**: Component interactions and data flow
 4. **End-to-End Tests**: Full Playwright coverage of every tab and modal
@@ -167,6 +168,7 @@ src/
 │   ├── Publish/            # Publish results directly to Slack via Incoming Webhook
 │   ├── ReportGenerator/    # PDF report configuration, preview, and generation
 │   ├── Split/              # Split failures between teammates and combine results back
+│   ├── Shard/              # Combine sharded Playwright runs' JUnit XML reports into one
 │   ├── shared/             # Cross-tab primitives (StatusBadge, Pagination, EmptyState,
 │   │                       #   FileDropZone, ConfirmDialog, FloatingScrollbar)
 │   ├── theme/              # Light/dark ThemeProvider and toggle

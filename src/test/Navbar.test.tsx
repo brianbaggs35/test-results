@@ -10,6 +10,7 @@ vi.mock('lucide-react', () => ({
   ListChecksIcon: () => <div data-testid="list-checks-icon" />,
   SendIcon: () => <div data-testid="send-icon" />,
   SplitIcon: () => <div data-testid="split-icon" />,
+  BoxesIcon: () => <div data-testid="boxes-icon" />,
   FlaskConicalIcon: () => <div data-testid="flask-conical-icon" />,
   SunIcon: () => <div data-testid="sun-icon" />,
   MoonIcon: () => <div data-testid="moon-icon" />,
@@ -36,6 +37,7 @@ describe('Navbar', () => {
     expect(screen.getByText('Progress')).toBeInTheDocument();
     expect(screen.getByText('Report')).toBeInTheDocument();
     expect(screen.getByText('Split')).toBeInTheDocument();
+    expect(screen.getByText('Shard')).toBeInTheDocument();
     expect(screen.getByText('Publish')).toBeInTheDocument();
   });
 
@@ -47,6 +49,7 @@ describe('Navbar', () => {
     expect(screen.getByTestId('list-checks-icon')).toBeInTheDocument();
     expect(screen.getByTestId('file-text-icon')).toBeInTheDocument();
     expect(screen.getByTestId('split-icon')).toBeInTheDocument();
+    expect(screen.getByTestId('boxes-icon')).toBeInTheDocument();
     expect(screen.getByTestId('send-icon')).toBeInTheDocument();
   });
 
@@ -56,7 +59,7 @@ describe('Navbar', () => {
     expect(screen.getByRole('button', { name: 'Toggle dark mode' })).toBeInTheDocument();
   });
 
-  it.each(['dashboard', 'failures', 'progress', 'report', 'split', 'publish'])(
+  it.each(['dashboard', 'failures', 'progress', 'report', 'split', 'shard', 'publish'])(
     'should highlight the active %s tab and leave the others inactive',
     (activeTab) => {
       const labels: Record<string, string> = {
@@ -65,6 +68,7 @@ describe('Navbar', () => {
         progress: 'Progress',
         report: 'Report',
         split: 'Split',
+        shard: 'Shard',
         publish: 'Publish',
       };
       render(<Navbar activeTab={activeTab} setActiveTab={mockSetActiveTab} />);
@@ -99,6 +103,7 @@ describe('Navbar', () => {
     ['Progress', 'progress'],
     ['Report', 'report'],
     ['Split', 'split'],
+    ['Shard', 'shard'],
     ['Publish', 'publish'],
   ])('should call setActiveTab with "%s" tab id when %s button is clicked', (label, id) => {
     render(<Navbar activeTab="dashboard" setActiveTab={mockSetActiveTab} />);

@@ -7,6 +7,7 @@ import { FailureAnalysisPage } from './components/FailureAnalysis/FailureAnalysi
 import { FailureAnalysisProgress } from './components/FailureAnalysis/FailureAnalysisProgress';
 import { PublishPage } from './components/Publish/PublishPage';
 import { SplitPage } from './components/Split/SplitPage';
+import { ShardPage } from './components/Shard/ShardPage';
 import { Toaster } from './components/ui/sonner';
 import { syncProgressStorageForNewXml } from './utils/progressStorage';
 import type { TestData } from './types';
@@ -47,6 +48,8 @@ export function App() {
         return <PublishPage testData={testData} />;
       case 'split':
         return <SplitPage xmlContent={xmlContent} onCombined={handleCombinedDataUpload} setActiveTab={setActiveTab} />;
+      case 'shard':
+        return <ShardPage onDataUpload={handleDataUpload} onXmlContent={handleXmlContent} setActiveTab={setActiveTab} />;
       default:
         return <Dashboard onDataUpload={handleDataUpload} onXmlContent={handleXmlContent} testData={testData} />;
     }

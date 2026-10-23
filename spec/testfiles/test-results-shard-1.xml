@@ -1,0 +1,18 @@
+<testsuites id="" name="" tests="6" failures="0" skipped="0" errors="0" time="6.870154">
+<testsuite name="dashboard.spec.ts" timestamp="2026-10-23T10:06:25.405Z" hostname="chromium" tests="3" failures="0" skipped="0" time="2.087" errors="0">
+<testcase name="Dashboard E2E Tests › should display the dashboard title" classname="dashboard.spec.ts" time="0.747">
+</testcase>
+<testcase name="Dashboard E2E Tests › should be able to switch between tabs" classname="dashboard.spec.ts" time="0.71">
+</testcase>
+<testcase name="Dashboard E2E Tests › Upload sample XML file" classname="dashboard.spec.ts" time="0.63">
+</testcase>
+</testsuite>
+<testsuite name="search.spec.ts" timestamp="2026-10-23T10:06:25.405Z" hostname="chromium" tests="3" failures="0" skipped="0" time="2.541" errors="0">
+<testcase name="Search tests › should search for a test on the dashboard then clear" classname="search.spec.ts" time="0.989">
+</testcase>
+<testcase name="Search tests › should search for a test on the failures page then clear" classname="search.spec.ts" time="0.825">
+</testcase>
+<testcase name="Search tests › should search for a test on the progress page then clear" classname="search.spec.ts" time="0.727">
+</testcase>
+</testsuite>
+</testsuites>
