@@ -25,7 +25,7 @@ interface PublishStatus {
 
 const METADATA_PLACEHOLDERS = [
   { key: 'e.g., Failed Tests', value: 'e.g., 54' },
-  { key: 'e.g., Executed By', value: 'e.g., Brian' },
+  { key: 'e.g., Published By', value: 'e.g., Brian' },
 ];
 
 const MAX_METADATA_ENTRIES = 6;
@@ -34,15 +34,16 @@ const MAX_METADATA_ENTRIES = 6;
  * Row 0's key is always pre-filled with "Failed Tests" — its value is left
  * for the user to fill in by hand, since the parsed XML's failure count
  * includes flaky-test retries and would overstate the real number. Row 1
- * ("Executed By") is only pre-filled, key and value together, when
- * VITE_EXECUTED_BY is set, so the same person doesn't have to retype their
- * own name on every publish.
+ * ("Published By") is only pre-filled, key and value together, when
+ * VITE_PUBLISHED_BY is set, so the same person doesn't have to retype their
+ * own name on every publish. The old name, VITE_EXECUTED_BY, still works so an
+ * existing .env keeps pre-filling.
  */
 const buildInitialMetadata = (): MetadataEntry[] => {
-  const executedBy = import.meta.env.VITE_EXECUTED_BY;
+  const publishedBy = import.meta.env.VITE_PUBLISHED_BY || import.meta.env.VITE_EXECUTED_BY;
   return [
     { key: 'Failed Tests', value: '' },
-    executedBy ? { key: 'Executed By', value: executedBy } : { key: '', value: '' },
+    publishedBy ? { key: 'Published By', value: publishedBy } : { key: '', value: '' },
   ];
 };
 

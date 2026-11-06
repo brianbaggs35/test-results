@@ -1,4 +1,4 @@
-import type { GhStatus, MergeResult, ReviewBranch, ReviewDetail, ReviewFile, ReviewList, ReviewStatus, ReviewTicket, SpecFileResult, SpecJob, TestServerStatus } from '../types/review';
+import type { GhStatus, MergeResult, ReviewBranch, ReviewDecisionResult, ReviewDetail, ReviewFile, ReviewIssue, ReviewList, ReviewStatus, ReviewTicket, SpecFileResult, SpecGate, SpecJob, TestServerStatus } from '../types/review';
 
 export const SHA = 'a'.repeat(40);
 
@@ -24,10 +24,32 @@ export const ticket = (over: Partial<ReviewTicket> = {}): ReviewTicket => ({
   reviewers: [],
   approval: null,
   reviewInfo: '',
+  approvalSource: null,
+  staleDecision: null,
   url: 'https://securicyapp.atlassian.net/browse/AT-727',
   branches: [branch()],
   ...over,
 });
+
+/** The ticket as the show page gets it (no branches). */
+export const issue = (over: Partial<ReviewIssue> = {}): ReviewIssue => ({
+  key: 'AT-727',
+  summary: 'Add tests for comments carrying over',
+  status: 'Review',
+  assignee: 'Brian Baggs',
+  reviewers: ['Matthew Carabin'],
+  approval: null,
+  reviewInfo: '',
+  approvalSource: null,
+  staleDecision: null,
+  url: 'https://securicyapp.atlassian.net/browse/AT-727',
+  ...over,
+});
+
+/** What saving a decision returns. */
+export const decided = (over: Partial<ReviewDecisionResult> = {}): ReviewDecisionResult => ({ ...issue(), jiraRecorded: true, jiraNote: null, ...over });
+
+export const gate = (over: Partial<SpecGate> = {}): SpecGate => ({ required: [], progress: [], satisfied: true, lastRun: null, ...over });
 
 export const list = (over: Partial<ReviewList> = {}): ReviewList => ({
   baseBranch: 'playwright-main',
@@ -77,8 +99,13 @@ export const file = (over: Partial<ReviewFile> = {}): ReviewFile => ({
 });
 
 export const detail = (over: Partial<ReviewDetail> = {}): ReviewDetail => ({
+  method: 'rebase',
+  mergeCommits: 0,
+  nonAtCommits: 0,
+  commitsTruncated: false,
+  specGate: gate(),
   branch: 'AT-727-add-test',
-  ticket: { key: 'AT-727', summary: 'Add tests for comments carrying over', status: 'Review', assignee: 'Brian Baggs', reviewers: ['Matthew Carabin'], approval: null, reviewInfo: '', url: 'https://securicyapp.atlassian.net/browse/AT-727' },
+  ticket: issue(),
   sha: SHA,
   baseBranch: 'playwright-main',
   baseSha: 'b'.repeat(40),

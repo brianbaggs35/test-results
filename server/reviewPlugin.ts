@@ -155,7 +155,7 @@ export function createReviewHandler(service: ReviewService) {
         if (route === '/decision') {
           sendJson(res, 200, { success: true, data: await service.submitReview({ branch: body.branch, expectedSha: body.expectedSha, decision: body.decision, info: body.info }) });
         } else if (route === '/tests/run') {
-          sendJson(res, 200, { success: true, data: await service.startSpecRun({ branch: body.branch, expectedSha: body.expectedSha, specs: body.specs }) });
+          sendJson(res, 200, { success: true, data: await service.startSpecRun({ branch: body.branch, expectedSha: body.expectedSha, specs: body.specs, method: body.method }) });
         } else {
           sendJson(res, 200, { success: true, data: await service.cancelSpecRun(body.id) });
         }
@@ -165,8 +165,12 @@ export function createReviewHandler(service: ReviewService) {
         sendJson(res, 200, { success: true, data: await service.list() });
         return;
       }
+      if (req.method === 'GET' && route === '/tests/gate') {
+        sendJson(res, 200, { success: true, data: await service.specGate(url.searchParams.get('branch')) });
+        return;
+      }
       if (req.method === 'GET' && route === '/detail') {
-        sendJson(res, 200, { success: true, data: await service.detail(url.searchParams.get('branch')) });
+        sendJson(res, 200, { success: true, data: await service.detail(url.searchParams.get('branch'), url.searchParams.get('method') ?? undefined) });
         return;
       }
       if (req.method === 'POST' && route === '/merge') {
@@ -193,11 +197,12 @@ export function createReviewHandler(service: ReviewService) {
           branch: body.branch,
           expectedSha: body.expectedSha,
           moveToDone: body.moveToDone,
+          method: body.method,
         });
         sendJson(res, 200, { success: true, data });
         return;
       }
-      if (['/status', '/gh', '/list', '/detail', '/merge', '/decision', '/tests/status', '/tests/job', '/tests/run', '/tests/cancel'].includes(route)) {
+      if (['/status', '/gh', '/list', '/detail', '/merge', '/decision', '/tests/status', '/tests/gate', '/tests/job', '/tests/run', '/tests/cancel'].includes(route)) {
         sendJson(res, 405, { success: false, error: 'Method not allowed' });
         return;
       }
@@ -208,7 +213,7 @@ export function createReviewHandler(service: ReviewService) {
         return;
       }
       if (err instanceof ReviewError) {
-        sendJson(res, err.status, { success: false, error: err.message, details: err.details });
+        sendJson(res, err.status, { success: false, error: err.message, details: err.details, ...(err.code ? { code: err.code } : {}) });
         return;
       }
       // A guard-rail refusal is a deliberate "no", not a crash.

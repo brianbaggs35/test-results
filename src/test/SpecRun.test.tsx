@@ -5,7 +5,7 @@ import { SpecResults } from '../components/Review/SpecResults';
 import { OutputLog, SpecRunModal } from '../components/Review/SpecRunModal';
 import { SpecsPanel, TestServerBadge } from '../components/Review/SpecsPanel';
 import type { SpecRunState, TestServerState } from '../components/Review/useSpecRun';
-import { SPEC_A, SPEC_B, detail, failedSpecResult, specJob, specResult, testServer } from './reviewFixtures';
+import { SPEC_A, SPEC_B, detail, failedSpecResult, gate, specJob, specResult, testServer } from './reviewFixtures';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
@@ -19,6 +19,7 @@ const runState = (over: Partial<SpecRunState> = {}): SpecRunState => ({
   error: null,
   fileStates: {},
   running: false,
+  restored: false,
   start: vi.fn().mockResolvedValue(true),
   cancel: vi.fn().mockResolvedValue(undefined),
   clearError: vi.fn(),
@@ -67,7 +68,7 @@ describe('SpecsPanel', () => {
     const onOpenOutput = vi.fn();
     const run = runState(over.run);
     const server = serverState(over.server);
-    const utils = render(<SpecsPanel detail={over.detail ?? d()} run={run} server={server} onRun={onRun} onOpenOutput={onOpenOutput} />);
+    const utils = render(<SpecsPanel detail={over.detail ?? d()} gate={gate()} run={run} server={server} onRun={onRun} onOpenOutput={onOpenOutput} />);
     return { ...utils, onRun, onOpenOutput, run, server };
   };
   const rows = () => screen.getAllByTestId('spec-row');

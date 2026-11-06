@@ -8,12 +8,14 @@ import {
   REVIEW_INFO_FIELD,
   APPROVAL_OPTION_IDS,
   MAX_REVIEW_INFO_CHARS,
+  REVIEW_BACKUP_DIR,
   REVIEW_EDIT_DIR_PREFIX,
+  appendReviewPanel,
   assertReviewEditPayload,
-  buildReviewPayload,
+  buildReviewPanel,
   fromAdf,
   parseApproval,
-  toAdf,
+  parseReviewPanel,
   assertAllowedAcliCommand,
   createJiraClient,
   listReviewJql,
@@ -21,9 +23,9 @@ import {
   parseIssues,
 } from './acli';
 import type { AcliResult, AcliRunner } from './acli';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 const settings = { reviewStatus: 'Review', doneStatus: 'Done' };
 const ok = (stdout = '[]'): AcliResult => ({ code: 0, stdout, stderr: '' });
@@ -104,7 +106,7 @@ describe('AT-only guard rail: reading one ticket (view)', () => {
     expect(APPROVAL_FIELD).toBe('customfield_10650');
     expect(REVIEW_INFO_FIELD).toBe('customfield_10652');
     expect(APPROVAL_OPTION_IDS).toEqual({ approved: '10478', declined: '10479' });
-    expect(VIEW_FIELDS).toBe('key,summary,status,assignee,customfield_10550,customfield_10650,customfield_10652');
+    expect(VIEW_FIELDS).toBe('key,summary,status,assignee,customfield_10550,customfield_10650,customfield_10652,description');
   });
 
   it.each([
@@ -142,8 +144,8 @@ describe('createJiraClient', () => {
 
     expect(run).toHaveBeenCalledExactlyOnceWith(search('project = "AT" AND status = "Review" ORDER BY updated DESC'));
     expect(issues).toEqual([
-      { key: 'AT-727', summary: 'Summary AT-727', status: 'Review', assignee: 'Brian', reviewers: [], approval: null, reviewInfo: '', url: 'https://x.atlassian.net/browse/AT-727' },
-      { key: 'AT-726', summary: 'Summary AT-726', status: 'Review', assignee: 'Brian', reviewers: [], approval: null, reviewInfo: '', url: 'https://x.atlassian.net/browse/AT-726' },
+      { key: 'AT-727', summary: 'Summary AT-727', status: 'Review', assignee: 'Brian', reviewers: [], approval: null, reviewInfo: '', recorded: null, url: 'https://x.atlassian.net/browse/AT-727' },
+      { key: 'AT-726', summary: 'Summary AT-726', status: 'Review', assignee: 'Brian', reviewers: [], approval: null, reviewInfo: '', recorded: null, url: 'https://x.atlassian.net/browse/AT-726' },
     ]);
   });
 
@@ -209,7 +211,7 @@ describe('findReviewIssue (read one ticket with its Reviewer)', () => {
     const found = await createJiraClient('AT', { ...settings, baseUrl: 'https://x.atlassian.net' }, run).findReviewIssue('AT-728');
 
     expect(run).toHaveBeenCalledExactlyOnceWith(view('AT-728'));
-    expect(found).toEqual({ key: 'AT-728', summary: 'Add coverage', status: 'Review', assignee: 'Brian Baggs', reviewers: ['Matthew Carabin'], approval: null, reviewInfo: '', url: 'https://x.atlassian.net/browse/AT-728' });
+    expect(found).toEqual({ key: 'AT-728', summary: 'Add coverage', status: 'Review', assignee: 'Brian Baggs', reviewers: ['Matthew Carabin'], approval: null, reviewInfo: '', recorded: null, url: 'https://x.atlassian.net/browse/AT-728' });
   });
 
   it('also understands the older multi-user form, an unset reviewer, and an unassigned ticket', async () => {
@@ -273,93 +275,33 @@ describe('acli errors never leak a credential', () => {
 describe('parseIssues', () => {
   it('accepts an { issues: [] } wrapper, string statuses and missing fields', () => {
     const out = parseIssues(JSON.stringify({ issues: [{ key: 'AT-5', status: 'Review' }] }), { reviewStatus: 'Review' });
-    expect(out).toEqual([{ key: 'AT-5', summary: '', status: 'Review', assignee: null, reviewers: [], approval: null, reviewInfo: '', url: null }]);
+    expect(out).toEqual([{ key: 'AT-5', summary: '', status: 'Review', assignee: null, reviewers: [], approval: null, reviewInfo: '', recorded: null, url: null }]);
     expect(parseIssues('{}', { reviewStatus: 'Review' })).toEqual([]);
   });
 });
 
-describe('AT-only guard rail: recording a review decision (edit)', () => {
-  const edit = (file: string, extra: string[] = []) => ['jira', 'workitem', 'edit', '--from-json', file, '--yes', ...extra];
-  const writeEdit = (payload: unknown): string => {
-    const dir = mkdtempSync(REVIEW_EDIT_DIR_PREFIX);
-    const file = join(dir, 'edit.json');
-    writeFileSync(file, JSON.stringify(payload));
-    return file;
-  };
-  const adf = (text: string) => toAdf(text);
-
-  it('allows exactly the payloads buildReviewPayload makes', () => {
-    for (const payload of [
-      buildReviewPayload('AT-726', 'approved'),
-      buildReviewPayload('AT-726', 'declined', 'Missing a cleanup step\nand a tag'),
-      buildReviewPayload('AT-726', 'none'),
-      buildReviewPayload('AT-726', 'approved', 'LGTM'),
-    ]) {
-      expect(() => assertAllowedAcliCommand(edit(writeEdit(payload)), settings)).not.toThrow();
-    }
-  });
-
-  it('builds the payload with the real field ids and option ids', () => {
-    expect(buildReviewPayload('AT-1', 'approved')).toEqual({ issues: ['AT-1'], customfield_10650: [{ id: '10478' }] });
-    expect(buildReviewPayload('AT-1', 'declined', 'why')).toEqual({ issues: ['AT-1'], customfield_10650: [{ id: '10479' }], customfield_10652: toAdf('why') });
-    expect(buildReviewPayload('AT-1', 'none')).toEqual({ issues: ['AT-1'], customfield_10650: [] });
-  });
-
+describe('AT-only guard rail: no Jira field is ever written (only the description gets a review appended)', () => {
+  // acli's edit command only takes assignee, description, labels, summary and type: it cannot set the Approval
+  // checkboxes (`json: unknown field "customfield_10650"`), so the app records a decision in the description instead.
   it.each([
-    ['another project ticket', { issues: ['APP-1'], customfield_10650: [{ id: '10478' }] }],
-    ['several tickets', { issues: ['AT-1', 'AT-2'], customfield_10650: [{ id: '10478' }] }],
-    ['no tickets', { issues: [], customfield_10650: [{ id: '10478' }] }],
-    ['a key with trailing text', { issues: ['AT-1; rm'], customfield_10650: [{ id: '10478' }] }],
-    ['a JQL instead of keys', { jql: 'project = AT', customfield_10650: [{ id: '10478' }] }],
-    ['the summary', { issues: ['AT-1'], customfield_10650: [{ id: '10478' }], summary: 'hacked' }],
-    ['the assignee', { issues: ['AT-1'], assignee: 'someone', customfield_10650: [{ id: '10478' }] }],
-    ['the description', { issues: ['AT-1'], description: adf('x'), customfield_10650: [{ id: '10478' }] }],
-    ['another custom field', { issues: ['AT-1'], customfield_10550: [{ accountId: 'x' }] }],
-    ['the type', { issues: ['AT-1'], type: 'Bug', customfield_10650: [{ id: '10478' }] }],
-    ['labels', { issues: ['AT-1'], labelsToAdd: ['x'], customfield_10650: [{ id: '10478' }] }],
-    ['nothing to edit', { issues: ['AT-1'] }],
-    ['an unknown approval option', { issues: ['AT-1'], customfield_10650: [{ id: '99999' }] }],
-    ['both approval options', { issues: ['AT-1'], customfield_10650: [{ id: '10478' }, { id: '10479' }] }],
-    ['approval as a string', { issues: ['AT-1'], customfield_10650: 'Approved' }],
-    ['approval option with extra keys', { issues: ['AT-1'], customfield_10650: [{ id: '10478', value: 'x' }] }],
-    ['review info as a plain string', { issues: ['AT-1'], customfield_10652: 'text' }],
-    ['review info with a non-paragraph node', { issues: ['AT-1'], customfield_10652: { type: 'doc', version: 1, content: [{ type: 'codeBlock', content: [] }] } }],
-    ['review info with a link mark/attrs', { issues: ['AT-1'], customfield_10652: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'link', attrs: { href: 'javascript:1' } }] }] }] } }],
-    ['review info with an extra node key', { issues: ['AT-1'], customfield_10652: { type: 'doc', version: 1, content: [{ type: 'paragraph', attrs: { a: 1 }, content: [] }], extra: 1 } }],
-    ['review info that is empty', { issues: ['AT-1'], customfield_10652: { type: 'doc', version: 1, content: [] } }],
-    ['review info that is too long', { issues: ['AT-1'], customfield_10652: adf('x'.repeat(MAX_REVIEW_INFO_CHARS + 1)) }],
-    ['a non-object file', ['AT-1']],
-    ['null', null],
-  ])('blocks an edit payload with %s', (_name, payload) => {
-    expect(() => assertReviewEditPayload(payload)).toThrow(/AT-only guard rail/);
-    expect(() => assertAllowedAcliCommand(edit(writeEdit(payload)), settings)).toThrow(/AT-only guard rail/);
-  });
-
-  it('blocks an edit file that is not the app\'s own private temp file', () => {
-    mkdirSync(join(tmpdir(), 'elsewhere-guard'), { recursive: true });
-    const elsewhere = join(tmpdir(), 'elsewhere-guard', 'edit.json');
-    writeFileSync(elsewhere, JSON.stringify(buildReviewPayload('AT-1', 'approved')));
-    for (const file of [elsewhere, '/etc/passwd', `${REVIEW_EDIT_DIR_PREFIX}abc/../../../etc/passwd`, `${REVIEW_EDIT_DIR_PREFIX}abc/other.json`, `${REVIEW_EDIT_DIR_PREFIX}abc/sub/edit.json`, `${REVIEW_EDIT_DIR_PREFIX}/edit.json`, '', 'edit.json']) {
-      expect(() => assertAllowedAcliCommand(edit(file), settings), file).toThrow(/AT-only guard rail/);
-    }
-  });
-
-  it('blocks a missing or unreadable edit file', () => {
-    expect(() => assertAllowedAcliCommand(edit(`${REVIEW_EDIT_DIR_PREFIX}doesnotexist/edit.json`), settings)).toThrow(/could not be read/);
-    const dir = mkdtempSync(REVIEW_EDIT_DIR_PREFIX);
-    writeFileSync(join(dir, 'edit.json'), '{not json');
-    expect(() => assertAllowedAcliCommand(edit(join(dir, 'edit.json')), settings)).toThrow(/could not be read/);
-  });
-
-  it.each([
-    ['inline fields instead of a file', ['jira', 'workitem', 'edit', '--key', 'AT-1', '--summary', 'x']],
-    ['a JQL', ['jira', 'workitem', 'edit', '--jql', 'project = AT', '--from-json', 'x', '--yes']],
-    ['a missing --yes', ['jira', 'workitem', 'edit', '--from-json', 'x']],
-    ['--ignore-errors', ['jira', 'workitem', 'edit', '--from-json', 'x', '--yes', '--ignore-errors']],
-    ['an extra flag', [...edit('x'), '--assignee', 'someone']],
-    ['--generate-json', ['jira', 'workitem', 'edit', '--generate-json']],
-  ])('blocks edit with %s', (_n, args) => {
+    ['a payload file that is not the app\'s own temporary file', ['jira', 'workitem', 'edit', '--from-json', '/tmp/review-jira-x/edit.json', '--yes']],
+    ['edit by key', ['jira', 'workitem', 'edit', '--key', 'AT-1', '--summary', 'x', '--yes']],
+    ['edit labels', ['jira', 'workitem', 'edit', '--key', 'AT-1', '--labels', 'approved', '--yes']],
+    ['edit by JQL', ['jira', 'workitem', 'edit', '--jql', 'project = AT', '--summary', 'x', '--yes']],
+    ['edit assignee', ['jira', 'workitem', 'edit', '--key', 'AT-1', '--assignee', '@me']],
+    ['comment', ['jira', 'workitem', 'comment', 'create', '--key', 'AT-1', '--body', 'Approved']],
+    ['link', ['jira', 'workitem', 'link', 'create', '--out', 'AT-1', '--in', 'AT-2']],
+  ])('blocks %s', (_name, args) => {
     expect(() => assertAllowedAcliCommand(args, settings)).toThrow(/AT-only guard rail/);
+  });
+
+  it('the Jira client can read tickets, append a review to one description, and move one to done: nothing else', () => {
+    const client = createJiraClient('AT', settings, async () => ({ code: 0, stdout: '[]', stderr: '' }));
+    expect(Object.keys(client).sort()).toEqual(['findReviewIssue', 'listReviewIssues', 'moveReviewIssueToDone', 'recordReview']);
+  });
+
+  it('the longest Review Information the app records itself is bounded', () => {
+    expect(MAX_REVIEW_INFO_CHARS).toBe(5000);
   });
 });
 
@@ -374,17 +316,18 @@ describe('Approval / Review Information parsing', () => {
     for (const none of [null, undefined, [], [{ value: 'Something else' }], 'x', 5]) expect(parseApproval(none)).toBeNull();
   });
 
-  it('converts text to ADF paragraphs and back', () => {
-    expect(toAdf('one\n\nthree')).toEqual({
-      type: 'doc',
-      version: 1,
-      content: [
-        { type: 'paragraph', content: [{ type: 'text', text: 'one' }] },
-        { type: 'paragraph', content: [] },
-        { type: 'paragraph', content: [{ type: 'text', text: 'three' }] },
-      ],
-    });
-    expect(fromAdf(toAdf('one\n\nthree'))).toBe('one\n\nthree');
+  it('reads Atlassian Document Format text (paragraphs joined with newlines)', () => {
+    expect(
+      fromAdf({
+        type: 'doc',
+        version: 1,
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'one' }] },
+          { type: 'paragraph', content: [] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'three' }] },
+        ],
+      }),
+    ).toBe('one\n\nthree');
     expect(fromAdf('plain string')).toBe('plain string');
     expect(fromAdf(null)).toBe('');
     expect(fromAdf({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }] }] })).toBe('ab');
@@ -392,121 +335,294 @@ describe('Approval / Review Information parsing', () => {
 
   it('parses approval and review information from a ticket', () => {
     const out = parseIssues(
-      JSON.stringify([{ key: 'AT-726', fields: { summary: 's', status: { name: 'Review' }, customfield_10650: [{ value: 'Declined', id: '10479' }], customfield_10652: toAdf('Needs a cleanup step\nand a tag') } }]),
+      JSON.stringify([{ key: 'AT-726', fields: { summary: 's', status: { name: 'Review' }, customfield_10650: [{ value: 'Declined', id: '10479' }], customfield_10652: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Needs a cleanup step' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'and a tag' }] }] } } }]),
       { reviewStatus: 'Review' },
     );
     expect(out[0]).toMatchObject({ approval: 'declined', reviewInfo: 'Needs a cleanup step\nand a tag' });
   });
 });
 
-describe('submitReview (record a decision, then read it back)', () => {
-  type View = { approval?: 'approved' | 'declined' | null; info?: string; status?: string };
-  const view = (key: string, v: View = {}) => ({
-    key,
-    fields: {
-      summary: 'Add coverage',
-      status: { name: v.status ?? 'Review' },
-      customfield_10650: v.approval === 'approved' ? [{ value: 'Approved', id: '10478' }] : v.approval === 'declined' ? [{ value: 'Declined', id: '10479' }] : [],
-      customfield_10652: v.info ? toAdf(v.info) : null,
-    },
+// ---------------------------------------------------------------------------------------------------
+// Recording a review in the description: append only, never replace what is there.
+// ---------------------------------------------------------------------------------------------------
+
+const SHA_A = 'a'.repeat(40);
+const SHA_B = 'b'.repeat(40);
+const para = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+const doc = (...content: unknown[]) => ({ type: 'doc', version: 1, content });
+const EXISTING = doc(
+  para('Add specs for recurring task comments. Steps to reproduce are below.'),
+  { type: 'bulletList', content: [{ type: 'listItem', content: [para('admin')] }, { type: 'listItem', content: [para('member')] }] },
+  { type: 'codeBlock', attrs: { language: 'ruby' }, content: [{ type: 'text', text: 'task = Task.find(1)' }] },
+);
+
+/** A stand-in for Jira behind acli: it holds the ticket's description, shows it on `view`, and replaces it on `edit`. */
+function fakeJira(initial: unknown, hooks: { onEdit?: (desc: Record<string, unknown>) => Record<string, unknown>; status?: string } = {}) {
+  const state = { description: initial as unknown, edits: [] as Array<Record<string, unknown>>, calls: [] as string[][] };
+  const runner: AcliRunner = async (args) => {
+    state.calls.push(args);
+    if (args[2] === 'view') {
+      const fields: Record<string, unknown> = { summary: 'Add specs', status: { name: hooks.status ?? 'Review' }, assignee: { displayName: 'Brian' }, description: state.description };
+      return { code: 0, stdout: JSON.stringify({ key: args[3], fields }), stderr: '' };
+    }
+    if (args[2] === 'edit') {
+      const payload = JSON.parse(readFileSync(args[4], 'utf8')) as { issues: string[]; description: Record<string, unknown> };
+      state.edits.push(payload);
+      state.description = hooks.onEdit ? hooks.onEdit(payload.description) : payload.description;
+      return { code: 0, stdout: '✓ Work item updated', stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: 'unexpected' };
+  };
+  return { state, client: createJiraClient('AT', settings, runner) };
+}
+
+const leftoverDirs = () => readdirSync(tmpdir()).filter((n) => join(tmpdir(), n).startsWith(REVIEW_EDIT_DIR_PREFIX));
+
+describe('recordReview: the existing description is never replaced, a review is appended after it', () => {
+  it('keeps every word that is already there, byte for byte, and adds a green Approved panel after it with the commit and the note', async () => {
+    const { state, client } = fakeJira(EXISTING);
+
+    const issue = await client.recordReview('AT-727', 'approved', 'Covers admin and member.\nOwner is still missing.', SHA_A);
+
+    const written = state.description as { content: Array<Record<string, unknown>> };
+    expect(written.content).toHaveLength(EXISTING.content.length + 1);
+    expect(written.content.slice(0, EXISTING.content.length)).toEqual(EXISTING.content); // untouched
+    const panel = written.content[written.content.length - 1] as { type: string; attrs: { panelType: string }; content: unknown[] };
+    expect(panel).toMatchObject({ type: 'panel', attrs: { panelType: 'success' } });
+    expect(panel.content.map((p) => fromAdf(p))).toEqual([
+      expect.stringMatching(/^Code review: Approved \(recorded by the Review tab on \d{4}-\d{2}-\d{2}\)$/),
+      `Commit: ${SHA_A}`,
+      'Review notes:',
+      'Covers admin and member.',
+      'Owner is still missing.',
+    ]);
+    expect(issue.recorded).toEqual({ decision: 'approved', sha: SHA_A, info: 'Covers admin and member.\nOwner is still missing.' });
+    expect(state.edits).toHaveLength(1);
+    expect(state.edits[0].issues).toEqual(['AT-727']);
   });
 
-  /** A fake acli: the first view is "before", the edit applies the payload it was given, later views are "after". */
-  function fakeAcli(opts: { applyEdit?: boolean; editResult?: AcliResult; statusBefore?: string } = {}) {
-    let state: View = { approval: null, info: '', status: opts.statusBefore ?? 'Review' };
-    const edits: Array<{ args: string[]; payload: Record<string, unknown>; fileExistedDuringRun: boolean }> = [];
-    const run = vi.fn<AcliRunner>(async (args) => {
-      if (args[2] === 'view') return ok(JSON.stringify(view(args[3], state)));
-      if (args[2] === 'edit') {
-        const payload = JSON.parse(readFileSync(args[4], 'utf8'));
-        edits.push({ args, payload, fileExistedDuringRun: existsSync(args[4]) });
-        if (opts.editResult) return opts.editResult;
-        if (opts.applyEdit !== false) {
-          const a = payload.customfield_10650 as Array<{ id: string }> | undefined;
-          if (a) state = { ...state, approval: a.length === 0 ? null : a[0].id === '10478' ? 'approved' : 'declined' };
-          if (payload.customfield_10652) state = { ...state, info: fromAdf(payload.customfield_10652) };
-        }
-        return ok('');
-      }
-      return ok('[]');
-    });
-    return { run, edits };
-  }
-
-  it('approves: sends exactly the approval payload, then verifies it by reading the ticket back', async () => {
-    const { run, edits } = fakeAcli();
-    const issue = await createJiraClient('AT', settings, run).submitReview('AT-726', 'approved');
-
-    expect(edits).toHaveLength(1);
-    expect(edits[0].payload).toEqual({ issues: ['AT-726'], customfield_10650: [{ id: '10478' }] });
-    expect(edits[0].args.slice(0, 4)).toEqual(['jira', 'workitem', 'edit', '--from-json']);
-    expect(edits[0].args[5]).toBe('--yes');
-    expect(issue.approval).toBe('approved');
-    expect(run.mock.calls.map((c) => c[0][2])).toEqual(['view', 'edit', 'view']);
+  it('works on an empty description too', async () => {
+    const { state, client } = fakeJira(null);
+    await client.recordReview('AT-727', 'approved', '', SHA_A);
+    const written = state.description as { type: string; content: Array<{ type: string }> };
+    expect(written.type).toBe('doc');
+    expect(written.content.map((n) => n.type)).toEqual(['panel']);
   });
 
-  it('declines with review information (multi-line) and reads both back', async () => {
-    const { run, edits } = fakeAcli();
-    const issue = await createJiraClient('AT', settings, run).submitReview('AT-726', 'declined', '  Missing a cleanup step.\r\nAlso tag it @critical.  ');
+  it('a later decision is appended too: the earlier panels stay as a history, and the newest one counts', async () => {
+    const { state, client } = fakeJira(EXISTING);
+    await client.recordReview('AT-727', 'approved', 'Looks good', SHA_A);
+    const issue = await client.recordReview('AT-727', 'declined', 'The owner spec is flaky', SHA_B);
 
-    expect(edits[0].payload).toEqual({ issues: ['AT-726'], customfield_10650: [{ id: '10479' }], customfield_10652: toAdf('Missing a cleanup step.\nAlso tag it @critical.') });
-    expect(issue).toMatchObject({ approval: 'declined', reviewInfo: 'Missing a cleanup step.\nAlso tag it @critical.' });
+    const written = state.description as { content: Array<Record<string, unknown>> };
+    expect(written.content).toHaveLength(EXISTING.content.length + 2);
+    expect(written.content.slice(0, EXISTING.content.length)).toEqual(EXISTING.content);
+    const text = fromAdf({ type: 'doc', content: written.content });
+    expect(text).toContain('Code review: Approved');
+    expect(text).toContain('Looks good');
+    expect(text).toContain('Code review: Changes requested');
+    expect(text).toContain('The owner spec is flaky');
+    expect(issue.recorded).toEqual({ decision: 'declined', sha: SHA_B, info: 'The owner spec is flaky' });
+    expect((written.content[written.content.length - 1] as { attrs: { panelType: string } }).attrs.panelType).toBe('warning');
   });
 
-  it('can clear the decision (and leaves the review text alone when none is given)', async () => {
-    const { run, edits } = fakeAcli();
-    const client = createJiraClient('AT', settings, run);
-    await client.submitReview('AT-726', 'approved', 'LGTM');
-    await client.submitReview('AT-726', 'none');
-    expect(edits[1].payload).toEqual({ issues: ['AT-726'], customfield_10650: [] });
-    expect('customfield_10652' in edits[1].payload).toBe(false);
+  it('withdrawing a decision appends a Withdrawn panel (nothing is deleted), and no decision counts afterwards', async () => {
+    const { state, client } = fakeJira(EXISTING);
+    await client.recordReview('AT-727', 'approved', 'Looks good', SHA_A);
+    const issue = await client.recordReview('AT-727', 'none', undefined, SHA_A);
+
+    const written = state.description as { content: Array<Record<string, unknown>> };
+    expect(written.content).toHaveLength(EXISTING.content.length + 2);
+    expect(fromAdf({ type: 'doc', content: written.content })).toContain('Code review: Approved'); // the history is still there
+    expect(fromAdf(written.content[written.content.length - 1])).toContain('Code review: Withdrawn');
+    expect(issue.recorded).toBeNull();
   });
 
-  it('removes its temporary file, even though it only exists while acli runs', async () => {
-    const { run, edits } = fakeAcli();
-    await createJiraClient('AT', settings, run).submitReview('AT-726', 'approved');
-    expect(edits[0].fileExistedDuringRun).toBe(true);
-    expect(existsSync(edits[0].args[4])).toBe(false);
-    expect(existsSync(join(edits[0].args[4], '..'))).toBe(false);
+  it('does not touch Jira to repeat the same decision, or to withdraw one that is not there', async () => {
+    const { state, client } = fakeJira(EXISTING);
+    await client.recordReview('AT-727', 'approved', 'Looks good', SHA_A);
+    const edits = state.edits.length;
+    await client.recordReview('AT-727', 'approved', 'Looks good', SHA_A); // identical
+    expect(state.edits).toHaveLength(edits);
+
+    const other = fakeJira(EXISTING);
+    await other.client.recordReview('AT-727', 'none', undefined, SHA_A); // nothing to withdraw
+    expect(other.state.edits).toHaveLength(0);
   });
 
-  it('removes its temporary file when acli fails', async () => {
-    const { run, edits } = fakeAcli({ editResult: { code: 1, stdout: '', stderr: 'boom' } });
-    await expect(createJiraClient('AT', settings, run).submitReview('AT-726', 'approved')).rejects.toThrow(/Saving the review on AT-726 failed: boom/);
-    expect(existsSync(edits[0].args[4])).toBe(false);
+  it('is not fooled by Jira tidying the description (extra ids on nodes): that is not a change to what was there', async () => {
+    const addIds = (d: Record<string, unknown>) => JSON.parse(JSON.stringify(d), (_k, v) => (v && typeof v === 'object' && !Array.isArray(v) && v.type === 'paragraph' ? { ...v, attrs: { localId: 'x' } } : v));
+    const { client } = fakeJira(EXISTING, { onEdit: addIds });
+    await expect(client.recordReview('AT-727', 'approved', 'ok', SHA_A)).resolves.toMatchObject({ recorded: { decision: 'approved' } });
   });
 
-  it('refuses a ticket that is not in the review column, without editing anything', async () => {
-    const { run } = fakeAcli({ statusBefore: 'In Progress' });
-    await expect(createJiraClient('AT', settings, run).submitReview('AT-726', 'approved')).rejects.toThrow(/not in "Review" any more/);
-    expect(run.mock.calls.some((c) => c[0][2] === 'edit')).toBe(false);
+  it('puts the description back, and says where the original copy is, if Jira dropped any of the existing text', async () => {
+    const dropFirstParagraph = (d: Record<string, unknown>) => ({ ...d, content: (d.content as unknown[]).slice(1) });
+    const { state, client } = fakeJira(EXISTING, { onEdit: dropFirstParagraph });
+    let calls = 0;
+    const originalEdit = state.edits;
+    void originalEdit;
+
+    const err = await client.recordReview('AT-727', 'approved', 'ok', SHA_A).catch((e) => e);
+
+    expect(err).toBeInstanceOf(AcliError);
+    expect(err.message).toMatch(/did not keep the review as written on AT-727, so its description was put back\. A copy of the original is at /);
+    expect(state.edits.length).toBe(2); // the write, then the restore of the original
+    expect(state.edits[1].description).toEqual(EXISTING);
+    const backup = /A copy of the original is at (\S+)\./.exec(err.message)![1];
+    expect(dirname(backup)).toBe(REVIEW_BACKUP_DIR);
+    expect(JSON.parse(readFileSync(backup, 'utf8')).content).toEqual(EXISTING.content);
+    rmSync(backup, { force: true });
+    calls++;
+    expect(calls).toBe(1);
   });
 
-  it('reports a change that did not stick instead of claiming success', async () => {
-    const { run } = fakeAcli({ applyEdit: false });
-    await expect(createJiraClient('AT', settings, run).submitReview('AT-726', 'approved')).rejects.toThrow(/Jira did not save the review on AT-726.*directly/);
+  it('puts the description back if the new panel did not make it in', async () => {
+    const stripPanels = (d: Record<string, unknown>) => ({ ...d, content: (d.content as Array<{ type: string }>).filter((n) => n.type !== 'panel') });
+    const { state, client } = fakeJira(EXISTING, { onEdit: stripPanels });
+    const err = await client.recordReview('AT-727', 'approved', 'ok', SHA_A).catch((e) => e);
+    expect(err.message).toMatch(/put back/);
+    expect(state.edits[state.edits.length - 1].description).toEqual(EXISTING);
+    const backup = /at (\S+)\./.exec(err.message)![1];
+    rmSync(backup, { force: true });
   });
 
-  it('explains when acli cannot set these fields, with the manual fallback', async () => {
-    const { run } = fakeAcli({ editResult: { code: 1, stdout: '', stderr: 'json: unknown field "customfield_10650"' } });
-    await expect(createJiraClient('AT', settings, run).submitReview('AT-726', 'approved')).rejects.toThrow(/can't set these Jira fields.*Set Approval and Review Information on AT-726 in Jira instead/);
+  it('never rewrites a description that has images or macros, and says so, without running any edit', async () => {
+    for (const unsafe of ['mediaSingle', 'mediaGroup', 'extension', 'bodiedExtension', 'inlineExtension']) {
+      const withUnsafe = doc(para('Screenshot below'), { type: unsafe, content: [] });
+      const { state, client } = fakeJira(withUnsafe);
+      const err = await client.recordReview('AT-727', 'approved', 'ok', SHA_A).catch((e) => e);
+      expect(err).toMatchObject({ kind: 'unsupported' });
+      expect(err.message).toMatch(/images or macros/);
+      expect(state.edits).toHaveLength(0);
+    }
   });
 
-  it('refuses review text over the limit and keys outside AT, before spawning anything', async () => {
-    const run = vi.fn<AcliRunner>();
-    const client = createJiraClient('AT', settings, run);
-    await expect(client.submitReview('APP-1', 'approved')).rejects.toThrow(/not a AT ticket key/);
-    expect(run).not.toHaveBeenCalled();
-    const { run: run2 } = fakeAcli();
-    await expect(createJiraClient('AT', settings, run2).submitReview('AT-726', 'declined', 'x'.repeat(MAX_REVIEW_INFO_CHARS + 1))).rejects.toThrow(/limited to 5000/);
-    expect(run2.mock.calls.some((c) => c[0][2] === 'edit')).toBe(false);
+  it('refuses a ticket that is not in the review column, and anything outside AT, without editing', async () => {
+    const out = fakeJira(EXISTING, { status: 'In Progress' });
+    await expect(out.client.recordReview('AT-727', 'approved', 'ok', SHA_A)).rejects.toThrow(/not in "Review" any more/);
+    expect(out.state.edits).toHaveLength(0);
+    const { client } = fakeJira(EXISTING);
+    await expect(client.recordReview('APP-1', 'approved', 'ok', SHA_A)).rejects.toThrow(/not a AT ticket key/);
+    await expect(client.recordReview('AT-1,AT-2', 'approved', 'ok', SHA_A)).rejects.toThrow(/not a AT ticket key/);
   });
 
-  it('strips NUL characters and ignores empty review text', async () => {
-    const { run, edits } = fakeAcli();
-    await createJiraClient('AT', settings, run).submitReview('AT-726', 'approved', '   ');
-    expect('customfield_10652' in edits[0].payload).toBe(false);
-    await createJiraClient('AT', settings, run).submitReview('AT-726', 'declined', 'bad\0text');
-    expect(fromAdf(edits[1].payload.customfield_10652)).toBe('badtext');
+  it('needs the reviewed commit, bounds the note, and strips control characters', async () => {
+    const { state, client } = fakeJira(EXISTING);
+    await expect(client.recordReview('AT-727', 'approved', 'ok', 'abc')).rejects.toThrow(/commit that was reviewed is needed/);
+    await expect(client.recordReview('AT-727', 'declined', 'x'.repeat(MAX_REVIEW_INFO_CHARS + 1), SHA_A)).rejects.toThrow(/limited to 5000/);
+    expect(state.edits).toHaveLength(0);
+    await client.recordReview('AT-727', 'declined', 'bad\0 char\r\nnext', SHA_A);
+    const text = fromAdf(state.description);
+    expect(text).toContain('bad char');
+    expect(text).not.toContain('\0');
+  });
+
+  it('removes its temporary edit file every time, and leaves no backup when everything worked', async () => {
+    const before = leftoverDirs().length;
+    const backups = existsSync(REVIEW_BACKUP_DIR) ? readdirSync(REVIEW_BACKUP_DIR).length : 0;
+    const { client } = fakeJira(EXISTING);
+    await client.recordReview('AT-727', 'approved', 'ok', SHA_A);
+    expect(leftoverDirs().length).toBe(before);
+    expect(existsSync(REVIEW_BACKUP_DIR) ? readdirSync(REVIEW_BACKUP_DIR).length : 0).toBe(backups);
+  });
+
+  it('when acli itself refuses the edit nothing changed: the error is clear, and the temp file and the backup are gone', async () => {
+    const before = leftoverDirs().length;
+    const backups = existsSync(REVIEW_BACKUP_DIR) ? readdirSync(REVIEW_BACKUP_DIR).length : 0;
+    const runner: AcliRunner = async (args) => {
+      if (args[2] === 'view') return { code: 0, stdout: JSON.stringify({ key: 'AT-727', fields: { summary: 's', status: { name: 'Review' }, description: EXISTING } }), stderr: '' };
+      return { code: 1, stdout: '', stderr: '✗ Error: you do not have permission to edit this work item' };
+    };
+    const client = createJiraClient('AT', settings, runner);
+    await expect(client.recordReview('AT-727', 'approved', 'ok', SHA_A)).rejects.toThrow(/Saving the review on AT-727 failed/);
+    expect(leftoverDirs().length).toBe(before);
+    expect(existsSync(REVIEW_BACKUP_DIR) ? readdirSync(REVIEW_BACKUP_DIR).length : 0).toBe(backups);
+  });
+});
+
+describe('the edit payload guard', () => {
+  const dir = mkdtempSync(REVIEW_EDIT_DIR_PREFIX);
+  const file = join(dir, 'edit.json');
+  const edit = (payload: unknown) => {
+    writeFileSync(file, JSON.stringify(payload));
+    return ['jira', 'workitem', 'edit', '--from-json', file, '--yes'];
+  };
+  const good = () => ({ issues: ['AT-727'], description: appendReviewPanel({ type: 'doc', content: [para('hi')] } as never, buildReviewPanel('approved', 'ok', SHA_A, new Date())) });
+
+  it('allows exactly one AT ticket and its description document', () => {
+    expect(() => assertAllowedAcliCommand(edit(good()), settings)).not.toThrow();
+    expect(() => assertReviewEditPayload(good())).not.toThrow();
+    expect(() => assertReviewEditPayload({ issues: ['AT-727'], description: { type: 'doc', content: [] } })).not.toThrow();
+  });
+
+  it.each([
+    ['the approval custom field', { ...good(), customfield_10650: [{ id: '10478' }] }],
+    ['other standard fields', { ...good(), summary: 'x' }],
+    ['labels', { ...good(), labelsToAdd: ['approved'] }],
+    ['an assignee', { ...good(), assignee: 'x@example.com' }],
+    ['a type change', { ...good(), type: 'Bug' }],
+    ['additional attributes', { ...good(), additionalAttributes: { customfield_10650: 1 } }],
+    ['no description', { issues: ['AT-727'] }],
+    ['no issues', { description: good().description }],
+    ['two tickets', { ...good(), issues: ['AT-1', 'AT-2'] }],
+    ['a ticket from another project', { ...good(), issues: ['APP-1'] }],
+    ['a lowercase key', { ...good(), issues: ['at-1'] }],
+    ['a description that is not a document', { ...good(), description: 'plain text' }],
+    ['a document with a bad node', { ...good(), description: { type: 'doc', content: [42] } }],
+    ['an image', { ...good(), description: { type: 'doc', content: [{ type: 'mediaSingle', content: [] }] } }],
+    ['a macro', { ...good(), description: { type: 'doc', content: [{ type: 'extension' }] } }],
+    ['a huge description', { ...good(), description: { type: 'doc', content: [para('x'.repeat(400_000))] } }],
+    ['an array instead of an object', [good()]],
+  ])('blocks %s', (_name, payload) => {
+    expect(() => assertAllowedAcliCommand(edit(payload), settings)).toThrow(/AT-only guard rail/);
+  });
+
+  it.each([
+    ['extra flags', (f: string) => ['jira', 'workitem', 'edit', '--from-json', f, '--yes', '--ignore-errors']],
+    ['no --yes', (f: string) => ['jira', 'workitem', 'edit', '--from-json', f]],
+    ['a key instead of a file', () => ['jira', 'workitem', 'edit', '--key', 'AT-1', '--description', 'x', '--yes']],
+    ['a file outside the private temp directory', () => ['jira', 'workitem', 'edit', '--from-json', '/etc/passwd', '--yes']],
+    ['a path that climbs out', () => ['jira', 'workitem', 'edit', '--from-json', `${dir}/../../etc/passwd`, '--yes']],
+    ['a file that is not there', () => ['jira', 'workitem', 'edit', '--from-json', join(dir, 'missing.json'), '--yes']],
+  ])('blocks %s', (_name, build) => {
+    writeFileSync(file, JSON.stringify(good()));
+    expect(() => assertAllowedAcliCommand(build(file), settings)).toThrow(/AT-only guard rail/);
+  });
+
+  it('cleans up', () => {
+    rmSync(dir, { recursive: true, force: true });
+    expect(existsSync(dir)).toBe(false);
+  });
+});
+
+describe('parseReviewPanel (what a description says about the review)', () => {
+  const panel = (decision: 'approved' | 'declined' | 'withdrawn', info: string, sha: string) => buildReviewPanel(decision, info, sha, new Date('2026-11-06T00:00:00Z'));
+
+  it('reads the newest panel, so a history of decisions ends in the latest one', () => {
+    const history = doc(para('text'), panel('approved', 'first', SHA_A), panel('declined', 'second\nline', SHA_B));
+    expect(parseReviewPanel(history)).toEqual({ decision: 'declined', sha: SHA_B, info: 'second\nline' });
+  });
+
+  it('still understands the label an early version wrote ("Declined") as changes requested', () => {
+    const old = { type: 'panel', attrs: { panelType: 'error' }, content: [para('Code review: Declined (recorded by the Review tab on 2026-11-06)'), para(`Commit: ${SHA_A}`), para('Review notes:'), para('Please fix the selector')] };
+    expect(parseReviewPanel(doc(old))).toEqual({ decision: 'declined', sha: SHA_A, info: 'Please fix the selector' });
+  });
+
+  it('a Withdrawn panel as the newest means no decision', () => {
+    expect(parseReviewPanel(doc(panel('approved', '', SHA_A), panel('withdrawn', '', SHA_A)))).toBeNull();
+    expect(parseReviewPanel(doc(panel('withdrawn', '', SHA_A), panel('approved', 'again', SHA_B)))).toMatchObject({ decision: 'approved', sha: SHA_B });
+  });
+
+  it.each([
+    ['no description', null],
+    ['a description without a review', doc(para('Code review notes are in the wiki'))],
+    ['someone writing "Code review: Approved" in an ordinary paragraph', doc(para('Code review: Approved'))],
+    ['a panel that is not ours', doc({ type: 'panel', attrs: { panelType: 'info' }, content: [para('Heads up')] })],
+    ['a damaged panel (no commit line)', doc({ type: 'panel', attrs: { panelType: 'success' }, content: [para('Code review: Approved')] })],
+    ['a damaged panel (not a full commit id)', doc({ type: 'panel', attrs: { panelType: 'success' }, content: [para('Code review: Approved'), para('Commit: abc123')] })],
+    ['text that is not a document', 'Code review: Approved'],
+  ])('finds nothing in %s', (_name, input) => {
+    expect(parseReviewPanel(input)).toBeNull();
   });
 });

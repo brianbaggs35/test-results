@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { plural, safeHref, timeAgo } from '@/utils/reviewFormat';
+import { CopyButton } from './CopyCommand';
 import type { ReviewBranch, ReviewTicket } from '@/types/review';
 
 const MERGED_COLOR = 'text-violet-600 dark:text-violet-400';
@@ -96,9 +97,12 @@ export const PullRequestTable: React.FC<{
                       </div>
                       {/* small screens fold the hidden columns under the title */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 md:hidden">
-                        <code title={branch.name} className="max-w-full truncate rounded bg-muted px-1.5 py-0.5 text-xs">
-                          {branch.name}
-                        </code>
+                        <span className="inline-flex max-w-full items-center gap-1">
+                          <code title={branch.name} className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 text-xs">
+                            {branch.name}
+                          </code>
+                          <CopyButton value={branch.name} label={`Copy branch name ${branch.name}`} />
+                        </span>
                         <span className="sm:hidden">
                           <DiffStat branch={branch} />
                         </span>
@@ -108,9 +112,12 @@ export const PullRequestTable: React.FC<{
                   </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  <code title={branch.name} className="block max-w-60 truncate rounded bg-muted px-1.5 py-0.5 text-xs">
-                    {branch.name}
-                  </code>
+                  <span className="flex max-w-64 items-center gap-1">
+                    <code title={branch.name} className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {branch.name}
+                    </code>
+                    <CopyButton value={branch.name} label={`Copy branch name ${branch.name}`} />
+                  </span>
                 </TableCell>
                 <TableCell className="hidden lg:table-cell">
                   <div className="flex flex-col">

@@ -17,7 +17,7 @@ test.describe('Publish Page', () => {
 
     await page.getByPlaceholder('e.g., 54').fill('22')
 
-    await page.getByPlaceholder('e.g., Executed By').fill('Executed by')
+    await page.getByPlaceholder('e.g., Published By').fill('Published by')
 
     await page.getByPlaceholder('e.g., Brian').fill('Test user')
 
@@ -29,7 +29,7 @@ test.describe('Publish Page', () => {
 
     await expect(page.getByPlaceholder('e.g., Brian')).toHaveValue('Test user')
 
-    await expect(page.getByPlaceholder('e.g., Executed By')).toHaveValue('Executed by')
+    await expect(page.getByPlaceholder('e.g., Published By')).toHaveValue('Published by')
   })
 
   // These two mock the /api/publish response at the network layer so the

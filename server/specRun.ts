@@ -33,14 +33,36 @@ import type { SpawnFn, SpecFileResult, SpecProcess } from './specRunner.ts';
  * checkout), whatever happened.
  */
 
+/** How the PR lands, which decides which specs it has (the whole branch, or just the cherry-picked commits). */
+export type MergeMethod = 'rebase' | 'cherry-pick';
+
 export type JobStatus = 'preparing' | 'syncing' | 'running' | 'cleaning' | 'passed' | 'failed' | 'cancelled' | 'error';
 const ACTIVE: JobStatus[] = ['preparing', 'syncing', 'running', 'cleaning'];
 const isActive = (s: JobStatus) => ACTIVE.includes(s);
+
+/** Where one spec stands for one exact commit of one PR. */
+export interface SpecProgress {
+  file: string;
+  status: 'passed' | 'failed' | 'skipped';
+  finishedAt: string;
+}
+
+/** May this commit be approved yet? Only when EVERY spec the PR has has a passing result for this exact commit. */
+export interface SpecGate {
+  /** The specs this PR adds or changes (the ones that must pass). */
+  required: string[];
+  /** Latest result per spec for this exact commit, for the specs that have been run. */
+  progress: SpecProgress[];
+  satisfied: boolean;
+  /** The latest finished run for this commit, if any. */
+  lastRun: { status: string; finishedAt: string | null } | null;
+}
 
 export interface SpecJobView {
   id: string;
   branch: string;
   sha: string;
+  method: MergeMethod;
   status: JobStatus;
   specs: string[];
   startedAt: string;
@@ -73,6 +95,7 @@ interface Job {
   id: string;
   branch: string;
   sha: string;
+  method: MergeMethod;
   specs: string[];
   status: JobStatus;
   startedAt: number;
@@ -100,8 +123,11 @@ export interface SpecRunContext {
   requireReviewTicket: (branch: string) => Promise<unknown>;
   fetchRemote: () => Promise<void>;
   resolveBranch: (branch: string) => Promise<string | null>;
-  changedFiles: (branch: string) => Promise<ChangedFile[]>;
-  addWorktree: (branch: string, dir: string) => Promise<void>;
+  changedFiles: (branch: string, sha: string, method: MergeMethod) => Promise<ChangedFile[]>;
+  /** True while a merge (or conflict resolution) is under way: specs must not start then. */
+  isMergeBusy?: () => boolean;
+  /** Checks out `sha` (the reviewed commit) in `dir`; throws if the branch no longer points at it. */
+  addWorktree: (branch: string, dir: string, sha: string) => Promise<void>;
   removeWorktree: (dir: string) => Promise<void>;
   // injectable for tests
   probe?: (port: number) => Promise<boolean>;
@@ -119,6 +145,12 @@ export function createSpecRunService(ctx: SpecRunContext) {
   const killGraceMs = ctx.killGraceMs ?? 5000;
   const keepJobs = ctx.keepJobs ?? 10;
   const jobs = new Map<string, Job>();
+  /**
+   * What each spec last did, per PR commit. Keyed by branch + exact commit + method, so a pass for one PR (or an
+   * earlier commit of the same PR) can never count for another. In memory only, like every run.
+   */
+  const progress = new Map<string, Map<string, SpecProgress>>();
+  const progressKey = (branch: string, sha: string, method: MergeMethod) => `${branch}@${sha}#${method}`;
   /** Set from the moment a start is accepted until its job exists, so two clicks can't both start. */
   let starting = false;
 
@@ -136,6 +168,7 @@ export function createSpecRunService(ctx: SpecRunContext) {
     id: job.id,
     branch: job.branch,
     sha: job.sha,
+    method: job.method,
     status: job.status,
     specs: job.specs,
     startedAt: new Date(job.startedAt).toISOString(),
@@ -209,7 +242,7 @@ export function createSpecRunService(ctx: SpecRunContext) {
       job.status = 'preparing';
       const dir = mkdtempSync(TEMP_WORKTREE_PREFIX);
       job.dir = dir;
-      await ctx.addWorktree(job.branch, dir);
+      await ctx.addWorktree(job.branch, dir, job.sha);
 
       const modules = join(ctx.repoPath, 'node_modules');
       if (!existsSync(modules)) throw new Error(`node_modules was not found in ${ctx.repoPath}. Run \`yarn install\` there first.`);
@@ -256,6 +289,15 @@ export function createSpecRunService(ctx: SpecRunContext) {
       const failed = job.results?.some((r) => r.status === 'failed') ?? false;
       job.status = job.cancelled ? 'cancelled' : job.error ? 'error' : failed || (job.exitCode !== null && job.exitCode !== 0) ? 'failed' : 'passed';
       job.finishedAt = Date.now();
+      // Remember what each spec did in this run (a spec that failed later replaces an earlier pass of it).
+      if (job.results) {
+        const key = progressKey(job.branch, job.sha, job.method);
+        const book = progress.get(key) ?? new Map<string, SpecProgress>();
+        for (const r of job.results) {
+          if (job.specs.includes(r.file)) book.set(r.file, { file: r.file, status: r.status, finishedAt: new Date(job.finishedAt).toISOString() });
+        }
+        progress.set(key, book);
+      }
       evictOld();
     }
   }
@@ -275,10 +317,14 @@ export function createSpecRunService(ctx: SpecRunContext) {
       };
     },
 
-    async start(opts: { branch?: unknown; expectedSha?: unknown; specs?: unknown }): Promise<{ id: string }> {
+    async start(opts: { branch?: unknown; expectedSha?: unknown; specs?: unknown; method?: unknown }): Promise<{ id: string }> {
       // cheap validation first: nothing below runs for a malformed request
       ctx.assertReviewable(opts.branch);
       const branch = opts.branch;
+      if (opts.method !== undefined && opts.method !== 'rebase' && opts.method !== 'cherry-pick') {
+        throw new ReviewError(400, 'method must be "rebase" or "cherry-pick".');
+      }
+      const method: MergeMethod = opts.method === 'cherry-pick' ? 'cherry-pick' : 'rebase';
       if (typeof opts.expectedSha !== 'string' || !/^[0-9a-f]{7,64}$/i.test(opts.expectedSha)) {
         throw new ReviewError(400, 'expectedSha is required so the specs run against what was reviewed.');
       }
@@ -291,6 +337,7 @@ export function createSpecRunService(ctx: SpecRunContext) {
       }
 
       if (starting || active()) throw new ReviewError(409, 'A spec run is already in progress. Wait for it to finish (or cancel it) first.');
+      if (ctx.isMergeBusy?.()) throw new ReviewError(409, 'A merge is in progress. Wait for it to finish before running specs.');
       starting = true;
       try {
         await ctx.assertReady();
@@ -308,7 +355,7 @@ export function createSpecRunService(ctx: SpecRunContext) {
           throw new ReviewError(409, `"${branch}" changed since you opened it. Reload the pull request, review the new commits, then run the specs.`);
         }
 
-        const changed = await ctx.changedFiles(branch);
+        const changed = await ctx.changedFiles(branch, sha, method);
         const runnable = changed.filter((f) => f.status !== 'deleted' && isRunnableSpecPath(f.path)).map((f) => f.path);
         const chosen = all ? runnable : (opts.specs as string[]);
         if (chosen.length === 0) throw new ReviewError(400, 'This PR doesn\'t add or change any runnable Playwright specs.');
@@ -319,6 +366,7 @@ export function createSpecRunService(ctx: SpecRunContext) {
           id: randomUUID(),
           branch,
           sha,
+          method,
           specs: chosen,
           status: 'preparing',
           startedAt: Date.now(),
@@ -344,6 +392,24 @@ export function createSpecRunService(ctx: SpecRunContext) {
       } finally {
         starting = false;
       }
+    },
+
+    /** The approval gate for one PR commit, given the specs the PR has. A PR without specs (support files only) has nothing to pass. */
+    gate(branch: string, sha: string, method: MergeMethod, required: string[]): SpecGate {
+      const book = progress.get(progressKey(branch, sha, method));
+      const last = [...jobs.values()]
+        .filter((j) => j.branch === branch && j.sha === sha && j.method === method && !isActive(j.status))
+        .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
+      const got = required.map((file) => book?.get(file)).filter((p): p is SpecProgress => !!p);
+      return {
+        required,
+        progress: got,
+        satisfied: required.every((file) => {
+          const p = book?.get(file);
+          return !!p && p.status !== 'failed';
+        }),
+        lastRun: last ? { status: last.status, finishedAt: last.finishedAt ? new Date(last.finishedAt).toISOString() : null } : null,
+      };
     },
 
     get(id: unknown, since: unknown = 0): SpecJobView {

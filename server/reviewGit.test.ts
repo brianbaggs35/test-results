@@ -16,6 +16,7 @@ import {
   isSafeBranchName,
   parseDiff,
   toWebUrl,
+  gitEnv,
 } from './reviewGit';
 import { AcliError } from './acli';
 import type { JiraClient } from './acli';
@@ -98,7 +99,17 @@ const IN_REVIEW: Record<string, { summary: string; assignee: string | null }> = 
   'AT-3': { summary: 'Another spec', assignee: null },
 };
 
-const issue = (key: string, summary: string, assignee: string | null, approval: 'approved' | 'declined' | null = 'approved') => ({ key, summary, status: 'Review', assignee, reviewers: assignee ? ['Matthew'] : [], approval, reviewInfo: approval === 'declined' ? 'Needs changes' : '', url: `https://jira/browse/${key}` });
+const issue = (key: string, summary: string, assignee: string | null, approval: 'approved' | 'declined' | null = 'approved') => ({
+  key,
+  summary,
+  status: 'Review',
+  assignee,
+  reviewers: assignee ? ['Matthew'] : [],
+  approval,
+  reviewInfo: approval === 'declined' ? 'Needs changes' : '',
+  recorded: null as { decision: 'approved' | 'declined'; sha: string; info: string } | null,
+  url: `https://jira/browse/${key}`,
+});
 
 /** A fake acli-backed Jira client: AT-1, AT-2 and AT-3 are "in the Review column". */
 function fakeJira(overrides: Partial<Record<keyof JiraClient, unknown>> = {}): JiraClient {
@@ -106,7 +117,11 @@ function fakeJira(overrides: Partial<Record<keyof JiraClient, unknown>> = {}): J
     listReviewIssues: vi.fn().mockResolvedValue([issue('AT-1', 'Add new spec', 'Brian'), issue('AT-77', 'No branch yet', null)]),
     findReviewIssue: vi.fn(async (key: string) => (IN_REVIEW[key] ? issue(key, IN_REVIEW[key].summary, IN_REVIEW[key].assignee) : null)),
     moveReviewIssueToDone: vi.fn().mockResolvedValue(undefined),
-    submitReview: vi.fn(async (key: string, decision: string, info?: string) => ({ ...issue(key, 'x', 'Brian', decision === 'none' ? null : (decision as 'approved' | 'declined')), reviewInfo: info ?? '' })),
+    // writing the decision into the description: the ticket comes back with it recorded
+    recordReview: vi.fn(async (key: string, decision: string, info: string | undefined, sha: string) => ({
+      ...issue(key, 'x', 'Brian', null),
+      recorded: decision === 'none' ? null : { decision: decision as 'approved' | 'declined', sha, info: info ?? '' },
+    })),
     ...overrides,
   } as unknown as JiraClient;
 }
@@ -474,34 +489,121 @@ describe('createReviewService', () => {
 
   it.each([
     [null, /hasn't been approved yet/],
-    ['declined', /was declined in review/],
+    ['declined', /has changes requested/],
   ] as const)('refuses to merge a ticket whose approval is %s, before touching git', async (approval, message) => {
     const jira = fakeJira({ findReviewIssue: vi.fn().mockResolvedValue(issue('AT-1', 'x', 'Brian', approval)) });
+    const s = svc(jira);
+    await s.list();
+    const sha = (await s.detail('AT-1-add-spec')).sha; // the approval is judged against the commit being merged
     const baseBefore = git(fx.origin, 'rev-parse', BASE);
-    await expect(svc(jira).merge({ branch: 'AT-1-add-spec', expectedSha: 'abcdef1' })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(message) });
+    await expect(s.merge({ branch: 'AT-1-add-spec', expectedSha: sha })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(message) });
     expect(git(fx.origin, 'rev-parse', BASE)).toBe(baseBefore);
     expect(git(fx.origin, 'branch', '--list', 'AT-1-add-spec')).toContain('AT-1-add-spec');
   });
 
-  it('records an approval for the reviewed commit', async () => {
+  it('records an approval for the reviewed commit, in the app and in the ticket description', async () => {
     const jira = fakeJira();
     const s = svc(jira);
     await s.list();
     const sha = (await s.detail('AT-1-add-spec')).sha;
     const result = await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'approved', info: '  Looks good  ' });
-    expect(jira.submitReview).toHaveBeenCalledExactlyOnceWith('AT-1', 'approved', 'Looks good');
-    expect(result.approval).toBe('approved');
+    expect(jira.recordReview).toHaveBeenCalledExactlyOnceWith('AT-1', 'approved', 'Looks good', sha);
+    expect(result).toMatchObject({ approval: 'approved', approvalSource: 'app', reviewInfo: 'Looks good', jiraRecorded: true, jiraNote: null, staleDecision: null });
+    expect(result).not.toHaveProperty('recorded');
   });
 
-  it('declining needs a reason', async () => {
+  it('approving still works when Jira cannot take the note: it stands in the app and says why', async () => {
+    const jira = fakeJira({ recordReview: vi.fn().mockRejectedValue(new AcliError("AT-1's description has images or macros, which acli can't safely rewrite, so the review was not written to Jira.", 'unsupported')) });
+    const s = svc(jira);
+    await s.list();
+    const d = await s.detail('AT-1-add-spec');
+    const result = await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: d.sha, decision: 'approved', info: 'Fine' });
+    expect(result).toMatchObject({ approval: 'approved', approvalSource: 'app', jiraRecorded: false, jiraNote: expect.stringContaining('images or macros') });
+    // ...and it is what the page and the merge see
+    expect((await s.detail('AT-1-add-spec')).ticket).toMatchObject({ approval: 'approved', approvalSource: 'app', reviewInfo: 'Fine' });
+  });
+
+  it('a decision applies to the exact commit: when the branch changes, it no longer counts', async () => {
+    const jira = fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'x', 'Brian', null)) });
+    const s = svc(jira);
+    await s.list();
+    const d = await s.detail('AT-1-add-spec');
+    await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: d.sha, decision: 'approved' });
+    expect((await s.detail('AT-1-add-spec')).ticket).toMatchObject({ approval: 'approved' });
+
+    // the dev pushes another commit
+    git(fx.seed, 'checkout', '-q', 'AT-1-add-spec');
+    commitFile(fx.seed, 'late.txt', 'later\n', 'AT-1 Late push');
+    git(fx.seed, 'push', '-q', 'origin', 'AT-1-add-spec');
+    await s.list();
+    const after = await s.detail('AT-1-add-spec');
+
+    expect(after.sha).not.toBe(d.sha);
+    expect(after.ticket).toMatchObject({ approval: null, approvalSource: null, staleDecision: { decision: 'approved', sha: d.sha } });
+    const baseBefore = git(fx.origin, 'rev-parse', BASE);
+    await expect(s.merge({ branch: 'AT-1-add-spec', expectedSha: after.sha })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/was approved for an earlier commit, and "AT-1-add-spec" has changed since/) });
+    expect(git(fx.origin, 'rev-parse', BASE)).toBe(baseBefore);
+
+    // approving the new commit unlocks it
+    await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: after.sha, decision: 'approved' });
+    await expect(s.merge({ branch: 'AT-1-add-spec', expectedSha: after.sha })).resolves.toMatchObject({ merged: 2 });
+  });
+
+  it('merges a ticket approved only in this app (nothing ticked in Jira), and only that commit', async () => {
+    const jira = fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'x', 'Brian', null)) });
+    const s = svc(jira);
+    await s.list();
+    const d = await s.detail('AT-1-add-spec');
+    await expect(s.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha })).rejects.toMatchObject({ status: 409, message: expect.stringContaining("hasn't been approved yet") });
+    await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: d.sha, decision: 'approved' });
+    await expect(s.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha })).resolves.toMatchObject({ merged: 1 });
+  });
+
+  it('a decision recorded in the description (by an earlier session or another machine) counts for the same commit', async () => {
+    const s0 = svc(fakeJira());
+    await s0.list();
+    const sha = (await s0.detail('AT-1-add-spec')).sha;
+    const recorded = { decision: 'approved' as const, sha, info: 'Reviewed yesterday' };
+    const jira = fakeJira({ findReviewIssue: vi.fn(async (key: string) => ({ ...issue(key, 'x', 'Brian', null), recorded })) });
+    const d = await svc(jira).detail('AT-1-add-spec');
+    expect(d.ticket).toMatchObject({ approval: 'approved', approvalSource: 'description', reviewInfo: 'Reviewed yesterday' });
+    // for a different commit it is stale
+    const other = fakeJira({ findReviewIssue: vi.fn(async (key: string) => ({ ...issue(key, 'x', 'Brian', null), recorded: { ...recorded, sha: 'f'.repeat(40) } })) });
+    expect((await svc(other).detail('AT-1-add-spec')).ticket).toMatchObject({ approval: null, staleDecision: { decision: 'approved', sha: 'f'.repeat(40) } });
+  });
+
+  it('an Approved box ticked in Jira by hand still counts, and a decision for this commit overrides it', async () => {
+    const ticked = fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'x', 'Brian', 'approved')) });
+    const s = svc(ticked);
+    await s.list();
+    const d = await s.detail('AT-1-add-spec');
+    expect(d.ticket).toMatchObject({ approval: 'approved', approvalSource: 'field' });
+    await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: d.sha, decision: 'declined', info: 'Found a problem' });
+    expect((await s.detail('AT-1-add-spec')).ticket).toMatchObject({ approval: 'declined', approvalSource: 'app', reviewInfo: 'Found a problem' });
+    await expect(s.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha })).rejects.toMatchObject({ status: 409, message: expect.stringContaining('has changes requested') });
+  });
+
+  it('clearing a decision removes it here and from the description', async () => {
+    const jira = fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'x', 'Brian', null)) });
+    const s = svc(jira);
+    await s.list();
+    const d = await s.detail('AT-1-add-spec');
+    await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: d.sha, decision: 'approved' });
+    const cleared = await s.submitReview({ branch: 'AT-1-add-spec', expectedSha: d.sha, decision: 'none' });
+    expect(jira.recordReview).toHaveBeenLastCalledWith('AT-1', 'none', undefined, d.sha);
+    expect(cleared).toMatchObject({ approval: null, approvalSource: null });
+    expect((await s.detail('AT-1-add-spec')).ticket.approval).toBeNull();
+  });
+
+  it('requesting changes needs a note', async () => {
     const jira = fakeJira();
     const s = svc(jira);
     await s.list();
     const sha = (await s.detail('AT-1-add-spec')).sha;
     for (const info of [undefined, '', '   ']) {
-      await expect(s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'declined', info })).rejects.toMatchObject({ status: 400, message: expect.stringContaining('Say why') });
+      await expect(s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'declined', info })).rejects.toMatchObject({ status: 400, message: expect.stringContaining('Say what needs to change') });
     }
-    expect(jira.submitReview).not.toHaveBeenCalled();
+    expect(jira.recordReview).not.toHaveBeenCalled();
     await expect(s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'declined', info: 'Missing cleanup' })).resolves.toBeTruthy();
   });
 
@@ -520,37 +622,33 @@ describe('createReviewService', () => {
     await expect(call({ branch: 'feature/x' })).rejects.toMatchObject({ status: 400 });
     await expect(call({ branch: 'AT-404-missing' })).rejects.toMatchObject({ status: 404 });
     await expect(call({ expectedSha: '1234567' })).rejects.toMatchObject({ status: 409, message: expect.stringContaining('changed since you opened it') });
-    expect(jira.submitReview).not.toHaveBeenCalled();
+    expect(jira.recordReview).not.toHaveBeenCalled();
   });
 
-  it('refuses a ticket that left the Review column', async () => {
+  it('refuses a ticket that left the Review column, and records nothing', async () => {
     // in Review when the page was opened, gone by the time the decision is submitted
-    const jira = fakeJira({ findReviewIssue: vi.fn().mockResolvedValueOnce(issue('AT-1', 'x', 'Brian')).mockResolvedValue(null) });
+    const jira = fakeJira({ findReviewIssue: vi.fn().mockResolvedValueOnce(issue('AT-1', 'x', 'Brian', null)).mockResolvedValue(null) });
     const s = svc(jira);
     await s.list();
     const sha = (await s.detail('AT-1-add-spec')).sha;
     await expect(s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'approved' })).rejects.toMatchObject({ status: 404 });
-    expect(jira.submitReview).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    [new AcliError('not signed in', 'not-authenticated'), 503],
-    [new AcliError("Your acli can't set these Jira fields", 'failed'), 502],
-  ])('maps a Jira write failure to a clear status', async (err, status) => {
-    const jira = fakeJira({ submitReview: vi.fn().mockRejectedValue(err) });
-    const s = svc(jira);
-    await s.list();
-    const sha = (await s.detail('AT-1-add-spec')).sha;
-    await expect(s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'approved' })).rejects.toMatchObject({ status, message: err.message });
+    expect(jira.recordReview).not.toHaveBeenCalled();
   });
 
   it('lets a guard-rail refusal pass through and rethrows unexpected errors', async () => {
-    const s1 = svc(fakeJira({ submitReview: vi.fn().mockRejectedValue(new AcliError('Blocked by the AT-only guard rail: x', 'blocked')) }));
+    const s1 = svc(fakeJira({ recordReview: vi.fn().mockRejectedValue(new AcliError('Blocked by the AT-only guard rail: x', 'blocked')) }));
     await s1.list();
     const sha = (await s1.detail('AT-1-add-spec')).sha;
     await expect(s1.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'approved' })).rejects.toBeInstanceOf(AcliError);
-    const s2 = svc(fakeJira({ submitReview: vi.fn().mockRejectedValue(new TypeError('weird')) }));
+    const s2 = svc(fakeJira({ recordReview: vi.fn().mockRejectedValue(new TypeError('weird')) }));
     await expect(s2.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'approved' })).rejects.toBeInstanceOf(TypeError);
+  });
+
+  it('Jira being unreachable or signed out does not stop the app recording the decision', async () => {
+    const s = svc(fakeJira({ recordReview: vi.fn().mockRejectedValue(new AcliError("acli isn't logged in to Jira.", 'not-authenticated')) }));
+    await s.list();
+    const sha = (await s.detail('AT-1-add-spec')).sha;
+    await expect(s.submitReview({ branch: 'AT-1-add-spec', expectedSha: sha, decision: 'approved' })).resolves.toMatchObject({ approval: 'approved', jiraRecorded: false, jiraNote: expect.stringContaining('logged in') });
   });
 });
 
@@ -942,27 +1040,467 @@ describe('rebase first, then merge: always a straight line, never a merge commit
     expectStraightLine();
   });
 
-  it('a branch that already contains a merge commit (someone merged playwright-main into it) lands flattened, with no merge commit', async () => {
-    git(fx.seed, 'checkout', '-q', '-b', 'AT-6-has-merge', BASE);
-    commitFile(fx.seed, 'six-a.spec.ts', 'a\n', 'AT-6 First commit');
-    git(fx.seed, 'checkout', '-q', BASE);
-    commitFile(fx.seed, 'base-moves-on.txt', 'y\n', 'AT-10 Base moves on');
-    git(fx.seed, 'push', '-q', 'origin', BASE);
-    git(fx.seed, 'checkout', '-q', 'AT-6-has-merge');
-    git(fx.seed, 'merge', '--no-ff', '-q', '-m', 'Merge playwright-main into AT-6', BASE);
-    commitFile(fx.seed, 'six-b.spec.ts', 'b\n', 'AT-6 Second commit');
-    git(fx.seed, 'push', '-q', 'origin', 'AT-6-has-merge');
-    expect(git(fx.seed, 'log', '--merges', '--format=%s', 'AT-6-has-merge')).toBe('Merge playwright-main into AT-6'); // the branch really has one
+  describe('a branch that contains a merge commit is never rebased', () => {
+    // A dev merges playwright-main into their branch, and fixes something while resolving it (the fix lives only inside the merge commit).
+    function branchWithMerge(name: string, withFix: boolean) {
+      git(fx.seed, 'checkout', '-q', '-b', name, BASE);
+      commitFile(fx.seed, 'six-a.spec.ts', 'a\n', 'AT-6 First commit');
+      git(fx.seed, 'checkout', '-q', BASE);
+      commitFile(fx.seed, 'base-moves-on.txt', 'y\n', 'AT-10 Base moves on');
+      git(fx.seed, 'push', '-q', 'origin', BASE);
+      git(fx.seed, 'checkout', '-q', name);
+      git(fx.seed, 'merge', '--no-ff', '--no-commit', '-q', BASE);
+      if (withFix) writeFileSync(join(fx.seed, 'fix-made-while-merging.ts'), 'export const fix = true\n');
+      git(fx.seed, 'add', '-A');
+      git(fx.seed, 'commit', '-q', '-m', 'Merge playwright-main into ' + name);
+      commitFile(fx.seed, 'six-b.spec.ts', 'b\n', 'AT-6 Second commit');
+      git(fx.seed, 'push', '-q', 'origin', name);
+      expect(git(fx.seed, 'log', '--merges', '--format=%s', name)).toContain('Merge playwright-main into');
+    }
 
-    const svc = createReviewService(config(), { ...installed, jira: anyJira() });
-    await svc.list(); // fetches AT-6 into the clone, as the page's refresh does
-    const d = await svc.detail('AT-6-has-merge');
-    const result = await svc.merge({ branch: 'AT-6-has-merge', expectedSha: d.sha });
+    it.each([
+      ['a plain merge commit', false],
+      ['a merge commit that also contains a fix made while resolving it (a rebase would silently drop the fix)', true],
+    ])('refuses %s, before anything is checked out, rebased, pushed or deleted', async (_name, withFix) => {
+      branchWithMerge('AT-6-has-merge', withFix);
+      const jira = anyJira();
+      const svc = createReviewService(config(), { ...installed, jira });
+      await svc.list();
+      const d = await svc.detail('AT-6-has-merge');
+      expect(d.mergeCommits).toBe(1); // the page says so before anyone clicks
+      const baseBefore = git(fx.origin, 'rev-parse', BASE);
 
-    expect(result.merged).toBe(2);
-    expect(git(fx.origin, 'log', '--format=%s', '-3', BASE).split('\n')).toEqual(['AT-6 Second commit', 'AT-6 First commit', 'AT-10 Base moves on']);
-    expect(git(fx.origin, 'log', '--format=%s', BASE)).not.toContain('Merge playwright-main');
-    expectStraightLine();
+      const err = await svc.merge({ branch: 'AT-6-has-merge', expectedSha: d.sha, moveToDone: true }).catch((e) => e);
+
+      expect(err).toMatchObject({ status: 409, code: 'merge-commits' });
+      expect(err.message).toMatch(/contains 1 merge commit/);
+      expect(err.message).toMatch(/silently drop/);
+      expect(git(fx.origin, 'rev-parse', BASE)).toBe(baseBefore);
+      expect(git(fx.origin, 'branch', '--list', 'AT-6-has-merge').trim()).toBe('AT-6-has-merge');
+      expect(jira.moveReviewIssueToDone).not.toHaveBeenCalled();
+      expect(git(fx.app, 'worktree', 'list').split('\n')).toHaveLength(1);
+      expectStraightLine();
+    });
+
+    it('once the dev rebases it locally and pushes, it merges normally', async () => {
+      branchWithMerge('AT-6-has-merge', true);
+      git(fx.seed, 'rebase', '-q', BASE); // the dev's own rebase: the merge commit is gone, and so is the fix that lived only in it
+      git(fx.seed, 'push', '-q', '-f', 'origin', 'AT-6-has-merge');
+      const svc = createReviewService(config(), { ...installed, jira: anyJira() });
+      await svc.list();
+      const d = await svc.detail('AT-6-has-merge');
+      expect(d.mergeCommits).toBe(0);
+      await expect(svc.merge({ branch: 'AT-6-has-merge', expectedSha: d.sha })).resolves.toMatchObject({ merged: 2 });
+      expectStraightLine();
+    });
+  });
+
+  describe('cherry-pick: a branch cut from another branch (e.g. release-next) lands only its AT commits', () => {
+    /** release-next = the base plus unreleased app commits; the ticket branch is cut from it and adds QA commits on top. */
+    function releaseNextBranch(name: string, qaCommits: Array<{ file: string; content: string; message: string }>, options: { between?: () => void } = {}) {
+      git(fx.seed, 'checkout', '-q', '-B', 'release-next', BASE);
+      commitFile(fx.seed, 'app/feature.rb', 'unreleased feature\n', 'APP-100 Add the unreleased feature');
+      commitFile(fx.seed, 'app/more.rb', 'more unreleased work\n', 'APP-101 More unreleased work');
+      git(fx.seed, 'push', '-q', '-f', 'origin', 'release-next');
+      git(fx.seed, 'checkout', '-q', '-b', name, 'release-next');
+      for (const c of qaCommits) {
+        commitFile(fx.seed, c.file, c.content, c.message);
+        options.between?.();
+      }
+      git(fx.seed, 'push', '-q', 'origin', name);
+    }
+    const parents = (ref: string) => git(fx.origin, 'rev-list', '--parents', ref).split('\n').map((l) => l.split(' ').slice(1));
+    const straight = () => {
+      expect(git(fx.origin, 'log', '--merges', '--format=%h', BASE)).toBe('');
+      for (const p of parents(BASE)) expect(p.length).toBeLessThanOrEqual(1);
+    };
+
+    const TWO_QA_COMMITS = [
+      { file: 'spec/unreleased/first.spec.ts', content: "test('first', () => {})\n", message: 'AT-7 First spec for the unreleased feature' },
+      { file: 'spec/unreleased/second.spec.ts', content: "test('second', () => {})\n", message: 'AT-7 Second spec for the unreleased feature' },
+    ];
+
+    async function openSvc(jira = anyJira()) {
+      const svc = createReviewService(config(), { ...installed, jira });
+      await svc.list();
+      return { svc, jira };
+    }
+
+    it('finds the AT commits at the tip: only those, oldest first, nothing from release-next', async () => {
+      releaseNextBranch('AT-7-unreleased', TWO_QA_COMMITS);
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-unreleased', 'cherry-pick');
+
+      expect(d.method).toBe('cherry-pick');
+      expect(d.pick).toMatchObject({ available: true, alreadyApplied: 0, reason: null, prefix: 'AT-7' });
+      expect(d.pick.commits.map((c) => c.subject)).toEqual(['AT-7 First spec for the unreleased feature', 'AT-7 Second spec for the unreleased feature']);
+      expect(d.commits.map((c) => c.subject)).toEqual(d.pick.commits.map((c) => c.subject));
+      // the review shows just what would be applied, never release-next's app code
+      expect(d.files.map((f) => f.path).sort()).toEqual(['spec/unreleased/first.spec.ts', 'spec/unreleased/second.spec.ts']);
+      expect([d.ahead, d.behind, d.unmerged, d.canRebase]).toEqual([2, 0, 2, true]);
+      expect(d.mergeCommits).toBe(0);
+    });
+
+    it('in the default (rebase) view the same branch is flagged: it carries commits that are not AT commits', async () => {
+      releaseNextBranch('AT-7-unreleased', TWO_QA_COMMITS);
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-unreleased');
+
+      expect(d.method).toBe('rebase');
+      expect(d.nonAtCommits).toBeGreaterThanOrEqual(2); // APP-100, APP-101 (and the base's own commits)
+      expect(d.files.map((f) => f.path)).toContain('app/feature.rb'); // a rebase would carry the unreleased app code too
+    });
+
+    it('cherry-picks exactly those commits onto playwright-main: straight line, authors kept, app code left behind, branch deleted, ticket moved', async () => {
+      releaseNextBranch('AT-7-unreleased', TWO_QA_COMMITS);
+      const { svc, jira } = await openSvc();
+      const d = await svc.detail('AT-7-unreleased', 'cherry-pick');
+      const baseBefore = git(fx.origin, 'rev-parse', BASE);
+
+      const result = await svc.merge({ branch: 'AT-7-unreleased', expectedSha: d.sha, method: 'cherry-pick', moveToDone: true });
+
+      expect(result).toMatchObject({ method: 'cherry-pick', merged: 2, branchDeleted: true, ticketMoved: 'AT-7', warning: null });
+      expect(git(fx.origin, 'rev-list', '--count', `${baseBefore}..${BASE}`)).toBe('2');
+      expect(git(fx.origin, 'rev-parse', `${BASE}~2`)).toBe(baseBefore); // sits directly on the old tip
+      expect(git(fx.origin, 'log', '--format=%s', '-2', BASE).split('\n')).toEqual(['AT-7 Second spec for the unreleased feature', 'AT-7 First spec for the unreleased feature']);
+      expect(git(fx.origin, 'log', '--format=%an', '-2', BASE).split('\n')).toEqual(['Seed User', 'Seed User']); // authorship survives
+      expect(git(fx.origin, 'show', `${BASE}:spec/unreleased/first.spec.ts`)).toContain("test('first'");
+      // none of release-next's unreleased code came along
+      expect(() => git(fx.origin, 'cat-file', '-e', `${BASE}:app/feature.rb`)).toThrow();
+      expect(() => git(fx.origin, 'cat-file', '-e', `${BASE}:app/more.rb`)).toThrow();
+      expect(git(fx.origin, 'branch', '--list', 'AT-7-unreleased')).toBe('');
+      expect(jira.moveReviewIssueToDone).toHaveBeenCalledExactlyOnceWith('AT-7');
+      expect(git(fx.app, 'worktree', 'list').split('\n')).toHaveLength(1);
+      straight();
+    });
+
+    it('stops at the first commit that is not this ticket\'s: only the unbroken run at the tip is taken', async () => {
+      git(fx.seed, 'checkout', '-q', '-B', 'release-next', BASE);
+      commitFile(fx.seed, 'app/feature.rb', 'x\n', 'APP-100 Feature');
+      git(fx.seed, 'push', '-q', '-f', 'origin', 'release-next');
+      git(fx.seed, 'checkout', '-q', '-b', 'AT-7-mixed', 'release-next');
+      commitFile(fx.seed, 'spec/early.spec.ts', 'early\n', 'AT-7 An early commit'); // older: separated from the tip run
+      commitFile(fx.seed, 'app/hotfix.rb', 'hotfix\n', 'APP-102 A release-next commit in between');
+      commitFile(fx.seed, 'spec/late-a.spec.ts', 'a\n', 'AT-7 Late spec A');
+      commitFile(fx.seed, 'spec/late-b.spec.ts', 'b\n', 'AT-7: Late spec B'); // "AT-7:" also counts as the prefix
+      git(fx.seed, 'push', '-q', 'origin', 'AT-7-mixed');
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-mixed', 'cherry-pick');
+
+      expect(d.pick.commits.map((c) => c.subject)).toEqual(['AT-7 Late spec A', 'AT-7: Late spec B']);
+      expect(d.files.map((f) => f.path).sort()).toEqual(['spec/late-a.spec.ts', 'spec/late-b.spec.ts']);
+    });
+
+    it('does not take another ticket\'s commits, even though they also start with AT-', async () => {
+      releaseNextBranch('AT-7-stacked', [
+        { file: 'spec/other-ticket.spec.ts', content: 'o\n', message: 'AT-6 Belongs to another ticket still in review' },
+        { file: 'spec/mine.spec.ts', content: 'm\n', message: 'AT-7 This ticket\'s spec' },
+      ]);
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-stacked', 'cherry-pick');
+
+      expect(d.pick.commits.map((c) => c.subject)).toEqual(["AT-7 This ticket's spec"]);
+    });
+
+    it('says why nothing can be cherry-picked, and the merge refuses with that reason', async () => {
+      releaseNextBranch('AT-7-no-prefix', [{ file: 'spec/x.spec.ts', content: 'x\n', message: 'Add a spec (forgot the ticket number)' }]);
+      const { svc } = await openSvc();
+      const d = await svc.detail('AT-7-no-prefix', 'cherry-pick');
+      expect(d.pick.available).toBe(false);
+      expect(d.pick.reason).toMatch(/None of the latest commits on this branch start with AT-7/);
+      expect(d.commits).toEqual([]);
+      expect(d.files).toEqual([]);
+
+      const baseBefore = git(fx.origin, 'rev-parse', BASE);
+      await expect(svc.merge({ branch: 'AT-7-no-prefix', expectedSha: d.sha, method: 'cherry-pick' })).rejects.toMatchObject({ status: 409, code: 'no-picks' });
+      expect(git(fx.origin, 'rev-parse', BASE)).toBe(baseBefore);
+    });
+
+    it('never picks a merge commit: a merge at the tip means nothing is picked', async () => {
+      releaseNextBranch('AT-7-merge-tip', [{ file: 'spec/a.spec.ts', content: 'a\n', message: 'AT-7 A spec' }]);
+      git(fx.seed, 'checkout', '-q', 'release-next');
+      commitFile(fx.seed, 'app/newer.rb', 'newer\n', 'APP-103 Newer release-next work');
+      git(fx.seed, 'push', '-q', 'origin', 'release-next');
+      git(fx.seed, 'checkout', '-q', 'AT-7-merge-tip');
+      git(fx.seed, 'merge', '--no-ff', '-q', '-m', 'Merge release-next into AT-7-merge-tip', 'release-next');
+      git(fx.seed, 'push', '-q', 'origin', 'AT-7-merge-tip');
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-merge-tip', 'cherry-pick');
+
+      expect(d.pick.available).toBe(false);
+      expect(d.pick.reason).toMatch(/merge commit, and merge commits are never cherry-picked/);
+    });
+
+    it('skips commits playwright-main already has (same change), and refuses when that is everything', async () => {
+      releaseNextBranch('AT-7-partly-there', TWO_QA_COMMITS);
+      // the base already got the first commit's change some other way (same file, same content)
+      git(fx.seed, 'checkout', '-q', BASE);
+      commitFile(fx.seed, 'spec/unreleased/first.spec.ts', "test('first', () => {})\n", 'AT-7 First spec landed earlier');
+      git(fx.seed, 'push', '-q', 'origin', BASE);
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-partly-there', 'cherry-pick');
+      expect(d.pick.alreadyApplied).toBe(1);
+      expect(d.pick.commits.map((c) => c.subject)).toEqual(['AT-7 Second spec for the unreleased feature']);
+      const result = await svc.merge({ branch: 'AT-7-partly-there', expectedSha: d.sha, method: 'cherry-pick' });
+      expect(result.merged).toBe(1);
+      straight();
+
+      // and a branch whose commits are all already there has nothing left
+      releaseNextBranch('AT-8-all-there', [{ file: 'spec/unreleased/second.spec.ts', content: "test('second', () => {})\n", message: 'AT-8 Again' }]);
+      await svc.list();
+      const again = await svc.detail('AT-8-all-there', 'cherry-pick');
+      expect(again.pick.available).toBe(false);
+      expect(again.pick.reason).toMatch(/already in playwright-main/);
+    });
+
+    it('conflicts stop the cherry-pick: nothing is pushed or deleted, and the files are named', async () => {
+      releaseNextBranch('AT-7-clash', [{ file: 'a.txt', content: 'one\nPICKED\nthree\n', message: 'AT-7 Edit a.txt' }]);
+      // after release-next was cut, playwright-main changes the very same line differently
+      git(fx.seed, 'checkout', '-q', BASE);
+      commitFile(fx.seed, 'a.txt', 'one\nBASE-AGAIN\nthree\n', 'AT-11 Base edits the same line again');
+      git(fx.seed, 'push', '-q', 'origin', BASE);
+      const { svc, jira } = await openSvc();
+      const d = await svc.detail('AT-7-clash', 'cherry-pick');
+      expect(d.canRebase).toBe(false);
+      expect(d.conflicts).toEqual(['a.txt']);
+      const baseBefore = git(fx.origin, 'rev-parse', BASE);
+
+      const err = await svc.merge({ branch: 'AT-7-clash', expectedSha: d.sha, method: 'cherry-pick', moveToDone: true }).catch((e) => e);
+
+      expect(err).toMatchObject({ status: 409, code: 'conflicts', details: ['a.txt'] });
+      expect(err.message).toMatch(/Cherry-picking the AT-7 commits onto playwright-main hit conflicts/);
+      expect(git(fx.origin, 'rev-parse', BASE)).toBe(baseBefore);
+      expect(git(fx.origin, 'branch', '--list', 'AT-7-clash').trim()).toBe('AT-7-clash');
+      expect(jira.moveReviewIssueToDone).not.toHaveBeenCalled();
+      expect(git(fx.app, 'worktree', 'list').split('\n')).toHaveLength(1);
+    });
+
+    it('a cherry-pick and a rebase merge can follow each other: each lands on top of the last, in order', async () => {
+      releaseNextBranch('AT-7-unreleased', TWO_QA_COMMITS);
+      git(fx.seed, 'checkout', '-q', '-b', 'AT-3-normal', BASE);
+      commitFile(fx.seed, 'three.spec.ts', 'z\n', 'AT-3 A normal ticket');
+      git(fx.seed, 'push', '-q', 'origin', 'AT-3-normal');
+      const { svc } = await openSvc();
+      const [seven, three] = await Promise.all([svc.detail('AT-7-unreleased', 'cherry-pick'), svc.detail('AT-3-normal')]);
+
+      await svc.merge({ branch: 'AT-7-unreleased', expectedSha: seven.sha, method: 'cherry-pick' });
+      expect((await svc.detail('AT-3-normal')).behind).toBe(2);
+      await svc.merge({ branch: 'AT-3-normal', expectedSha: three.sha });
+
+      expect(git(fx.origin, 'log', '--format=%s', '-3', BASE).split('\n')).toEqual(['AT-3 A normal ticket', 'AT-7 Second spec for the unreleased feature', 'AT-7 First spec for the unreleased feature']);
+      straight();
+    });
+
+    it('refuses more commits than the limit, and an unknown method', async () => {
+      git(fx.seed, 'checkout', '-q', '-B', 'release-next', BASE);
+      commitFile(fx.seed, 'app/feature.rb', 'x\n', 'APP-100 Feature');
+      git(fx.seed, 'push', '-q', '-f', 'origin', 'release-next');
+      git(fx.seed, 'checkout', '-q', '-b', 'AT-7-huge', 'release-next');
+      for (let i = 0; i < 51; i++) commitFile(fx.seed, `spec/many/${i}.spec.ts`, `${i}\n`, `AT-7 Spec number ${i}`);
+      git(fx.seed, 'push', '-q', 'origin', 'AT-7-huge');
+      const { svc } = await openSvc();
+
+      const d = await svc.detail('AT-7-huge', 'cherry-pick');
+      expect(d.pick.available).toBe(false);
+      expect(d.pick.reason).toMatch(/at most 50/);
+      await expect(svc.detail('AT-7-huge', 'squash')).rejects.toMatchObject({ status: 400 });
+      await expect(svc.merge({ branch: 'AT-7-huge', expectedSha: d.sha, method: 'squash' })).rejects.toMatchObject({ status: 400 });
+    });
+  });
+
+  describe('git configuration and environment cannot change what a merge does', () => {
+    const savedEnv = { ...process.env };
+    afterEach(() => {
+      for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) {
+        if (savedEnv[key] === undefined) delete process.env[key];
+        else process.env[key] = savedEnv[key];
+      }
+    });
+
+    it('rebase.updateRefs=true in a developer\'s config does not move their local branches', async () => {
+      git(fx.app, 'config', 'rebase.updateRefs', 'true');
+      git(fx.app, 'fetch', '-q', 'origin');
+      git(fx.app, 'branch', 'AT-1-add-spec', 'origin/AT-1-add-spec'); // checked out locally by the reviewer...
+      git(fx.app, 'branch', 'my-stacked-work', 'AT-1-add-spec'); // ...with their own work stacked on it
+      const before = { ticket: git(fx.app, 'rev-parse', 'AT-1-add-spec'), stacked: git(fx.app, 'rev-parse', 'my-stacked-work') };
+      const svc = createReviewService(config(), { ...installed, jira: anyJira() });
+      const d = await svc.detail('AT-1-add-spec');
+
+      await svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha });
+
+      expect({ ticket: git(fx.app, 'rev-parse', 'AT-1-add-spec'), stacked: git(fx.app, 'rev-parse', 'my-stacked-work') }).toEqual(before);
+      expect(git(fx.app, 'branch', '--show-current')).toBe(BASE);
+    });
+
+    it('repository hooks (pre-push, post-rewrite, post-checkout) never run', async () => {
+      const marker = join(fx.root, 'hook-ran.txt');
+      for (const hook of ['pre-push', 'post-rewrite', 'post-checkout', 'pre-rebase', 'reference-transaction']) {
+        writeFileSync(join(fx.app, '.git', 'hooks', hook), `#!/bin/sh\necho ${hook} >> "${marker}"\nexit 1\n`, { mode: 0o755 });
+      }
+      const svc = createReviewService(config(), { ...installed, jira: anyJira() });
+      const d = await svc.detail('AT-1-add-spec');
+
+      await expect(svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha })).resolves.toMatchObject({ merged: 1 });
+
+      expect(() => readFileSync(marker, 'utf8')).toThrow(); // not even created
+    });
+
+    it('git variables inherited from the environment cannot point it at another repository or inject settings', async () => {
+      const elsewhere = mkdtempSync(join(tmpdir(), 'not-the-repo-'));
+      try {
+        process.env.GIT_DIR = join(elsewhere, 'nothing.git');
+        process.env.GIT_WORK_TREE = elsewhere;
+        process.env.GIT_INDEX_FILE = join(elsewhere, 'index');
+        process.env.GIT_CONFIG_COUNT = '1';
+        process.env.GIT_CONFIG_KEY_0 = 'core.hooksPath';
+        process.env.GIT_CONFIG_VALUE_0 = join(elsewhere, 'hooks');
+        const svc = createReviewService(config(), { ...installed, jira: anyJira() });
+        const d = await svc.detail('AT-1-add-spec');
+        await expect(svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha })).resolves.toMatchObject({ merged: 1 });
+        for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) delete process.env[key]; // this test's own git calls below must see a normal environment
+        expect(git(fx.origin, 'log', '-1', '--format=%s', BASE)).toBe('AT-1 Add new spec');
+      } finally {
+        rmSync(elsewhere, { recursive: true, force: true });
+      }
+    });
+
+    it('gitEnv keeps what git needs to reach the remote (ssh agent) and drops what would redirect it', () => {
+      const env = gitEnv({ PATH: '/bin', HOME: '/h', SSH_AUTH_SOCK: '/tmp/agent', GIT_SSH_COMMAND: 'ssh -i key', GIT_DIR: '/x', GIT_WORK_TREE: '/y', GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'a', GIT_CONFIG_VALUE_0: 'b', GIT_EDITOR: 'vim', GIT_PAGER: 'less' });
+      expect(env).toMatchObject({ PATH: '/bin', HOME: '/h', SSH_AUTH_SOCK: '/tmp/agent', GIT_SSH_COMMAND: 'ssh -i key', GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C', GIT_EDITOR: 'true', GIT_SEQUENCE_EDITOR: 'true', GIT_LITERAL_PATHSPECS: '1' });
+      for (const dropped of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0', 'GIT_PAGER']) expect(env).not.toHaveProperty(dropped);
+    });
+  });
+
+  describe('the commit that is merged is exactly the one that was reviewed', () => {
+    const savedPath = process.env.PATH;
+    let shimDir: string;
+    afterEach(() => {
+      process.env.PATH = savedPath;
+      delete process.env.REAL_GIT;
+      delete process.env.SEED;
+      delete process.env.APP;
+      if (shimDir) rmSync(shimDir, { recursive: true, force: true });
+    });
+
+    it('a push that lands (and is fetched) after the checks but before the checkout is not merged', async () => {
+      const jira = anyJira();
+      const svc = createReviewService(config(), { ...installed, jira });
+      const d = await svc.detail('AT-1-add-spec');
+      const baseBefore = git(fx.origin, 'rev-parse', BASE);
+
+      // A `git` in front of the real one: right after the last pre-merge check (the replay plan) a teammate pushes
+      // another commit to the ticket branch and a fetch (e.g. the page's refresh) brings it into the clone.
+      shimDir = mkdtempSync(join(tmpdir(), 'git-shim-'));
+      const shim = join(shimDir, 'git');
+      writeFileSync(
+        shim,
+        `#!/bin/sh
+"$REAL_GIT" "$@"
+rc=$?
+case " $* " in
+  *" log --left-right --cherry-pick "*)
+    "$REAL_GIT" -C "$SEED" checkout -q AT-1-add-spec
+    echo "unreviewed" > "$SEED/unreviewed.txt"
+    "$REAL_GIT" -C "$SEED" add -A
+    "$REAL_GIT" -C "$SEED" commit -q -m "AT-1 Unreviewed late push"
+    "$REAL_GIT" -C "$SEED" push -q origin AT-1-add-spec
+    "$REAL_GIT" -C "$APP" fetch -q origin
+    ;;
+esac
+exit $rc
+`,
+      );
+      chmodSync(shim, 0o755);
+      process.env.REAL_GIT = execFileSync('which', ['git'], { encoding: 'utf8' }).trim(); // before the shim is on the PATH, or it would find itself
+      process.env.PATH = `${shimDir}:${savedPath}`;
+      process.env.SEED = fx.seed;
+      process.env.APP = fx.app;
+
+      const err = await svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha, moveToDone: true }).catch((e) => e);
+
+      expect(`${err.status}: ${err.message}`).toMatch(/^409: .*changed since you opened it/);
+      expect(git(fx.origin, 'rev-parse', BASE)).toBe(baseBefore); // nothing unreviewed reached playwright-main
+      expect(() => git(fx.origin, 'cat-file', '-e', `${BASE}:unreviewed.txt`)).toThrow();
+      expect(jira.moveReviewIssueToDone).not.toHaveBeenCalled();
+      expect(git(fx.origin, 'branch', '--list', 'AT-1-add-spec').trim()).toBe('AT-1-add-spec');
+      expect(git(fx.app, 'worktree', 'list').split('\n')).toHaveLength(1);
+    }, 30_000);
+  });
+
+  describe('a branch built on older work that playwright-main already has under new ids (it was rebase-merged)', () => {
+    // How the team's branches really look. AT-30 was started on top of other tickets' work (old ids, including an old
+    // merge commit from back then). Those tickets were later rebase-merged into playwright-main, which gave their commits
+    // NEW ids. By id the branch is hundreds of commits "ahead"; by what they change, only its own commit is new.
+    const NEW_SPEC = 'spec/playwright/playwright/e2e/groups/validation.spec.ts';
+
+    function stackedBranch() {
+      git(fx.seed, 'checkout', '-q', '-b', 'old-work', BASE);
+      commitFile(fx.seed, 'spec/old/x1.spec.ts', 'x1\n', 'AT-20 First old ticket');
+      git(fx.seed, 'checkout', '-q', '-b', 'old-side', 'old-work~1');
+      commitFile(fx.seed, 'spec/old/x2.spec.ts', 'x2\n', 'AT-21 Second old ticket');
+      git(fx.seed, 'checkout', '-q', 'old-work');
+      git(fx.seed, 'merge', '--no-ff', '-q', '-m', 'Merge old-side into old-work', 'old-side'); // an old merge commit in the history
+      commitFile(fx.seed, 'spec/old/x3.spec.ts', 'x3\n', 'AT-22 Third old ticket');
+      git(fx.seed, 'checkout', '-q', '-b', 'AT-30-stacked', 'old-work');
+      commitFile(fx.seed, NEW_SPEC, "test('validates', () => {})\n", 'AT-30 Add validation tests');
+      git(fx.seed, 'push', '-q', 'origin', 'AT-30-stacked');
+      // the old tickets are rebase-merged into playwright-main: same changes, new ids, no merge commit
+      git(fx.seed, 'checkout', '-q', BASE);
+      // old-work = X1, then a merge of X2's side line, then X3; so: X1 = old-work~1^1, X2 = old-work~1^2, X3 = old-work
+      git(fx.seed, 'cherry-pick', 'old-work~1^1', 'old-work~1^2', 'old-work');
+      git(fx.seed, 'push', '-q', 'origin', BASE);
+      commitFile(fx.seed, 'spec/newer.spec.ts', 'newer\n', 'AT-31 Landed after the branch was started');
+      git(fx.seed, 'push', '-q', 'origin', BASE);
+    }
+
+    it('shows, counts and merges only the branch\'s own new commit', async () => {
+      stackedBranch();
+      const svc = createReviewService(config(), { ...installed, jira: fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'Validation tests', 'Matthew')) }) });
+      const list = await svc.list();
+      expect(Number(git(fx.seed, 'rev-list', '--count', `origin/${BASE}..origin/AT-30-stacked`))).toBeGreaterThan(3); // by id it IS "many commits ahead"
+
+      const d = await svc.detail('AT-30-stacked');
+
+      // by change: one commit, one file, one spec, one commit behind (the newer one on playwright-main)
+      expect(d.commits.map((c) => c.subject)).toEqual(['AT-30 Add validation tests']);
+      expect([d.ahead, d.unmerged, d.behind]).toEqual([1, 1, 1]);
+      expect(d.files.map((f) => f.path)).toEqual([NEW_SPEC]);
+      expect(d.specs).toEqual([NEW_SPEC]);
+      expect(d.totals).toEqual({ additions: 1, deletions: 0 });
+      expect(d.canRebase).toBe(true);
+      expect(d.conflicts).toEqual([]);
+      expect(d.mergeCommits).toBe(0); // the old merge commit is history the base already has, not something being merged
+      expect(d.nonAtCommits).toBe(0);
+      // the list page agrees
+      expect(list.tickets.length).toBeGreaterThanOrEqual(0);
+      const stacked = (await svc.list()).tickets.flatMap((t) => t.branches).find((b) => b.name === 'AT-30-stacked');
+      if (stacked) expect([stacked.ahead, stacked.unmerged, stacked.behind, stacked.files, stacked.additions]).toEqual([1, 1, 1, 1, 1]);
+
+      const result = await svc.merge({ branch: 'AT-30-stacked', expectedSha: d.sha });
+
+      expect(result.merged).toBe(1); // a rebase would skip the old commits too
+      expect(git(fx.origin, 'log', '--format=%s', '-3', BASE).split('\n')).toEqual(['AT-30 Add validation tests', 'AT-31 Landed after the branch was started', expect.any(String)]);
+      expect(git(fx.origin, 'log', '--merges', '--format=%h', BASE)).toBe('');
+      expect(git(fx.origin, 'rev-list', '--count', `${BASE}`)).toBe(String(Number(git(fx.origin, 'rev-list', '--count', `${BASE}~1`)) + 1));
+    });
+
+    it('the list page (from the Review column) counts the same: 1 commit, not hundreds', async () => {
+      stackedBranch();
+      const svc = createReviewService(config(), {
+        ...installed,
+        jira: fakeJira({ listReviewIssues: vi.fn().mockResolvedValue([issue('AT-30', 'Validation tests', 'Matthew')]) }),
+      });
+
+      const row = (await svc.list()).tickets.find((t) => t.key === 'AT-30')!.branches[0];
+
+      expect(row).toMatchObject({ name: 'AT-30-stacked', ahead: 1, unmerged: 1, behind: 1, files: 1, additions: 1, deletions: 0 });
+    });
   });
 
   describe('pressing the button twice (or from two tabs) can never merge, push or move anything twice', () => {
@@ -1125,5 +1663,101 @@ exit $rc
       expect(git(fx.origin, 'log', '--format=%s', '-3', BASE).split('\n')).toEqual(['AT-1 Add new spec', 'Teammate lands first', 'AT-9 Base edits a.txt']);
       expectStraightLine();
     });
+  });
+});
+
+describe('the ticket moves to Done only when the merge succeeded', () => {
+  const anyJira = (over: Partial<Record<keyof JiraClient, unknown>> = {}) => fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'x', 'Brian', 'approved')), ...over });
+  const open = async (jira: JiraClient, branch = 'AT-1-add-spec') => {
+    const svc = createReviewService(config(), { ...installed, jira });
+    await svc.list();
+    return { svc, d: await svc.detail(branch) };
+  };
+
+  it('success: it is moved once, and only AFTER playwright-main already has the commit', async () => {
+    let seen: string | null = null;
+    const jira = anyJira({ moveReviewIssueToDone: vi.fn(async () => { seen = git(fx.origin, 'rev-parse', BASE); }) });
+    const { svc, d } = await open(jira);
+
+    const result = await svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha, moveToDone: true });
+
+    expect(jira.moveReviewIssueToDone).toHaveBeenCalledExactlyOnceWith('AT-1');
+    expect(seen).toBe(result.newBaseSha); // at the moment of the move, the push had already landed
+    expect(result.ticketMoved).toBe('AT-1');
+  });
+
+  it('success, but the branch could not be deleted: the merge stands, so the ticket still moves (with a warning)', async () => {
+    // origin refuses deleting AT branches but accepts everything else
+    writeFileSync(join(fx.origin, 'hooks', 'update'), '#!/bin/sh\ncase "$1" in refs/heads/AT-*) if [ "$3" = "0000000000000000000000000000000000000000" ]; then echo "no deleting" >&2; exit 1; fi;; esac\nexit 0\n', { mode: 0o755 });
+    const jira = anyJira();
+    const { svc, d } = await open(jira);
+    const result = await svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha, moveToDone: true });
+    expect(result).toMatchObject({ merged: 1, branchDeleted: false, ticketMoved: 'AT-1', warning: expect.stringContaining("couldn't delete the branch AT-1-add-spec") });
+    expect(jira.moveReviewIssueToDone).toHaveBeenCalledTimes(1);
+  });
+
+  const failures: Array<[string, () => Promise<void>]> = [];
+  const never = (name: string, setup: (jira: JiraClient) => Promise<{ svc: ReturnType<typeof createReviewService>; branch: string; sha: string }>, status: number) => {
+    failures.push([name, async () => {
+      const jira = anyJira({ moveReviewIssueToDone: vi.fn().mockResolvedValue(undefined) });
+      const { svc, branch, sha } = await setup(jira);
+      const baseBefore = git(fx.origin, 'rev-parse', BASE);
+      const err = await svc.merge({ branch, expectedSha: sha, moveToDone: true }).catch((e) => e);
+      expect(err, name).toMatchObject({ status });
+      expect(jira.moveReviewIssueToDone, name).not.toHaveBeenCalled();
+      expect(git(fx.origin, 'rev-parse', BASE), name).toBe(baseBefore);
+    }]);
+  };
+
+  never('a conflict while rebasing', async (jira) => { const { svc, d } = await open(jira, 'AT-2-conflicting'); return { svc, branch: 'AT-2-conflicting', sha: d.sha }; }, 409);
+  never('a commit that is not the one that was reviewed', async (jira) => {
+    const { svc, d } = await open(jira);
+    git(fx.seed, 'checkout', '-q', 'AT-1-add-spec');
+    commitFile(fx.seed, 'late.txt', 'x\n', 'AT-1 Late');
+    git(fx.seed, 'push', '-q', 'origin', 'AT-1-add-spec');
+    return { svc, branch: 'AT-1-add-spec', sha: d.sha };
+  }, 409);
+  never('a push that origin rejects', async (jira) => {
+    writeFileSync(join(fx.origin, 'hooks', 'pre-receive'), '#!/bin/sh\necho "remote: GH006: Protected branch update failed" >&2\nexit 1\n', { mode: 0o755 });
+    const { svc, d } = await open(jira);
+    return { svc, branch: 'AT-1-add-spec', sha: d.sha };
+  }, 502);
+  never('nothing new to merge', async (jira) => {
+    const { svc, d } = await open(jira);
+    await svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha }); // lands, branch deleted
+    git(fx.seed, 'push', '-q', 'origin', 'AT-1-add-spec'); // the old branch comes back
+    await svc.list();
+    return { svc, branch: 'AT-1-add-spec', sha: d.sha };
+  }, 409);
+  never('a branch that contains a merge commit', async (jira) => {
+    git(fx.seed, 'checkout', '-q', '-b', 'AT-6-has-merge', BASE);
+    commitFile(fx.seed, 'six.spec.ts', 'a\n', 'AT-6 One');
+    git(fx.seed, 'checkout', '-q', BASE);
+    commitFile(fx.seed, 'moved.txt', 'y\n', 'AT-10 Base moves');
+    git(fx.seed, 'push', '-q', 'origin', BASE);
+    git(fx.seed, 'checkout', '-q', 'AT-6-has-merge');
+    git(fx.seed, 'merge', '--no-ff', '-q', '-m', 'Merge base into AT-6', BASE);
+    commitFile(fx.seed, 'six-b.spec.ts', 'b\n', 'AT-6 Two');
+    git(fx.seed, 'push', '-q', 'origin', 'AT-6-has-merge');
+    const { svc, d } = await open(jira, 'AT-6-has-merge');
+    return { svc, branch: 'AT-6-has-merge', sha: d.sha };
+  }, 409);
+
+  it.each(failures.map(([name, run]) => [name, run] as const))('%s: nothing is pushed and the ticket stays where it is', async (_name, run) => {
+    await run();
+  });
+
+  it('a ticket that is not approved is never merged or moved', async () => {
+    const jira = fakeJira({ findReviewIssue: vi.fn(async (key: string) => issue(key, 'x', 'Brian', null)) });
+    const { svc, d } = await open(jira);
+    await expect(svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha, moveToDone: true })).rejects.toMatchObject({ status: 409 });
+    expect(jira.moveReviewIssueToDone).not.toHaveBeenCalled();
+  });
+
+  it('not asked to move it: it is not moved even though the merge succeeded', async () => {
+    const jira = anyJira();
+    const { svc, d } = await open(jira);
+    await expect(svc.merge({ branch: 'AT-1-add-spec', expectedSha: d.sha, moveToDone: false })).resolves.toMatchObject({ merged: 1, ticketMoved: null });
+    expect(jira.moveReviewIssueToDone).not.toHaveBeenCalled();
   });
 });

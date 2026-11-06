@@ -7,9 +7,13 @@ import { join } from 'node:path';
  * The QA team's rule: the only things this app may DO with git are
  *
  *   - CHECK OUT   an AT-### branch (into a throw-away temp worktree),
- *   - REBASE      it onto the base branch (in that temp worktree), and
- *   - MERGE       i.e. fast-forward the base branch to the rebased result
+ *   - REBASE      it onto the base branch (in that temp worktree), or
+ *     CHERRY-PICK its AT-### commits onto the base branch (also in a temp
+ *                 worktree, plain `git cherry-pick <40-hex>...`, no flags), and
+ *   - MERGE       i.e. fast-forward the base branch to the replayed result
  *                 (a plain, non-force push of `<sha>:refs/heads/<base>`),
+ *
+ * `git merge` can never run: a merge commit is never created, by anything.
  *
  * and only for tickets whose branch starts with `AT-`. After a successful merge
  * it may also DELETE that same AT-### branch — only that branch, only if the
@@ -45,8 +49,14 @@ export class GitGuardError extends Error {
   }
 }
 
+/** How many commits from the tip of a branch are looked at to find its AT commits. */
+export const MAX_PICK_SCAN = 100;
+
 const SAFE_REF_CHARS = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 const SHA40 = /^[0-9a-f]{40}$/;
+
+/** The most commits one cherry-pick may carry. */
+export const MAX_PICKS = 50;
 
 export function isTempWorktree(path: string): boolean {
   return path.startsWith(TEMP_WORKTREE_PREFIX) && !path.includes('..') && !/[\s;&|$`<>\\]/.test(path.slice(TEMP_WORKTREE_PREFIX.length));
@@ -110,9 +120,22 @@ export function createGitGuard(ctx: GitGuardContext) {
         return ok(is('--is-ancestor', baseRef, 'HEAD'), `only "git merge-base --is-ancestor ${baseRef} HEAD" is allowed.`);
 
       case 'cherry':
-        return ok(rest.length === 2 && rest.every(isRef), 'cherry is only allowed between the base branch and an AT branch.');
+        return ok((rest.length === 2 || rest.length === 3) && rest.every(isRef), 'cherry is only allowed between the base branch and an AT branch.');
 
       case 'log':
+        // what a rebase would actually replay: the branch's commits minus those the base already has (same change, other id), and how many the base has that the branch lacks
+        if (
+          rest.length === 6 &&
+          rest[0] === '--left-right' &&
+          rest[1] === '--cherry-pick' &&
+          rest[2] === '--no-merges' &&
+          rest[3] === '--topo-order' &&
+          rest[4].startsWith('--format=') &&
+          isRange(rest[5], '...')
+        )
+          return;
+        // the AT commits at the tip of a branch (newest first), to find what a cherry-pick would take
+        if (rest.length === 4 && rest[0] === '--first-parent' && rest[1] === `--max-count=${MAX_PICK_SCAN}` && rest[2].startsWith('--format=') && (isTicketRef(rest[3]) || SHA40.test(rest[3]))) return;
         return ok(
           rest.length === 4 && rest[0] === '--reverse' && rest[1] === '--max-count=200' && rest[2].startsWith('--format=') && isRange(rest[3], '..'),
           'log is only allowed over base..AT-branch.',
@@ -126,6 +149,7 @@ export function createGitGuard(ctx: GitGuardContext) {
 
       case 'merge-tree':
         // Dry-run conflict check; writes objects only, never refs or files.
+        if (rest.length === 6 && rest[0] === '--write-tree' && rest[1] === '--name-only' && rest[2] === '--no-messages' && SHA40.test(rest[3].replace(/^--merge-base=/, '')) && rest[3].startsWith('--merge-base=') && rest[4] === baseRef && SHA40.test(rest[5])) return; // would these commits apply to the base?
         return ok(
           rest.length === 5 && rest[0] === '--write-tree' && rest[1] === '--name-only' && rest[2] === '--no-messages' && rest[3] === baseRef && isTicketRef(rest[4]),
           'merge-tree is only allowed for the base branch vs an AT branch.',
@@ -133,7 +157,7 @@ export function createGitGuard(ctx: GitGuardContext) {
 
       // ------------------------------------------------- CHECKOUT (temp only)
       case 'worktree':
-        if (rest.length === 5 && rest[0] === 'add' && rest[1] === '--detach' && rest[2] === '--quiet' && isTempWorktree(rest[3]) && isTicketRef(rest[4])) return;
+        if (rest.length === 5 && rest[0] === 'add' && rest[1] === '--detach' && rest[2] === '--quiet' && isTempWorktree(rest[3]) && (isTicketRef(rest[4]) || rest[4] === baseRef)) return;
         if (rest.length === 3 && rest[0] === 'remove' && rest[1] === '--force' && isTempWorktree(rest[2])) return; // cleanup of our own temp dir
         if (is('prune')) return;
         return deny('worktree is only allowed to check out an AT branch into a temp directory, and to clean that directory up.');
@@ -142,7 +166,17 @@ export function createGitGuard(ctx: GitGuardContext) {
       case 'rebase':
         ok(isTempWorktree(cwd), 'rebase only runs inside the temporary worktree.');
         if (is(baseRef) || is('--abort')) return;
-        return deny(`rebase is only allowed onto ${baseRef}.`);
+        // start after the old commits the base already has: rebase --onto <base> <that commit>
+        if (rest.length === 3 && rest[0] === '--onto' && rest[1] === baseRef && SHA40.test(rest[2])) return;
+        return deny(`rebase is only allowed onto ${baseRef} (or --abort of that rebase).`);
+
+      // ------------------------------------------------ CHERRY-PICK (temp only)
+      case 'cherry-pick':
+        ok(isTempWorktree(cwd), 'cherry-pick only runs inside the temporary worktree.');
+        if (is('--abort')) return;
+        // Plain `git cherry-pick <sha> <sha>...`: full commit ids only, no flags (so never -m, -n, -x, --strategy...).
+        if (rest.length >= 1 && rest.length <= MAX_PICKS && rest.every((r) => SHA40.test(r))) return;
+        return deny('cherry-pick is only allowed for full commit ids, with no options.');
 
       // -------------------------------------------- MERGE (fast-forward push)
       case 'push': {

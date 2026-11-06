@@ -144,24 +144,31 @@ function makeFixture(): Fx {
   return { root, origin, seed, app, server, bin, log: join(root, 'fake.log') };
 }
 
+const reviewIssue = (key: string) => ({ key, summary: 'Specs', status: 'Review', assignee: null, reviewers: [], approval: null, reviewInfo: '', recorded: null, url: null });
+
 const jira = (inReview = true): JiraClient =>
   ({
     listReviewIssues: vi.fn().mockResolvedValue([]),
-    findReviewIssue: vi.fn(async (key: string) => (inReview && key === 'AT-5' ? { key, summary: 'Specs', status: 'Review', assignee: null, reviewers: [], url: null } : null)),
+    findReviewIssue: vi.fn(async (key: string) => (inReview && ['AT-5', 'AT-6'].includes(key) ? reviewIssue(key) : null)),
     moveReviewIssueToDone: vi.fn(),
+    recordReview: vi.fn(async (key: string, decision: string, info: string | undefined, sha: string) => ({ ...reviewIssue(key), recorded: decision === 'none' ? null : { decision, sha, info: info ?? '' } })),
   }) as unknown as JiraClient;
 
+let lastJira: JiraClient;
+/** The fake yarn's environment for the latest service; changing FAKE_MODE changes what its next run does. */
+let lastEnv: NodeJS.ProcessEnv;
 function makeService(over: { up?: boolean; mode?: string; inReview?: boolean; path?: string; killGraceMs?: number; keepJobs?: number } = {}) {
+  lastJira = jira(over.inReview ?? true);
   return createReviewService(
     { repoPath: fx.app, baseBranch: BASE, remote: 'origin', projectKey: 'AT', serverRepoPath: fx.server },
     {
-      jira: jira(over.inReview ?? true),
+      jira: lastJira,
       findExecutable: () => true,
       specRun: {
         probe: async () => over.up ?? true,
         killGraceMs: over.killGraceMs ?? 3000,
         keepJobs: over.keepJobs,
-        env: {
+        env: (lastEnv = {
           ...process.env,
           PATH: over.path ?? `${fx.bin}:${process.env.PATH}`,
           FAKE_LOG: fx.log,
@@ -170,7 +177,7 @@ function makeService(over: { up?: boolean; mode?: string; inReview?: boolean; pa
           FAKE_SERVER_CASSETTE: join(fx.server, CASSETTE),
           GH_TOKEN: 'must-not-leak',
           SLACK_WEBHOOK_URL: 'must-not-leak-either',
-        },
+        }),
       },
     },
   );
@@ -485,6 +492,150 @@ describe('generated files the specs import (app/javascript/routes.js)', () => {
     git(fx.seed, 'push', '-q', 'origin', 'AT-5-add-specs');
     expect((await run(makeService())).status).toBe('passed');
     expect(readFileSync(fx.log, 'utf8')).toContain('routes: export const routes = "committed by the PR"');
+  });
+});
+
+describe('the approval gate: every spec of this PR must have passed for this exact commit', () => {
+  const approve = (svc: Svc, sha: string, branch = 'AT-5-add-specs') => svc.submitReview({ branch, expectedSha: sha, decision: 'approved', info: 'ok' });
+  const runSpecs = async (svc: Svc, sha: string, specs: string[] | 'all', branch = 'AT-5-add-specs') => {
+    const { id } = await svc.startSpecRun({ branch, expectedSha: sha, specs });
+    return waitFor(svc, id);
+  };
+
+  it('before anything has been run it is closed: nothing is approved, and Jira is not touched', async () => {
+    const svc = makeService();
+    const d = await svc.detail('AT-5-add-specs').catch(async () => (await svc.list(), svc.detail('AT-5-add-specs')));
+    expect(d.specGate).toMatchObject({ required: [SPEC_A, SPEC_B], progress: [], satisfied: false, lastRun: null });
+
+    await expect(approve(svc, d.sha)).rejects.toMatchObject({ status: 409, code: 'specs-not-passed', details: [SPEC_A, SPEC_B], message: expect.stringContaining('0 of 2 have passed') });
+    expect((lastJira.recordReview as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+  });
+
+  it('tracks each spec: one passing is not enough, and the message says which have not been run', async () => {
+    const svc = makeService();
+    const sha = await branchSha(svc);
+    await runSpecs(svc, sha, [SPEC_A]);
+
+    const gate = (await svc.detail('AT-5-add-specs')).specGate;
+    expect(gate.satisfied).toBe(false);
+    expect(gate.progress.map((p) => [p.file, p.status])).toEqual([[SPEC_A, 'passed']]);
+    await expect(approve(svc, sha)).rejects.toMatchObject({ code: 'specs-not-passed', details: [SPEC_B], message: expect.stringMatching(/1 of 2 have passed.*Run the 1 that have not been run/) });
+
+    await runSpecs(svc, sha, [SPEC_B]);
+    expect((await svc.detail('AT-5-add-specs')).specGate).toMatchObject({ satisfied: true });
+    await expect(approve(svc, sha)).resolves.toMatchObject({ approval: 'approved', jiraRecorded: true });
+    expect(lastJira.recordReview).toHaveBeenCalledExactlyOnceWith('AT-5', 'approved', 'ok', sha);
+  });
+
+  it('running all of them once, passing, opens the gate', async () => {
+    const svc = makeService();
+    const sha = await branchSha(svc);
+    await runSpecs(svc, sha, 'all');
+    expect((await svc.specGate('AT-5-add-specs'))).toMatchObject({ satisfied: true, sha, required: [SPEC_A, SPEC_B] });
+    await expect(approve(svc, sha)).resolves.toMatchObject({ approval: 'approved' });
+  });
+
+  it('a failing run keeps it closed and says how many failed; passing again opens it', async () => {
+    const svc = makeService({ mode: 'fail' });
+    const sha = await branchSha(svc);
+    expect((await runSpecs(svc, sha, 'all')).status).toBe('failed');
+    await expect(approve(svc, sha)).rejects.toMatchObject({ code: 'specs-not-passed', message: expect.stringContaining('2 failed') });
+    expect((await svc.detail('AT-5-add-specs')).specGate).toMatchObject({ satisfied: false, lastRun: { status: 'failed' } });
+
+    lastEnv.FAKE_MODE = 'pass'; // the specs get fixed; same service, same memory: the latest result per spec counts
+    await runSpecs(svc, sha, 'all');
+    await expect(approve(svc, sha)).resolves.toMatchObject({ approval: 'approved' });
+  });
+
+  it('a spec that passed and then fails on a re-run closes the gate again (the latest result rules)', async () => {
+    const svc = makeService();
+    const sha = await branchSha(svc);
+    await runSpecs(svc, sha, 'all');
+    expect((await svc.detail('AT-5-add-specs')).specGate.satisfied).toBe(true);
+
+    lastEnv.FAKE_MODE = 'fail';
+    await runSpecs(svc, sha, [SPEC_A]);
+    const gate = (await svc.detail('AT-5-add-specs')).specGate;
+    expect(gate.progress.map((p) => [p.file, p.status])).toEqual([[SPEC_A, 'failed'], [SPEC_B, 'passed']]); // B's pass stands, A's earlier pass is replaced
+    expect(gate.satisfied).toBe(false);
+    await expect(approve(svc, sha)).rejects.toMatchObject({ code: 'specs-not-passed', message: expect.stringContaining('1 failed') });
+  });
+
+  it('passes for one PR can never approve another: the record belongs to one branch and one commit', async () => {
+    // AT-6 changes the very same spec files
+    git(fx.seed, 'checkout', '-q', '-b', 'AT-6-other', BASE);
+    put(fx.seed, SPEC_A, "test('a differently', () => {})\n");
+    put(fx.seed, SPEC_B, "test('b differently', () => {})\n");
+    commit(fx.seed, 'AT-6 Same files, other PR');
+    git(fx.seed, 'push', '-q', 'origin', 'AT-6-other');
+    const svc = makeService();
+    const sha5 = await branchSha(svc);
+    await runSpecs(svc, sha5, 'all');
+    await expect(approve(svc, sha5)).resolves.toMatchObject({ approval: 'approved' });
+
+    await svc.list();
+    const six = await svc.detail('AT-6-other');
+    expect(six.specGate).toMatchObject({ required: [SPEC_A, SPEC_B], progress: [], satisfied: false });
+    await expect(approve(svc, six.sha, 'AT-6-other')).rejects.toMatchObject({ code: 'specs-not-passed' });
+  });
+
+  it('passes for one commit never count for the next commit of the same PR', async () => {
+    const svc = makeService();
+    const sha = await branchSha(svc);
+    await runSpecs(svc, sha, 'all');
+    expect((await svc.detail('AT-5-add-specs')).specGate.satisfied).toBe(true);
+
+    git(fx.seed, 'checkout', '-q', 'AT-5-add-specs');
+    put(fx.seed, SPEC_A, "test('a, changed after the run', () => {})\n");
+    commit(fx.seed, 'AT-5 Changed after the run');
+    git(fx.seed, 'push', '-q', 'origin', 'AT-5-add-specs');
+    await svc.list();
+    const next = await svc.detail('AT-5-add-specs');
+
+    expect(next.sha).not.toBe(sha);
+    expect(next.specGate).toMatchObject({ satisfied: false, progress: [] });
+    await expect(approve(svc, next.sha)).rejects.toMatchObject({ code: 'specs-not-passed' });
+  });
+
+  it('a cancelled run, or one that could not finish, does not count', async () => {
+    const svc = makeService({ mode: 'hang', killGraceMs: 200 });
+    const sha = await branchSha(svc);
+    const { id } = await svc.startSpecRun({ branch: 'AT-5-add-specs', expectedSha: sha, specs: 'all' });
+    await waitFor(svc, id, (st) => st === 'running');
+    await svc.cancelSpecRun(id);
+    expect((await waitFor(svc, id)).status).toBe('cancelled');
+    expect((await svc.detail('AT-5-add-specs')).specGate).toMatchObject({ satisfied: false, progress: [], lastRun: { status: 'cancelled' } });
+    await expect(approve(svc, sha)).rejects.toMatchObject({ code: 'specs-not-passed' });
+
+    const crashing = makeService({ mode: 'crash' });
+    await crashing.list();
+    await runSpecs(crashing, sha, 'all');
+    expect((await crashing.detail('AT-5-add-specs')).specGate.satisfied).toBe(false);
+  });
+
+  it('a PR with only support files has no specs to pass, so it can be approved straight away', async () => {
+    git(fx.seed, 'checkout', '-q', '-b', 'AT-6-support-only', BASE);
+    put(fx.seed, 'spec/playwright/playwright/support/helpers.ts', 'export const x = 1\n');
+    commit(fx.seed, 'AT-6 Support only');
+    git(fx.seed, 'push', '-q', 'origin', 'AT-6-support-only');
+    const svc = makeService();
+    await svc.list();
+    const d = await svc.detail('AT-6-support-only');
+    expect(d.specGate).toMatchObject({ required: [], satisfied: true });
+    await expect(approve(svc, d.sha, 'AT-6-support-only')).resolves.toMatchObject({ approval: 'approved' });
+  });
+
+  it('declining and clearing a decision never need the specs to have passed', async () => {
+    const svc = makeService();
+    const sha = await branchSha(svc);
+    await expect(svc.submitReview({ branch: 'AT-5-add-specs', expectedSha: sha, decision: 'declined', info: 'Does not look right' })).resolves.toMatchObject({ approval: 'declined' });
+    await expect(svc.submitReview({ branch: 'AT-5-add-specs', expectedSha: sha, decision: 'none' })).resolves.toMatchObject({ approval: null });
+  });
+
+  it('the gate answers for the branch\'s current commit, and refuses anything that is not an AT branch', async () => {
+    const svc = makeService();
+    await expect(svc.specGate('feature/x')).rejects.toMatchObject({ status: 400 });
+    await expect(svc.specGate('AT-404-missing')).rejects.toMatchObject({ status: 404 });
   });
 });
 

@@ -27,6 +27,13 @@ interface FakeResult {
   stderr?: string;
 }
 
+/** Every git command starts with the app's own `-c key=value` safety settings; the tests look at what follows them. */
+const stripGitSettings = (args: string[]): string[] => {
+  let i = 0;
+  while (args[i] === '-c') i += 2;
+  return args.slice(i);
+};
+
 const h = vi.hoisted(() => ({
   spawned: [] as Array<{ bin: string; args: string[]; cwd?: string }>,
   override: null as null | ((bin: string, args: string[]) => { code?: number | string; stdout?: string; stderr?: string } | undefined),
@@ -36,7 +43,13 @@ const h = vi.hoisted(() => ({
   edits: [] as Array<Record<string, unknown>>,
   /** What `git rev-list --merges --count base..HEAD` answers, and whether base is an ancestor of HEAD. */
   mergeCommits: '0\n',
+  /** The ticket's description as Jira holds it (ADF); a review is appended to it. */
+  description: null as unknown,
+  /** Merge commits inside the branch itself (checked before anything is rebased). */
+  branchMergeCommits: '0\n',
   onTop: true,
+  /** Set once the mocked rebase / cherry-pick has run, so `rev-parse HEAD` then answers with the new tip. */
+  replayed: false,
 }));
 
 vi.mock('node:child_process', () => ({
@@ -58,6 +71,8 @@ vi.mock('node:child_process', () => ({
 const BRANCH_SHA = 'a'.repeat(40);
 const BASE_SHA = 'b'.repeat(40);
 const NEW_HEAD = 'd'.repeat(40);
+/** What the ticket branch was built on: the parent of its oldest replayed commit. */
+const PARENT_SHA = 'f'.repeat(40);
 const SEP = '\x1f';
 const REC = '\x1e';
 
@@ -98,6 +113,7 @@ h.respond = function respond(bin, args): FakeResult {
           customfield_10550: { displayName: 'Matthew Carabin' },
           customfield_10650: h.approval === 'approved' ? [{ value: 'Approved', id: '10478' }] : h.approval === 'declined' ? [{ value: 'Declined', id: '10479' }] : [],
           customfield_10652: h.info ? { type: 'doc', version: 1, content: h.info.split('\n').map((t) => ({ type: 'paragraph', content: t ? [{ type: 'text', text: t }] : [] })) } : null,
+          description: h.description,
         },
       }),
     };
@@ -106,39 +122,45 @@ h.respond = function respond(bin, args): FakeResult {
     // what the edit file held while acli "ran" (the app deletes it right after)
     const payload = JSON.parse(readFile(args[4], 'utf8')) as Record<string, unknown>;
     h.edits.push(payload);
-    const a = payload.customfield_10650 as Array<{ id: string }> | undefined;
-    if (a) h.approval = a.length === 0 ? null : a[0].id === '10478' ? 'approved' : 'declined';
-    if (payload.customfield_10652) h.info = fromAdf(payload.customfield_10652);
+    h.description = payload.description;
     return {};
   }
   if (bin === 'acli') return { stdout: jiraReview() };
   if (bin === 'gh') return { stdout: 'github.com\n  ✓ Logged in to github.com account BrianBaggs (keyring)\n' };
   if (bin !== 'git') return { code: 127, stderr: `unexpected binary: ${bin}` };
 
-  const a = args[0] === '-c' ? args.slice(2) : args;
+  const a = stripGitSettings(args);
   const [cmd, ...r] = a;
   switch (cmd) {
     case 'remote':
       return { stdout: 'git@github.com:carbidesecure/securicy-app.git\n' };
-    case 'fetch':
-    case 'worktree':
     case 'rebase':
+    case 'cherry-pick':
+      if (r[0] !== '--abort') h.replayed = true; // from here on HEAD is the replayed result
+      return {};
+    case 'worktree':
+      if (r[0] === 'add') h.replayed = false; // a fresh checkout: HEAD is the commit it was made from
+      return {};
+    case 'fetch':
     case 'push':
       return {};
     case 'for-each-ref':
       return { stdout: BRANCH_LINES };
     case 'rev-parse':
-      if (r[0] === 'HEAD') return { stdout: `${NEW_HEAD}\n` };
+      if (r[0] === 'HEAD') return { stdout: `${h.replayed ? NEW_HEAD : BRANCH_SHA}\n` };
       return { stdout: `${r[2]?.startsWith('origin/playwright-main') ? BASE_SHA : BRANCH_SHA}\n` };
     case 'rev-list':
-      if (r[0] === '--merges') return { stdout: h.mergeCommits };
+      // inside the branch before the rebase (range ends at a commit id) vs in what would be pushed (range ends at HEAD)
+      if (r[0] === '--merges') return { stdout: r[2]?.endsWith('..HEAD') ? h.mergeCommits : h.branchMergeCommits };
       return { stdout: r[0] === '--left-right' ? '1\t1\n' : '1\n' };
     case 'merge-base':
       return { code: h.onTop ? 0 : 1 };
     case 'cherry':
       return { stdout: `+ ${'c'.repeat(40)}\n` };
     case 'log':
-      return { stdout: `${'9'.repeat(40)}${SEP}Brian Baggs${SEP}2026-11-05T10:00:00-04:00${SEP}AT-727 Add tests${SEP}Body text${REC}` };
+      // what a rebase would replay: one commit on the branch that the base lacks (">"), and one base commit the branch lacks ("<")
+      if (r[0] === '--left-right') return { stdout: `<${SEP}${BASE_SHA}${SEP}${'0'.repeat(40)}${SEP}other@example.com${SEP}1000${SEP}APP-1 Base work\n>${SEP}${BRANCH_SHA}${SEP}${PARENT_SHA}${SEP}brian@example.com${SEP}2000${SEP}AT-727 Add tests\n` };
+      return { stdout: `${BRANCH_SHA}${SEP}Brian Baggs${SEP}2026-11-05T10:00:00-04:00${SEP}AT-727 Add tests${SEP}Body text${REC}` };
     case 'diff':
       return { stdout: r[0] === '--shortstat' ? ' 1 file changed, 1 insertion(+)\n' : DIFF };
     case 'merge-tree':
@@ -169,11 +191,11 @@ function makeService(overrides: Partial<Parameters<typeof createReviewService>[1
 // ---- audit helpers -----------------------------------------------------------
 
 const spawned = (): Spawn[] => h.spawned;
-const gitCalls = () => spawned().filter((s) => s.bin === 'git').map((s) => ({ ...s, args: s.args[0] === '-c' ? s.args.slice(2) : s.args }));
+const gitCalls = () => spawned().filter((s) => s.bin === 'git').map((s) => ({ ...s, args: stripGitSettings(s.args) }));
 const acliCalls = () => spawned().filter((s) => s.bin === 'acli');
 const ghCalls = () => spawned().filter((s) => s.bin === 'gh');
 const idx = (pred: (s: Spawn) => boolean) => spawned().findIndex(pred);
-const isGit = (...prefix: string[]) => (s: Spawn) => s.bin === 'git' && prefix.every((p, i) => (s.args[0] === '-c' ? s.args.slice(2) : s.args)[i] === p);
+const isGit = (...prefix: string[]) => (s: Spawn) => s.bin === 'git' && prefix.every((p, i) => stripGitSettings(s.args)[i] === p);
 
 const independentGitGuard = createGitGuard({ remote: 'origin', baseBranch: 'playwright-main', projectKey: 'AT' });
 
@@ -225,8 +247,11 @@ beforeEach(() => {
   h.approval = 'approved';
   h.info = '';
   h.edits.length = 0;
+  h.description = { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Add specs for the comment carry-over.' }] }] };
   h.mergeCommits = '0\n';
+  h.branchMergeCommits = '0\n';
   h.onTop = true;
+  h.replayed = false;
 });
 
 afterAll(() => {
@@ -287,17 +312,37 @@ describe('guard rails, audited through mocked processes', () => {
       const at = (pred: (c: { args: string[] }) => boolean) => calls.findIndex(pred);
       const rebase = at((c) => c.args[0] === 'rebase');
       const onTop = at((c) => c.args[0] === 'merge-base');
-      const noMerges = at((c) => c.args[0] === 'rev-list' && c.args[1] === '--merges');
+      const noMerges = at((c) => c.args[0] === 'rev-list' && c.args[1] === '--merges' && c.args[3].endsWith('..HEAD'));
+      const branchMerges = at((c) => c.args[0] === 'rev-list' && c.args[1] === '--merges' && !c.args[3].endsWith('..HEAD'));
       const push = at((c) => c.args[0] === 'push');
 
       expect(calls[onTop].args).toEqual(['merge-base', '--is-ancestor', 'origin/playwright-main', 'HEAD']);
       expect(calls[noMerges].args).toEqual(['rev-list', '--merges', '--count', 'origin/playwright-main..HEAD']);
       expect(rebase).toBeGreaterThan(-1);
+      // before anything is rebased: the branch itself must not contain a merge commit (a rebase would flatten it)
+      expect(calls[branchMerges].args).toEqual(['rev-list', '--merges', '--count', `${PARENT_SHA}..${BRANCH_SHA}`]);
+      expect(branchMerges).toBeLessThan(at((c) => c.args[0] === 'worktree' && c.args[1] === 'add'));
       expect(rebase).toBeLessThan(onTop);
       expect(rebase).toBeLessThan(noMerges);
       expect(onTop).toBeLessThan(push);
       expect(noMerges).toBeLessThan(push);
       expect(calls.some((c) => c.args[0] === 'merge')).toBe(false); // `git merge` is never run
+    });
+
+    it('refuses a branch that already contains a merge commit before anything is checked out, rebased or pushed', async () => {
+      h.branchMergeCommits = '1\n';
+      const svc = makeService();
+      const detail = await svc.detail('AT-727-add-test');
+      expect(detail.mergeCommits).toBe(1);
+
+      await expect(svc.merge({ branch: 'AT-727-add-test', expectedSha: detail.sha, moveToDone: true })).rejects.toMatchObject({
+        status: 409,
+        code: 'merge-commits',
+        message: expect.stringContaining('contains 1 merge commit'),
+      });
+
+      expect(gitCalls().some((c) => ['worktree', 'rebase', 'cherry-pick', 'push'].includes(c.args[0]))).toBe(false);
+      expect(h.spawned.some((c) => c.bin === 'acli' && c.args[2] === 'transition')).toBe(false);
     });
 
     it.each([
@@ -351,28 +396,53 @@ describe('guard rails, audited through mocked processes', () => {
   describe('review decisions (approve / decline) and the merge gate', () => {
     const edits = () => acliCalls().filter((c) => c.args[2] === 'edit');
 
-    it('approving ticks Approved on exactly that AT ticket, nothing else, and only touches Jira', async () => {
+    it('approving appends a review to that AT ticket\'s description (the text already there is untouched), and only touches Jira', async () => {
       h.approval = null;
+      const original = JSON.parse(JSON.stringify(h.description)) as { content: unknown[] };
       const svc = makeService();
       const d = await svc.detail('AT-727-add-test');
-      const issue = await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'approved' });
+      const result = await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'approved', info: 'Looks good' });
 
-      expect(issue.approval).toBe('approved');
-      expect(h.edits).toEqual([{ issues: ['AT-727'], customfield_10650: [{ id: '10478' }] }]);
+      expect(result).toMatchObject({ approval: 'approved', approvalSource: 'app', jiraRecorded: true });
       expect(edits()).toHaveLength(1);
+      expect(h.edits).toHaveLength(1);
+      const written = h.edits[0] as { issues: string[]; description: { content: Array<{ type: string }> } };
+      expect(Object.keys(written).sort()).toEqual(['description', 'issues']); // never a custom field, summary, labels...
+      expect(written.issues).toEqual(['AT-727']);
+      expect(written.description.content.slice(0, original.content.length)).toEqual(original.content);
+      expect(written.description.content).toHaveLength(original.content.length + 1);
+      expect(written.description.content[written.description.content.length - 1].type).toBe('panel');
+      expect(fromAdf(written.description.content[written.description.content.length - 1])).toContain(`Commit: ${BRANCH_SHA}`);
       expect(gitCalls().filter((c) => ['push', 'rebase', 'worktree'].includes(c.args[0]))).toEqual([]);
+      expect(acliCalls().filter((c) => c.args[2] === 'transition')).toEqual([]);
       auditEverything();
     });
 
-    it('declining ticks Declined and records the review information', async () => {
+    it('requesting changes appends an orange review with the note', async () => {
       h.approval = null;
       const svc = makeService();
       const d = await svc.detail('AT-727-add-test');
-      const issue = await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'declined', info: 'Missing a cleanup step' });
+      const result = await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'declined', info: 'Missing a cleanup step' });
 
-      expect(issue).toMatchObject({ approval: 'declined', reviewInfo: 'Missing a cleanup step' });
-      expect(h.edits[0]).toMatchObject({ issues: ['AT-727'], customfield_10650: [{ id: '10479' }] });
+      expect(result).toMatchObject({ approval: 'declined', reviewInfo: 'Missing a cleanup step' });
+      const written = h.edits[0] as { description: { content: Array<{ attrs?: { panelType: string } }> } };
+      expect(written.description.content[written.description.content.length - 1].attrs?.panelType).toBe('warning');
       auditEverything();
+    });
+
+    it('approving a second time appends again: the earlier review stays in the description', async () => {
+      h.approval = null;
+      const svc = makeService();
+      const d = await svc.detail('AT-727-add-test');
+      await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'approved', info: 'first' });
+      await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'declined', info: 'changed my mind' });
+
+      const text = fromAdf(h.description);
+      expect(text).toContain('Add specs for the comment carry-over.');
+      expect(text).toContain('Code review: Approved');
+      expect(text).toContain('first');
+      expect(text).toContain('Code review: Changes requested');
+      expect(text).toContain('changed my mind');
     });
 
     it('a merge needs the ticket approved in Jira: unapproved and declined tickets never reach git', async () => {
@@ -403,14 +473,24 @@ describe('guard rails, audited through mocked processes', () => {
       expect(edits()).toEqual([]);
     });
 
-    it('when acli cannot set the fields the user is told, and nothing else was touched', async () => {
+    it('when acli cannot edit the description the decision still stands in the app, the user is told, and nothing else was touched', async () => {
       h.approval = null;
-      h.override = (bin, args) => (bin === 'acli' && args[2] === 'edit' ? { code: 1, stderr: 'json: unknown field "customfield_10650"' } : undefined);
-      await expect(makeService().submitReview({ branch: 'AT-727-add-test', expectedSha: BRANCH_SHA, decision: 'approved' })).rejects.toMatchObject({
-        status: 502,
-        message: expect.stringContaining('in Jira instead'),
-      });
+      h.override = (bin, args) => (bin === 'acli' && args[2] === 'edit' ? { code: 1, stderr: 'you do not have permission to edit this work item' } : undefined);
+      const svc = makeService();
+      const d = await svc.detail('AT-727-add-test');
+      const result = await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'approved' });
+      expect(result).toMatchObject({ approval: 'approved', approvalSource: 'app', jiraRecorded: false, jiraNote: expect.stringContaining('Saving the review on AT-727 failed') });
       expect(acliCalls().filter((c) => c.args[2] === 'transition')).toEqual([]);
+    });
+
+    it('no acli command other than read, the one description edit and the move to done is ever run', async () => {
+      h.approval = null;
+      const svc = makeService();
+      const d = await svc.detail('AT-727-add-test');
+      await svc.submitReview({ branch: 'AT-727-add-test', expectedSha: d.sha, decision: 'approved' });
+      await svc.merge({ branch: 'AT-727-add-test', expectedSha: d.sha, moveToDone: true });
+      for (const c of acliCalls()) expect(['view', 'search', 'edit', 'transition']).toContain(c.args[2]);
+      auditEverything();
     });
   });
 
@@ -457,7 +537,7 @@ describe('guard rails, audited through mocked processes', () => {
 
     it('is not attempted when the rebase fails or the push is rejected', async () => {
       h.override = (bin, args) => {
-        const a = args[0] === '-c' ? args.slice(2) : args;
+        const a = stripGitSettings(args);
         return bin === 'git' && a[0] === 'rebase' && a[1] !== '--abort' ? { code: 1, stderr: 'CONFLICT' } : undefined;
       };
       const svc = makeService();
@@ -467,7 +547,7 @@ describe('guard rails, audited through mocked processes', () => {
 
       h.spawned.length = 0;
       h.override = (bin, args) => {
-        const a = args[0] === '-c' ? args.slice(2) : args;
+        const a = stripGitSettings(args);
         return bin === 'git' && a[0] === 'push' ? { code: 1, stderr: 'remote: GH006: Protected branch update failed' } : undefined;
       };
       await expect(svc.merge({ branch: 'AT-727-add-test', expectedSha: d.sha })).rejects.toBeTruthy();
@@ -568,7 +648,7 @@ describe('guard rails, audited through mocked processes', () => {
   describe('failures never lead to a Jira change or a stray push', () => {
     it('a rebase conflict: aborts, pushes nothing, moves no ticket, cleans up', async () => {
       h.override = (bin, args) => {
-        const a = args[0] === '-c' ? args.slice(2) : args;
+        const a = stripGitSettings(args);
         if (bin === 'git' && a[0] === 'rebase' && a[1] !== '--abort') return { code: 1, stderr: 'CONFLICT (content): Merge conflict in a.txt' };
         if (bin === 'git' && a[0] === 'diff' && a[1] === '--name-only') return { stdout: 'a.txt\n' };
         return undefined;
@@ -587,7 +667,7 @@ describe('guard rails, audited through mocked processes', () => {
 
     it('a rejected push (e.g. protected branch): moves no ticket and cleans up', async () => {
       h.override = (bin, args) => {
-        const a = args[0] === '-c' ? args.slice(2) : args;
+        const a = stripGitSettings(args);
         if (bin === 'git' && a[0] === 'push') return { code: 1, stderr: 'remote: GH006: Protected branch update failed for refs/heads/playwright-main.' };
         return undefined;
       };
@@ -650,7 +730,7 @@ describe('guard rails, audited through mocked processes', () => {
 
       expect(list.jira).toMatchObject({ errorKind: 'not-authenticated' });
       expect(list.tickets).toEqual([]); // no branch fallback: nothing is shown without the Review column
-      expect(gitCalls().some((c) => c.args[0] === 'cherry')).toBe(false);
+      expect(gitCalls().some((c) => c.args[0] === 'cherry' || (c.args[0] === 'log' && c.args[1] === '--left-right'))).toBe(false);
       expect(acliCalls().every((c) => c.args[2] === 'search')).toBe(true);
       auditEverything();
     });
@@ -674,7 +754,7 @@ describe('guard rails, audited through mocked processes', () => {
 
     it('git unable to authenticate to GitHub: explains it and launches nothing further', async () => {
       h.override = (bin, args) => {
-        const a = args[0] === '-c' ? args.slice(2) : args;
+        const a = stripGitSettings(args);
         return bin === 'git' && a[0] === 'fetch' ? { code: 128, stderr: 'git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.' } : undefined;
       };
       await expect(makeService().list()).rejects.toMatchObject({ status: 502, message: expect.stringContaining("couldn't sign in to GitHub over SSH") });

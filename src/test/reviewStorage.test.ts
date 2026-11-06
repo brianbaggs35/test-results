@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { readViewed, writeViewed } from '../utils/reviewStorage';
+import { installMemoryStorage } from './memoryStorage';
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear();
+  installMemoryStorage();
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe('reviewStorage', () => {
@@ -13,11 +17,11 @@ describe('reviewStorage', () => {
   });
 
   it('ignores corrupt stored data', () => {
-    sessionStorage.setItem('review-viewed:AT-1-x@sha1', '{not json');
+    localStorage.setItem('review:v1:viewed:AT-1-x@sha1', '{not json');
     expect(readViewed('AT-1-x', 'sha1')).toEqual([]);
-    sessionStorage.setItem('review-viewed:AT-1-x@sha1', '{"a":1}');
+    localStorage.setItem('review:v1:viewed:AT-1-x@sha1', '{"a":1}');
     expect(readViewed('AT-1-x', 'sha1')).toEqual([]);
-    sessionStorage.setItem('review-viewed:AT-1-x@sha1', '["ok", 5, null]');
+    localStorage.setItem('review:v1:viewed:AT-1-x@sha1', '["ok", 5, null]');
     expect(readViewed('AT-1-x', 'sha1')).toEqual(['ok']);
   });
 

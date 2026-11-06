@@ -7,12 +7,13 @@ import { AcliError, MAX_REVIEW_INFO_CHARS } from './acli.ts';
 import { redactSecrets, stripUrlCredentials } from './redact.ts';
 import { ReviewError } from './reviewError.ts';
 import { createSpecRunService } from './specRun.ts';
+import type { SpecGate } from './specRun.ts';
 import { planOverlay } from './serverOverlay.ts';
 import { isRunnableSpecPath } from './specRunner.ts';
 import type { AcliErrorKind } from './acli.ts';
 import { createGhChecker } from './ghStatus.ts';
 import type { GhChecker, GhStatus } from './ghStatus.ts';
-import { FORBIDDEN_BASE_BRANCHES, TEMP_WORKTREE_PREFIX, createGitGuard } from './gitGuard.ts';
+import { FORBIDDEN_BASE_BRANCHES, MAX_PICKS, MAX_PICK_SCAN, TEMP_WORKTREE_PREFIX, createGitGuard } from './gitGuard.ts';
 import type { JiraClient, JiraIssue } from './acli.ts';
 
 /**
@@ -48,19 +49,15 @@ export interface BranchInfo {
   sha: string;
   author: string;
   date: string;
-  /** Commits on the branch that the base branch doesn't have (by SHA). */
+  /** Commits a rebase would replay: the branch's own, minus any the base already has (same change under another id). */
   ahead: number;
-  /** Commits on the base branch that the branch doesn't have. */
+  /** Commits on the base branch that the branch really lacks (same-change copies don't count). */
   behind: number;
-  /** `git diff --shortstat base...branch`: files changed / lines added / lines removed. */
+  /** `git diff --shortstat` of just the replayed commits: files changed / lines added / lines removed. */
   files: number;
   additions: number;
   deletions: number;
-  /**
-   * Commits whose *change* isn't in the base yet (git cherry / patch-id). A
-   * branch that was already rebase-merged has `ahead > 0` (rebasing rewrote
-   * the SHAs) but `unmerged === 0`.
-   */
+  /** Same as `ahead`; 0 means the base already has everything (e.g. it was rebase-merged, which rewrote the ids). */
   unmerged: number;
 }
 
@@ -107,6 +104,15 @@ export interface Requirement {
   url?: string;
 }
 
+/** An old commit at the bottom of a branch that the base branch already has under another id, so it isn't part of the review. */
+export interface SkippedCommit {
+  sha: string;
+  subject: string;
+  /** same-commit: the base has a commit by the same author at the same time (a rewrite keeps both). ticket-in-base: it belongs to another ticket the base already has commits for. */
+  reason: 'same-commit' | 'ticket-in-base';
+  key: string | null;
+}
+
 interface ReviewCommit {
   sha: string;
   author: string;
@@ -127,10 +133,50 @@ export interface ReviewFile {
   truncated: boolean;
 }
 
+/** How a reviewed branch lands on the base branch. Both end in a fast-forward of straight-line commits; neither ever makes a merge commit. */
+export type MergeMethod = 'rebase' | 'cherry-pick';
+
+/** What a cherry-pick would take: the commits at the tip of the branch whose subject starts with the ticket key. */
+export interface PickInfo {
+  /** There is at least one commit to cherry-pick. */
+  available: boolean;
+  /** The commits that would be applied, oldest first. */
+  commits: ReviewCommit[];
+  /** Commits found at the tip that the base branch already has (skipped). */
+  alreadyApplied: number;
+  /** Why nothing can be cherry-picked (null when something can). */
+  reason: string | null;
+  /** The prefix the commits are matched on, e.g. `AT-727`. */
+  prefix: string;
+}
+
+/** Where the review decision the page shows comes from. */
+export type ApprovalSource = 'app' | 'description' | 'field' | null;
+
+/** The ticket as the page and the merge see it: the decision that applies to the commit being looked at. */
+export interface ReviewTicketIssue extends Omit<JiraIssue, 'recorded'> {
+  approvalSource: ApprovalSource;
+  /** A decision exists but was made for an EARLIER commit of this branch (it changed since), so it no longer counts. */
+  staleDecision: { decision: 'approved' | 'declined'; sha: string } | null;
+}
+
 export interface ReviewDetail {
+  /** The method this view (commits, diff, specs, conflicts) was computed for. */
+  method: MergeMethod;
+  /** Merge commits inside the branch (rebase method). Rebasing would flatten them and could drop what only they contain. */
+  mergeCommits: number;
+  /** Commits on the branch (rebase method) whose subject doesn't start with the project key: a sign it was cut from another branch. */
+  nonAtCommits: number;
+  /** Older commits at the bottom of the branch that the base already has (left out of the review and of the rebase). */
+  alreadyInBase: SkippedCommit[];
+  /** More commits exist than are listed. */
+  commitsTruncated: boolean;
+  pick: PickInfo;
+  /** Whether approving is allowed yet: every spec of this PR must have passed for this exact commit. */
+  specGate: SpecGate;
   branch: string;
   /** The Jira ticket (in the Review column) this branch belongs to. */
-  ticket: JiraIssue;
+  ticket: ReviewTicketIssue;
   sha: string;
   baseBranch: string;
   baseSha: string;
@@ -153,6 +199,7 @@ export interface ReviewDetail {
 }
 
 export interface MergeResult {
+  method: MergeMethod;
   merged: number;
   baseBranch: string;
   newBaseSha: string;
@@ -177,19 +224,49 @@ interface ExecResult {
 
 const MAX_BUFFER = 64 * 1024 * 1024;
 
+/**
+ * Settings every git command runs with, so a developer's own git configuration can't change what
+ * this app does (the commands themselves are checked by gitGuard.ts, these decide how git behaves):
+ * - rebase.updateRefs=false: a rebase in the temp worktree must never move the developer's local branches;
+ * - rebase.rebaseMerges=false: a rebase flattens, it never keeps merge commits;
+ * - push.followTags=false: only the one ref is pushed;
+ * - core.hooksPath=/dev/null: no hook (husky, pre-push...) from the branch or the repo runs here;
+ * - core.quotePath=false keeps non-ASCII file names readable in diff headers.
+ */
+const GIT_SETTINGS = ['core.quotePath=false', 'rebase.updateRefs=false', 'rebase.rebaseMerges=false', 'push.followTags=false', 'core.hooksPath=/dev/null'];
+
+/** Variables that would point git at some other repository or change how it is run; never inherited. */
+const GIT_ENV_DROPPED = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_COMMON_DIR', 'GIT_NAMESPACE', 'GIT_PREFIX', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_PARAMETERS', 'GIT_EXTERNAL_DIFF', 'GIT_PAGER'];
+
+export function gitEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base };
+  for (const key of GIT_ENV_DROPPED) delete env[key];
+  for (const key of Object.keys(env)) if (/^GIT_CONFIG_(KEY|VALUE)_\d+$/.test(key)) delete env[key];
+  return {
+    ...env,
+    // Never hang waiting on a credentials prompt there's no terminal for;
+    // LC_ALL=C keeps git's messages stable so failures can be recognised.
+    GIT_TERMINAL_PROMPT: '0',
+    LC_ALL: 'C',
+    // Never open an editor (continuing a rebase or cherry-pick keeps the existing message).
+    GIT_EDITOR: 'true',
+    GIT_SEQUENCE_EDITOR: 'true',
+    GIT_MERGE_AUTOEDIT: 'no',
+    // File names are names, never patterns.
+    GIT_LITERAL_PATHSPECS: '1',
+  };
+}
+
 function runGit(args: string[], cwd: string, timeoutMs = 60_000): Promise<ExecResult> {
   return new Promise((resolve) => {
     execFile(
       'git',
-      // quotePath=false keeps non-ASCII file names readable in diff headers.
-      ['-c', 'core.quotePath=false', ...args],
+      [...GIT_SETTINGS.flatMap((setting) => ['-c', setting]), ...args],
       {
         cwd,
         maxBuffer: MAX_BUFFER,
         timeout: timeoutMs,
-        // Never hang waiting on a credentials prompt there's no terminal for;
-        // LC_ALL=C keeps git's messages stable so failures can be recognised.
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C' },
+        env: gitEnv(process.env),
       },
       (err, stdout, stderr) => {
         if (!err) {
@@ -424,6 +501,32 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     return run;
   };
 
+  /**
+   * Review decisions made in this app, per ticket, for one exact commit. In memory only: Jira's Approval checkboxes cannot
+   * be written by acli, so a decision is also recorded in the ticket's description (see acli.ts), which is what lasts.
+   */
+  const appDecisions = new Map<string, { decision: 'approved' | 'declined'; info: string; sha: string }>();
+
+  /** The decision that applies to `sha`: this app's, else the one recorded in the description, else Jira's own Approval checkboxes. */
+  function effectiveTicket(issue: JiraIssue, sha: string | null): ReviewTicketIssue {
+    const { recorded, ...rest } = issue;
+    const mine = appDecisions.get(issue.key) ?? null;
+    let approval: 'approved' | 'declined' | null = issue.approval;
+    let reviewInfo = issue.reviewInfo;
+    let approvalSource: ApprovalSource = issue.approval ? 'field' : null;
+    if (sha && mine && mine.sha === sha) {
+      approval = mine.decision;
+      reviewInfo = mine.info;
+      approvalSource = 'app';
+    } else if (sha && recorded && recorded.sha === sha) {
+      approval = recorded.decision;
+      reviewInfo = recorded.info;
+      approvalSource = 'description';
+    }
+    const earlier = [mine, recorded].find((d) => d && sha && d.sha !== sha) ?? null;
+    return { ...rest, approval, reviewInfo, approvalSource, staleDecision: approvalSource === 'app' || approvalSource === 'description' || !earlier ? null : { decision: earlier.decision, sha: earlier.sha } };
+  }
+
   if (FORBIDDEN_BASE_BRANCHES.includes(baseBranch.toLowerCase())) {
     throw new Error(`"${baseBranch}" can never be the review merge target. Set REVIEW_BASE_BRANCH to the QA branch (e.g. playwright-main).`);
   }
@@ -535,15 +638,81 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     return sha;
   }
 
+  interface RebasePlan {
+    /** What a rebase would replay, oldest first (merge commits are never replayed, and commits the base already has are skipped, exactly like `git rebase`). */
+    run: Array<{ sha: string; parents: string[] }>;
+    /** Commits the base has that the branch really lacks. */
+    behind: number;
+    /** The commit the oldest replayed commit sits on: what the branch was built on, and the start of its real changes. */
+    parent: string | null;
+    /** Older commits at the bottom of the branch that the base already has under other ids (its history was rewritten), left out of `run`. */
+    skipped: SkippedCommit[];
+  }
+
+  /**
+   * What `git rebase <base>` would do with a branch, worked out the way git does it: by the change each commit makes,
+   * not by its id. Rebase-merging rewrites ids, so a branch cut from older work already on the base has dozens of
+   * commits that only *look* new by id; those are skipped here exactly as the rebase skips them.
+   *
+   * Git can't tell when the base's copy of a commit was edited, squashed or re-based onto different context (its change
+   * then differs), so a branch can also carry old commits of other tickets that the base already has. Those, and only
+   * those at the very bottom of the branch, are skipped too: the same author and author date on a commit of the base (a
+   * rewrite keeps both), or another ticket's key that the base already has commits for. The rebase then starts after
+   * them (`rebase --onto`), so what is shown is exactly what is merged.
+   */
+  async function planRebase(branch: string, ref: string): Promise<RebasePlan> {
+    const out = await mustGit(['log', '--left-right', '--cherry-pick', '--no-merges', '--topo-order', `--format=%m${SEP}%H${SEP}%P${SEP}%ae${SEP}%at${SEP}%s`, `${baseRef}...${ref}`], repoPath, 'git log');
+    const right: Array<{ sha: string; parents: string[]; who: string; subject: string }> = [];
+    const baseWho = new Set<string>();
+    const baseKeys = new Set<string>();
+    let behind = 0;
+    for (const line of out.split('\n')) {
+      if (!line.trim()) continue;
+      const [mark, sha, parents, email, at, ...subject] = line.split(SEP);
+      const subj = subject.join(SEP);
+      if (mark === '<') {
+        behind++;
+        baseWho.add(`${email}|${at}|${subj}`);
+        const k = anyKeySubject.exec(subj);
+        if (k) baseKeys.add(k[0].toUpperCase());
+      } else if (mark === '>') right.push({ sha, parents: (parents ?? '').split(' ').filter(Boolean), who: `${email}|${at}|${subj}`, subject: subj });
+    }
+    const all = right.reverse(); // oldest first
+    const own = keyOf(branch);
+    const skipReason = (c: { who: string; subject: string }): SkippedCommit['reason'] | null => {
+      const key = anyKeySubject.exec(c.subject)?.[0].toUpperCase() ?? null;
+      return baseWho.has(c.who) ? 'same-commit' : key && key !== own && baseKeys.has(key) ? 'ticket-in-base' : null;
+    };
+    const byId = new Map(all.map((c) => [c.sha, c]));
+
+    // The branch's own commits are the ones on top: walk down from the tip until reaching a commit the base already has
+    // (same change, or one of the skipped kinds above). Everything from there down is older history.
+    const top: typeof all = [];
+    let cur: string | null = ref;
+    while (cur) {
+      const c = byId.get(cur);
+      if (!c || skipReason(c)) break;
+      top.push(c);
+      cur = c.parents[0] ?? null;
+    }
+    const inTop = new Set(top.map((c) => c.sha));
+    const below = all.filter((c) => !inTop.has(c.sha));
+    // Safe only if every older commit really is one the base has. A new commit hidden underneath would be silently lost,
+    // so in that case nothing is skipped: the whole branch is shown (and rebased) as before.
+    if (below.length > 0 && below.every((c) => skipReason(c))) {
+      const run = top.reverse().map((c) => ({ sha: c.sha, parents: c.parents }));
+      const skipped = below.map((c) => ({ sha: c.sha, subject: c.subject, reason: skipReason(c)!, key: anyKeySubject.exec(c.subject)?.[0].toUpperCase() ?? null }));
+      return { run, behind, parent: run.length > 0 ? cur : null, skipped };
+    }
+    const run = all.map((c) => ({ sha: c.sha, parents: c.parents }));
+    return { run, behind, parent: run.length > 0 ? (run[0].parents[0] ?? null) : null, skipped: [] };
+  }
+
   async function branchInfo(name: string, sha: string, author: string, date: string): Promise<BranchInfo> {
-    const [counts, cherry, stat] = await Promise.all([
-      git(['rev-list', '--left-right', '--count', `${baseRef}...${remote}/${name}`]),
-      git(['cherry', baseRef, `${remote}/${name}`]),
-      git(['diff', '--shortstat', `${baseRef}...${remote}/${name}`]),
-    ]);
-    const [behind, ahead] = counts.stdout.trim().split(/\s+/).map(Number);
-    const unmerged = cherry.stdout.split('\n').filter((l) => l.startsWith('+')).length;
-    return { name, sha, author, date, ...parseShortStat(stat.stdout), ahead: ahead || 0, behind: behind || 0, unmerged };
+    const plan = await planRebase(name, sha);
+    // the changes the replayed commits make, not everything between the branch and an old common ancestor
+    const stat = plan.run.length === 0 ? null : await git(['diff', '--shortstat', plan.parent ? `${plan.parent}...${sha}` : `${baseRef}...${sha}`]);
+    return { name, sha, author, date, ...(stat ? parseShortStat(stat.stdout) : { files: 0, additions: 0, deletions: 0 }), ahead: plan.run.length, behind: plan.behind, unmerged: plan.run.length };
   }
 
   async function remoteBranches(): Promise<Array<{ name: string; sha: string; author: string; date: string; subject: string }>> {
@@ -585,7 +754,7 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
       tickets = await mapLimit(issues, 6, async (issue) => {
         const matching = branches.filter((b) => branchMatchesKey(b.name, issue.key));
         const infos = await Promise.all(matching.map((b) => branchInfo(b.name, b.sha, b.author, b.date)));
-        return { ...issue, branches: infos };
+        return { ...effectiveTicket(issue, infos[0]?.sha ?? null), branches: infos };
       });
     } catch (err) {
       jiraError = err instanceof Error ? err.message : String(err);
@@ -627,29 +796,31 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     }
   }
 
-  async function detail(branch: unknown): Promise<ReviewDetail> {
-    assertReviewable(branch);
-    await assertReady();
-    const baseSha = await requireBase();
-    const sha = await revParse(`${remote}/${branch}`);
-    if (!sha) throw new ReviewError(404, `Branch "${branch}" was not found on ${remote}. Try refreshing.`);
-    const ticket = await requireReviewTicket(branch);
+  // ---------------------------------------------------------------------------
+  // Methods. "rebase" (the default) replays the whole branch onto the base branch. "cherry-pick" replays
+  // only the commits at the tip of the branch whose subject starts with the ticket key, for branches cut
+  // from another branch (e.g. release-next) whose other commits must never reach the base. Either way
+  // the result is a straight line of ordinary commits on top of the base tip, and the base branch is only
+  // ever fast-forwarded to it. A merge commit is never created.
+  // ---------------------------------------------------------------------------
 
-    const SEP = '\x1f';
-    const REC = '\x1e';
-    const [info, log, diff, mt, url] = await Promise.all([
-      branchInfo(branch, sha, '', ''),
-      mustGit(
-        ['log', '--reverse', '--max-count=200', `--format=%H${SEP}%an${SEP}%aI${SEP}%s${SEP}%b${REC}`, `${baseRef}..${remote}/${branch}`],
-        repoPath,
-        'git log',
-      ),
-      mustGit(['diff', '-M', '--no-color', '--no-ext-diff', '--no-textconv', `${baseRef}...${remote}/${branch}`], repoPath, 'git diff'),
-      git(['merge-tree', '--write-tree', '--name-only', '--no-messages', baseRef, `${remote}/${branch}`]),
-      remoteUrl(),
-    ]);
+  const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const keyOf = (branch: string): string => branchPrefixRe.exec(branch)![0].toUpperCase();
+  /** Any commit that carries a ticket key ("AT-123 Add specs"), not just this branch's own. */
+  const anyKeySubject = new RegExp(`^${escapeRe(projectKey)}-\\d+(?![0-9A-Za-z])`);
 
-    const commits: ReviewCommit[] = log
+  function parseMethod(value: unknown): MergeMethod {
+    if (value === undefined || value === null || value === 'rebase') return 'rebase';
+    if (value === 'cherry-pick') return 'cherry-pick';
+    throw new ReviewError(400, 'method must be "rebase" or "cherry-pick".');
+  }
+
+  const SEP = '\x1f';
+  const REC = '\x1e';
+  const LOG_FORMAT = `%H${SEP}%an${SEP}%aI${SEP}%s${SEP}%b${REC}`;
+
+  const parseCommits = (out: string): ReviewCommit[] =>
+    out
       .split(REC)
       .map((r) => r.replace(/^\n/, ''))
       .filter((r) => r.trim())
@@ -657,6 +828,157 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
         const [csha, author, date, subject, body] = r.split(SEP);
         return { sha: csha, author, date, subject, body: (body ?? '').trim() };
       });
+
+  interface PickPlan {
+    info: PickInfo;
+    /** Everything found at the tip, oldest first (what the review shows). */
+    run: ReviewCommit[];
+    /** The commit the oldest one sits on. */
+    parent: string | null;
+  }
+
+  /**
+   * Finds what a cherry-pick would take: walking back from the tip of the branch (first parents only),
+   * the unbroken run of commits whose subject starts with the ticket key ("AT-727 ..."). It stops at the first
+   * commit that doesn't, so a branch cut from release-next brings only the QA commits and none of release-next.
+   * A merge commit is never picked. Derived from the exact commit `sha`, never from a moving branch name.
+   */
+  async function planPicks(branch: string, sha: string): Promise<PickPlan> {
+    const key = keyOf(branch);
+    const prefix = new RegExp(`^${escapeRe(key)}(?![0-9A-Za-z])`);
+    const out = await mustGit(['log', '--first-parent', `--max-count=${MAX_PICK_SCAN}`, `--format=%H${SEP}%P${SEP}%an${SEP}%aI${SEP}%s${SEP}%b${REC}`, sha], repoPath, 'git log');
+    const rows = out
+      .split(REC)
+      .map((r) => r.replace(/^\n/, ''))
+      .filter((r) => r.trim())
+      .map((r) => {
+        const [h, p, author, date, subject, body] = r.split(SEP);
+        return { sha: h, parents: (p ?? '').split(' ').filter(Boolean), author, date, subject: subject ?? '', body: (body ?? '').trim() };
+      });
+
+    const run: typeof rows = [];
+    let reason: string | null = null;
+    for (const row of rows) {
+      if (row.parents.length !== 1) {
+        if (run.length === 0) reason = row.parents.length > 1 ? 'The latest commit on this branch is a merge commit, and merge commits are never cherry-picked.' : 'This branch has no earlier history to cherry-pick from.';
+        break;
+      }
+      if (!prefix.test(row.subject)) break;
+      run.push(row);
+    }
+    if (run.length === 0 && !reason) {
+      reason = `None of the latest commits on this branch start with ${key}, so there is nothing to cherry-pick. Commits are matched on their message, like "${key} Add tests for ...".`;
+    }
+    if (run.length > 0 && run.length === rows.length && rows.length >= MAX_PICK_SCAN) {
+      reason = `All of the latest ${MAX_PICK_SCAN} commits start with ${key}, so it isn't clear where this ticket's commits begin.`;
+      run.length = 0;
+    }
+    if (run.length > MAX_PICKS) {
+      reason = `${run.length} commits in a row start with ${key}; at most ${MAX_PICKS} can be cherry-picked at once.`;
+      run.length = 0;
+    }
+
+    const ordered: ReviewCommit[] = run.slice().reverse().map((r) => ({ sha: r.sha, author: r.author, date: r.date, subject: r.subject, body: r.body }));
+    const parent = run.length > 0 ? run[run.length - 1].parents[0] : null;
+    let picks = ordered;
+    let alreadyApplied = 0;
+    if (ordered.length > 0 && parent) {
+      // commits the base branch already has (same change, different id) are skipped rather than applied twice
+      const cherry = await git(['cherry', baseRef, ordered[ordered.length - 1].sha, parent]);
+      if (cherry.code === 0) {
+        const have = new Set(cherry.stdout.split('\n').filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim()));
+        picks = ordered.filter((c) => !have.has(c.sha));
+        alreadyApplied = ordered.length - picks.length;
+        if (picks.length === 0) reason = `Everything the ${key} commits change is already in ${baseBranch}.`;
+      }
+    }
+    return { run: ordered, parent, info: { available: picks.length > 0 && reason === null, commits: picks, alreadyApplied, reason, prefix: key } };
+  }
+
+  /** The diff a reviewer reads: only what would be applied (the replayed commits' changes), never history the base already has. */
+  async function reviewDiff(method: MergeMethod, sha: string, plans: { rebase: RebasePlan; pick: PickPlan }): Promise<string> {
+    const raw = ['diff', '-M', '--no-color', '--no-ext-diff', '--no-textconv'];
+    if (method === 'cherry-pick') {
+      const { pick } = plans;
+      if (!pick.parent || pick.run.length === 0) return '';
+      return mustGit([...raw, `${pick.parent}...${pick.run[pick.run.length - 1].sha}`], repoPath, 'git diff');
+    }
+    const { rebase } = plans;
+    if (rebase.run.length === 0) return '';
+    return mustGit([...raw, rebase.parent ? `${rebase.parent}...${sha}` : `${baseRef}...${sha}`], repoPath, 'git diff');
+  }
+
+  const noPicks: PickPlan = { run: [], parent: null, info: { available: false, commits: [], alreadyApplied: 0, reason: null, prefix: '' } };
+  const noRebase: RebasePlan = { run: [], behind: 0, parent: null, skipped: [] };
+
+  /** The files a PR changes for the given method (what a rebase would replay, or just the cherry-picked commits). */
+  async function changedFilesFor(branch: string, sha: string, method: MergeMethod): Promise<Array<{ path: string; status: ReviewFile['status'] }>> {
+    const plans = method === 'cherry-pick' ? { rebase: noRebase, pick: await planPicks(branch, sha) } : { rebase: await planRebase(branch, sha), pick: noPicks };
+    return parseDiff(await reviewDiff(method, sha, plans)).map((f) => ({ path: f.path, status: f.status }));
+  }
+
+  async function detail(branch: unknown, methodArg?: unknown): Promise<ReviewDetail> {
+    assertReviewable(branch);
+    const method = parseMethod(methodArg);
+    await assertReady();
+    const baseSha = await requireBase();
+    const sha = await revParse(`${remote}/${branch}`);
+    if (!sha) throw new ReviewError(404, `Branch "${branch}" was not found on ${remote}. Try refreshing.`);
+    const ticket = effectiveTicket(await requireReviewTicket(branch), sha);
+    const plan = method === 'cherry-pick' ? await planPicks(branch, sha) : noPicks;
+    const rebasePlan = method === 'rebase' ? await planRebase(branch, sha) : noRebase;
+
+    let commits: ReviewCommit[];
+    let ahead: number;
+    let behind: number;
+    let unmerged: number;
+    let diff: string;
+    let mt: ExecResult | null;
+    let mergeCommits = 0;
+    let commitsTruncated = false;
+    let url: string | null;
+
+    if (method === 'rebase') {
+      const parent = rebasePlan.parent;
+      const tip = sha;
+      const replayed = new Set(rebasePlan.run.map((r) => r.sha));
+      const [log, d, merge, merges, remoteWeb] = await Promise.all([
+        // the commits between what the branch was built on and its tip, then narrowed to the ones that would really be replayed
+        rebasePlan.run.length === 0 ? Promise.resolve('') : mustGit(['log', '--reverse', '--max-count=200', `--format=${LOG_FORMAT}`, parent ? `${parent}..${tip}` : `${baseRef}..${tip}`], repoPath, 'git log'),
+        reviewDiff(method, sha, { rebase: rebasePlan, pick: plan }),
+        rebasePlan.run.length === 0
+          ? Promise.resolve<ExecResult | null>(null)
+          : parent
+            ? // apply just those commits' changes onto the base, which is what the rebase does
+              git(['merge-tree', '--write-tree', '--name-only', '--no-messages', `--merge-base=${parent}`, baseRef, tip])
+            : git(['merge-tree', '--write-tree', '--name-only', '--no-messages', baseRef, `${remote}/${branch}`]),
+        parent && rebasePlan.run.length > 0 ? git(['rev-list', '--merges', '--count', `${parent}..${tip}`]) : Promise.resolve<ExecResult | null>(null),
+        remoteUrl(),
+      ]);
+      commits = parseCommits(log).filter((c) => replayed.has(c.sha));
+      commitsTruncated = commits.length < rebasePlan.run.length;
+      ahead = rebasePlan.run.length;
+      behind = rebasePlan.behind;
+      unmerged = rebasePlan.run.length;
+      diff = d;
+      mt = rebasePlan.run.length === 0 ? { code: 0, stdout: '', stderr: '' } : merge;
+      mergeCommits = merges && merges.code === 0 ? Number(merges.stdout.trim()) || 0 : 0;
+      url = remoteWeb;
+    } else {
+      commits = plan.info.commits;
+      ahead = plan.info.commits.length;
+      behind = 0;
+      unmerged = plan.info.commits.length;
+      const newest = plan.run.length > 0 ? plan.run[plan.run.length - 1].sha : null;
+      const [d, merge, remoteWeb] = await Promise.all([
+        reviewDiff(method, sha, { rebase: noRebase, pick: plan }),
+        newest && plan.parent ? git(['merge-tree', '--write-tree', '--name-only', '--no-messages', `--merge-base=${plan.parent}`, baseRef, newest]) : Promise.resolve(null),
+        remoteUrl(),
+      ]);
+      diff = d;
+      mt = merge;
+      url = remoteWeb;
+    }
 
     const files = parseDiff(diff);
     const changed = files.map((f) => ({ path: f.path, status: f.status }));
@@ -666,8 +988,8 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
 
     let canRebase: boolean | null = null;
     let conflicts: string[] = [];
-    if (mt.code === 0) canRebase = true;
-    else if (mt.code === 1) {
+    if (mt && mt.code === 0) canRebase = true;
+    else if (mt && mt.code === 1) {
       canRebase = false;
       // First line is the (conflicted) tree id; the rest are file names.
       conflicts = mt.stdout.split('\n').slice(1).map((l) => l.trim()).filter(Boolean);
@@ -675,14 +997,21 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
 
     const web = toWebUrl(url);
     return {
+      method,
+      mergeCommits,
+      alreadyInBase: method === 'rebase' ? rebasePlan.skipped : [],
+      nonAtCommits: method === 'rebase' ? commits.filter((c) => !anyKeySubject.test(c.subject)).length : 0,
+      commitsTruncated,
+      pick: plan.info,
+      specGate: specRun.gate(branch, sha, method, specs),
       branch,
       ticket,
       sha,
       baseBranch,
       baseSha,
-      ahead: info.ahead,
-      behind: info.behind,
-      unmerged: info.unmerged,
+      ahead,
+      behind,
+      unmerged,
       canRebase,
       conflicts,
       commits,
@@ -703,7 +1032,135 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
   // behind the first one and failing confusingly once that one has deleted the branch.
   const mergesInProgress = new Set<string>();
 
-  function merge(opts: { branch: unknown; expectedSha?: unknown; moveToDone?: unknown }): Promise<MergeResult> {
+  interface ReplayContext {
+    method: MergeMethod;
+    branch: string;
+    /** The exact commit that was reviewed. */
+    sha: string;
+    /** For a cherry-pick: the commits to apply, oldest first. */
+    picks: string[];
+    /** For a rebase: the last old commit the base already has; only what comes after it is replayed. */
+    after?: string | null;
+  }
+
+  type ReplayOutcome = { kind: 'done' } | { kind: 'conflict'; files: string[] };
+
+  const changedSince = (branch: string) => `"${branch}" changed since you opened it. Refresh and review the new commits before merging.`;
+
+  /** Checks out the starting point in `dir` and replays the commits onto the base branch, stopping (not undoing) at a conflict. */
+  async function startReplay(dir: string, c: ReplayContext): Promise<ReplayOutcome> {
+    if (c.method === 'rebase') {
+      await mustGit(['worktree', 'add', '--detach', '--quiet', dir, `${remote}/${c.branch}`], repoPath, 'Creating a temporary worktree');
+      // Exactly the commit that was reviewed, even if a fetch (the page's refresh, a spec run) moved the branch meanwhile.
+      const head = (await mustGit(['rev-parse', 'HEAD'], dir, 'git rev-parse')).trim();
+      if (head !== c.sha) throw new ReviewError(409, changedSince(c.branch));
+      // Start after the old commits the base already has (see planRebase), so only the branch's own are replayed.
+      const r = await git(c.after ? ['rebase', '--onto', baseRef, c.after] : ['rebase', baseRef], dir, 120_000);
+      return r.code === 0 ? { kind: 'done' } : conflictOrFailure(dir, r, `Rebasing "${c.branch}" onto ${baseBranch}`);
+    }
+    await mustGit(['worktree', 'add', '--detach', '--quiet', dir, baseRef], repoPath, 'Creating a temporary worktree');
+    const r = await git(['cherry-pick', ...c.picks], dir, 120_000);
+    return r.code === 0 ? { kind: 'done' } : conflictOrFailure(dir, r, `Cherry-picking the ${keyOf(c.branch)} commits onto ${baseBranch}`);
+  }
+
+  async function conflictOrFailure(dir: string, r: ExecResult, what: string): Promise<ReplayOutcome> {
+    const unmerged = await git(['diff', '--name-only', '--diff-filter=U'], dir);
+    const files = unmerged.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (files.length > 0) return { kind: 'conflict', files };
+    throw new ReviewError(409, `${what} failed: ${firstLines(r.stderr || r.stdout)}`);
+  }
+
+  async function abortReplay(dir: string, method: MergeMethod): Promise<void> {
+    await git(method === 'rebase' ? ['rebase', '--abort'] : ['cherry-pick', '--abort'], dir);
+  }
+
+  interface PublishContext {
+    method: MergeMethod;
+    branch: string;
+    sha: string;
+    moveToDone: boolean;
+  }
+
+  /**
+   * Everything after the commits have been replayed in `dir`: prove the result is a straight line on top of the
+   * base tip, fast-forward the base branch to it, delete the AT branch, and move the Jira ticket.
+   */
+  async function publishReplay(dir: string, c: PublishContext): Promise<MergeResult> {
+    const { branch, sha } = c;
+    const newHead = (await mustGit(['rev-parse', 'HEAD'], dir, 'git rev-parse')).trim();
+    const merged = Number((await mustGit(['rev-list', '--count', `${baseRef}..HEAD`], dir, 'git rev-list')).trim());
+    if (!merged) {
+      throw new ReviewError(409, `Nothing to merge: ${c.method === 'rebase' ? 'rebasing' : 'cherry-picking'} "${branch}" onto ${baseBranch} left no new commits.`);
+    }
+
+    // NEVER a merge commit. What we push must be a straight line of ordinary
+    // commits sitting directly on the base tip, so moving the base branch to it
+    // is a fast-forward (exactly what `git merge` does after a manual rebase).
+    // A plain `git rebase` or `git cherry-pick` always gives that; this is the
+    // last line of defence in case git's configuration or a tool ever changes
+    // that, and nothing has been pushed yet if it trips.
+    const onTop = await git(['merge-base', '--is-ancestor', baseRef, 'HEAD'], dir);
+    const mergeCommits = Number((await mustGit(['rev-list', '--merges', '--count', `${baseRef}..HEAD`], dir, 'git rev-list')).trim());
+    if (onTop.code !== 0 || mergeCommits > 0) {
+      throw new ReviewError(
+        409,
+        `Refusing to merge "${branch}": after ${c.method === 'rebase' ? 'rebasing' : 'cherry-picking'} it onto ${baseBranch} the result is not a straight line of commits ` +
+          `${mergeCommits > 0 ? `(it contains ${mergeCommits} merge commit${mergeCommits === 1 ? '' : 's'})` : '(it does not sit on top of the latest commit)'}. ` +
+          `Merge commits are never created here, and nothing was pushed. Rebase the branch locally onto ${baseBranch}, push it, then try again.`,
+      );
+    }
+
+    // Plain (non-force) push: only succeeds as a fast-forward, so if
+    // someone else landed on the base branch since our fetch it's
+    // rejected rather than overwritten.
+    const push = await git(['push', remote, `${newHead}:refs/heads/${baseBranch}`], dir, 120_000);
+    if (push.code !== 0) {
+      const msg = `${push.stderr}${push.stdout}`;
+      if (/non-fast-forward|fetch first|rejected/i.test(msg) && !/protected branch|GH006|hook declined/i.test(msg)) {
+        throw new ReviewError(409, `${baseBranch} moved while merging. Nothing was pushed — click Rebase and merge again.`);
+      }
+      throw new ReviewError(502, `Pushing to ${baseBranch} failed: ${firstLines(msg)}`);
+    }
+
+    // The merge is done. Delete the ticket branch (AT-### only — the guard
+    // enforces that) but only if origin still has the commit we reviewed.
+    let branchDeleted = false;
+    let ticketMoved: string | null = null;
+    const warnings: string[] = [];
+    const del = await git(['push', remote, `--force-with-lease=refs/heads/${branch}:${sha}`, '--delete', branch], dir, 120_000);
+    if (del.code === 0) branchDeleted = true;
+    else warnings.push(`Merged, but couldn't delete the branch ${branch}: ${firstLines(del.stderr || del.stdout, 2)}`);
+
+    // Only after the push has succeeded. A Jira failure never undoes the
+    // merge; it's reported so the ticket can be moved by hand.
+    if (c.moveToDone) {
+      const key = keyOf(branch);
+      try {
+        await jiraClient.moveReviewIssueToDone(key);
+        ticketMoved = key;
+      } catch (err) {
+        warnings.push(`Merged, but ${err instanceof AcliError ? err.message : `could not move ${key} in Jira.`}`);
+      }
+    }
+
+    // Refresh our remote-tracking refs so the next list is accurate.
+    await git(['fetch', '--prune', '--quiet', remote], repoPath, 120_000);
+
+    return { method: c.method, merged, baseBranch, newBaseSha: newHead, branchDeleted, ticketMoved, warning: warnings.join(' ') || null };
+  }
+
+  async function cleanupWorktree(dir: string): Promise<void> {
+    await git(['worktree', 'remove', '--force', dir]);
+    await rm(dir, { recursive: true, force: true });
+    await git(['worktree', 'prune']);
+  }
+
+  const conflictsMessage = (c: ReplayContext) =>
+    c.method === 'rebase'
+      ? `Rebasing "${c.branch}" onto ${baseBranch} hit conflicts. Resolve them here, or rebase the branch locally, push it, then try again.`
+      : `Cherry-picking the ${keyOf(c.branch)} commits onto ${baseBranch} hit conflicts. Resolve them here, or fix the branch locally, push it, then try again.`;
+
+  function merge(opts: { branch: unknown; expectedSha?: unknown; moveToDone?: unknown; method?: unknown }): Promise<MergeResult> {
     const requested = typeof opts.branch === 'string' ? opts.branch : null;
     if (requested !== null && mergesInProgress.has(requested)) {
       return Promise.reject(new ReviewError(409, `"${requested}" is already being merged. Wait for that to finish; there is no need to click again.`));
@@ -714,128 +1171,84 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     });
   }
 
-  function mergeLocked(opts: { branch: unknown; expectedSha?: unknown; moveToDone?: unknown }): Promise<MergeResult> {
+  function mergeLocked(opts: { branch: unknown; expectedSha?: unknown; moveToDone?: unknown; method?: unknown }): Promise<MergeResult> {
     return withLock(async () => {
       const { branch } = opts;
       assertReviewable(branch);
+      const method = parseMethod(opts.method);
       if (typeof opts.expectedSha !== 'string' || !/^[0-9a-f]{7,64}$/i.test(opts.expectedSha)) {
         throw new ReviewError(400, 'expectedSha is required so the merge only applies what was reviewed.');
       }
       if (specRun.busy()) throw new ReviewError(409, 'Specs are running. Wait for them to finish (or cancel them) before merging.');
       await assertReady();
-      // The ticket must be in the Review column right now — checked before
-      // anything is fetched, rebased or pushed — and approved in Jira.
+      // The ticket must be in the Review column right now, checked before anything is fetched, rebased or pushed.
       const reviewTicket = await requireReviewTicket(branch);
-      if (reviewTicket.approval !== 'approved') {
-        throw new ReviewError(
-          409,
-          reviewTicket.approval === 'declined'
-            ? `${reviewTicket.key} was declined in review, so it can't be merged. Approve it first if that has changed.`
-            : `${reviewTicket.key} hasn't been approved yet. Approve it (this ticks Approved in Jira) before merging.`,
-        );
-      }
       await fetchRemote();
       await requireBase();
 
       const sha = await revParse(`${remote}/${branch}`);
       if (!sha) throw new ReviewError(404, `Branch "${branch}" was not found on ${remote}.`);
-      if (!sha.startsWith(opts.expectedSha.toLowerCase())) {
-        throw new ReviewError(409, `"${branch}" changed since you opened it. Refresh and review the new commits before merging.`);
+      if (!sha.startsWith(opts.expectedSha.toLowerCase())) throw new ReviewError(409, changedSince(branch));
+
+      // ...and approved for THIS commit (a decision made for an earlier one of this branch no longer counts).
+      const decided = effectiveTicket(reviewTicket, sha);
+      if (decided.approval !== 'approved') {
+        throw new ReviewError(
+          409,
+          decided.approval === 'declined'
+            ? `${decided.key} has changes requested, so it can't be merged. Approve it once they have been addressed.`
+            : decided.staleDecision
+              ? `${decided.key} was ${decided.staleDecision.decision === 'approved' ? 'approved' : 'sent back for changes'} for an earlier commit, and "${branch}" has changed since. Review the new commits and approve again before merging.`
+              : `${decided.key} hasn't been approved yet. Approve it before merging.`,
+        );
       }
 
-      const cherry = await git(['cherry', baseRef, `${remote}/${branch}`]);
-      if (!cherry.stdout.split('\n').some((l) => l.startsWith('+'))) {
-        throw new ReviewError(409, `Nothing to merge: "${branch}" has no changes that ${baseBranch} doesn't already have.`);
+      let picks: string[] = [];
+      let after: string | null = null;
+      if (method === 'rebase') {
+        const plan = await planRebase(branch, sha);
+        after = plan.skipped.length > 0 ? plan.parent : null;
+        if (plan.run.length === 0) {
+          throw new ReviewError(409, `Nothing to merge: "${branch}" has no changes that ${baseBranch} doesn't already have.`);
+        }
+        // A merge commit among the commits being replayed is flattened by a rebase, and anything that exists only inside it
+        // (a fix made while merging the base into the branch) would silently be lost. Never rebase one. Merges in older
+        // history the base already has by change are not part of this.
+        const merges = plan.parent ? await git(['rev-list', '--merges', '--count', `${plan.parent}..${sha}`]) : null;
+        const inside = merges && merges.code === 0 ? Number(merges.stdout.trim()) || 0 : 0;
+        if (inside > 0) {
+          throw new ReviewError(
+            409,
+            `"${branch}" contains ${inside} merge commit${inside === 1 ? '' : 's'} (someone merged ${baseBranch} or another branch into it). ` +
+              `A rebase would flatten ${inside === 1 ? 'it' : 'them'} and could silently drop what only ${inside === 1 ? 'it contains' : 'they contain'}, and merge commits are never wanted here. ` +
+              `Rebase the branch locally onto ${baseBranch}, push it, then try again.`,
+            undefined,
+            'merge-commits',
+          );
+        }
+      } else {
+        const plan = await planPicks(branch, sha);
+        if (!plan.info.available) throw new ReviewError(409, plan.info.reason ?? 'There is nothing to cherry-pick on this branch.', undefined, 'no-picks');
+        picks = plan.info.commits.map((c) => c.sha);
       }
 
+      const replay: ReplayContext = { method, branch, sha, picks, after };
       const dir = await mkdtemp(TEMP_WORKTREE_PREFIX);
       try {
-        await mustGit(['worktree', 'add', '--detach', '--quiet', dir, `${remote}/${branch}`], repoPath, 'Creating a temporary worktree');
-
-        const rebase = await git(['rebase', baseRef], dir, 120_000);
-        if (rebase.code !== 0) {
-          const unmerged = await git(['diff', '--name-only', '--diff-filter=U'], dir);
-          const files = unmerged.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
-          await git(['rebase', '--abort'], dir);
-          throw new ReviewError(
-            409,
-            files.length
-              ? `Rebasing "${branch}" onto ${baseBranch} hit conflicts. Rebase it locally, resolve them, push, then try again.`
-              : `Rebasing "${branch}" onto ${baseBranch} failed: ${firstLines(rebase.stderr || rebase.stdout)}`,
-            files,
-          );
+        const outcome = await startReplay(dir, replay);
+        if (outcome.kind === 'conflict') {
+          await abortReplay(dir, method);
+          throw new ReviewError(409, conflictsMessage(replay), outcome.files, 'conflicts');
         }
-
-        const newHead = (await mustGit(['rev-parse', 'HEAD'], dir, 'git rev-parse')).trim();
-        const merged = Number((await mustGit(['rev-list', '--count', `${baseRef}..HEAD`], dir, 'git rev-list')).trim());
-        if (!merged) {
-          throw new ReviewError(409, `Nothing to merge: rebasing "${branch}" onto ${baseBranch} left no new commits.`);
-        }
-
-        // NEVER a merge commit. What we push must be a straight line of ordinary
-        // commits sitting directly on the base tip, so moving the base branch to it
-        // is a fast-forward (exactly what `git merge` does after a manual rebase).
-        // A plain `git rebase` flattens merges and always gives that; this is the
-        // last line of defence in case git's configuration or a tool ever changes
-        // that, and nothing has been pushed yet if it trips.
-        const onTop = await git(['merge-base', '--is-ancestor', baseRef, 'HEAD'], dir);
-        const mergeCommits = Number((await mustGit(['rev-list', '--merges', '--count', `${baseRef}..HEAD`], dir, 'git rev-list')).trim());
-        if (onTop.code !== 0 || mergeCommits > 0) {
-          throw new ReviewError(
-            409,
-            `Refusing to merge "${branch}": after rebasing it onto ${baseBranch} the result is not a straight line of commits ` +
-              `${mergeCommits > 0 ? `(it contains ${mergeCommits} merge commit${mergeCommits === 1 ? '' : 's'})` : '(it does not sit on top of the latest commit)'}. ` +
-              `Merge commits are never created here, and nothing was pushed. Rebase the branch locally onto ${baseBranch}, push it, then try again.`,
-          );
-        }
-
-        // Plain (non-force) push: only succeeds as a fast-forward, so if
-        // someone else landed on the base branch since our fetch it's
-        // rejected rather than overwritten.
-        const push = await git(['push', remote, `${newHead}:refs/heads/${baseBranch}`], dir, 120_000);
-        if (push.code !== 0) {
-          const msg = `${push.stderr}${push.stdout}`;
-          if (/non-fast-forward|fetch first|rejected/i.test(msg) && !/protected branch|GH006|hook declined/i.test(msg)) {
-            throw new ReviewError(409, `${baseBranch} moved while merging. Nothing was pushed — click Rebase and merge again.`);
-          }
-          throw new ReviewError(502, `Pushing to ${baseBranch} failed: ${firstLines(msg)}`);
-        }
-
-        // The merge is done. Delete the ticket branch (AT-### only — the guard
-        // enforces that) but only if origin still has the commit we reviewed.
-        let branchDeleted = false;
-        let ticketMoved: string | null = null;
-        const warnings: string[] = [];
-        const del = await git(['push', remote, `--force-with-lease=refs/heads/${branch}:${sha}`, '--delete', branch], dir, 120_000);
-        if (del.code === 0) branchDeleted = true;
-        else warnings.push(`Merged, but couldn't delete the branch ${branch}: ${firstLines(del.stderr || del.stdout, 2)}`);
-
-        // Only after the push has succeeded. A Jira failure never undoes the
-        // merge; it's reported so the ticket can be moved by hand.
-        if (opts.moveToDone === true) {
-          const key = branchPrefixRe.exec(branch)![0].toUpperCase();
-          try {
-            await jiraClient.moveReviewIssueToDone(key);
-            ticketMoved = key;
-          } catch (err) {
-            warnings.push(`Merged, but ${err instanceof AcliError ? err.message : `could not move ${key} in Jira.`}`);
-          }
-        }
-
-        // Refresh our remote-tracking refs so the next list is accurate.
-        await git(['fetch', '--prune', '--quiet', remote], repoPath, 120_000);
-
-        return { merged, baseBranch, newBaseSha: newHead, branchDeleted, ticketMoved, warning: warnings.join(' ') || null };
+        return await publishReplay(dir, { method, branch, sha, moveToDone: opts.moveToDone === true });
       } finally {
-        await git(['worktree', 'remove', '--force', dir]);
-        await rm(dir, { recursive: true, force: true });
-        await git(['worktree', 'prune']);
+        await cleanupWorktree(dir);
       }
     });
   }
 
   /** Approve or decline the PR: ticks Approved/Declined on the AT ticket and records the review notes. */
-  async function submitReview(opts: { branch?: unknown; expectedSha?: unknown; decision?: unknown; info?: unknown }): Promise<JiraIssue> {
+  async function submitReview(opts: { branch?: unknown; expectedSha?: unknown; decision?: unknown; info?: unknown }): Promise<ReviewTicketIssue & { jiraRecorded: boolean; jiraNote: string | null }> {
     assertReviewable(opts.branch);
     const branch = opts.branch;
     if (typeof opts.expectedSha !== 'string' || !/^[0-9a-f]{7,64}$/i.test(opts.expectedSha)) {
@@ -849,7 +1262,7 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     if (info !== undefined && info.length > MAX_REVIEW_INFO_CHARS) {
       throw new ReviewError(400, `Review information is limited to ${MAX_REVIEW_INFO_CHARS} characters (it is ${info.length}).`);
     }
-    if (opts.decision === 'declined' && !info) throw new ReviewError(400, 'Say why you are declining: add some review information.');
+    if (opts.decision === 'declined' && !info) throw new ReviewError(400, 'Say what needs to change: add a note for the author.');
 
     await assertReady();
     const sha = await revParse(`${remote}/${branch}`);
@@ -858,12 +1271,53 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
       throw new ReviewError(409, `"${branch}" changed since you opened it. Reload the pull request and review the new commits before deciding.`);
     }
     const ticket = await requireReviewTicket(branch);
-    try {
-      return await jiraClient.submitReview(ticket.key, opts.decision, info);
-    } catch (err) {
-      if (err instanceof AcliError && err.kind !== 'blocked') throw new ReviewError(err.kind === 'failed' ? 502 : 503, err.message);
-      throw err;
+
+
+    // Nothing is approved until every spec in this PR has passed for this exact commit. Passes for another PR, or for an
+    // earlier commit of this one, are never counted: the record is keyed by branch and commit.
+    if (opts.decision === 'approved') {
+      const required = (await changedFilesFor(branch, sha, 'rebase')).filter((f) => f.status !== 'deleted' && isRunnableSpecPath(f.path)).map((f) => f.path);
+      const gate = specRun.gate(branch, sha, 'rebase', required);
+      if (!gate.satisfied) {
+        const missing = required.filter((file) => !gate.progress.some((p) => p.file === file && p.status !== 'failed'));
+        const failed = gate.progress.filter((p) => p.status === 'failed').map((p) => p.file);
+        throw new ReviewError(
+          409,
+          `Every spec in this PR has to pass before it can be approved: ${required.length - missing.length} of ${required.length} have passed for this commit. ` +
+            (failed.length > 0 ? `${failed.length} failed. ` : '') +
+            (missing.length > 0 ? `Run ${missing.length === required.length ? 'them' : `the ${missing.length} that ${failed.length > 0 ? 'have not passed' : 'have not been run'}`} (Run all) and try again.` : 'Run them again once they are fixed.'),
+          missing,
+          'specs-not-passed',
+        );
+      }
     }
+
+    // The decision applies to this exact commit. It is kept here so it always works, and written into the ticket's
+    // description so it lasts. If Jira can't take it (acli failed, or the description has images) it still stands here.
+    const decision = opts.decision;
+    let latest = ticket;
+    let jiraRecorded = false;
+    let jiraNote: string | null = null;
+    if (decision === 'none') appDecisions.delete(ticket.key);
+    else appDecisions.set(ticket.key, { decision, info: info ?? '', sha });
+    try {
+      latest = await jiraClient.recordReview(ticket.key, decision, info, sha);
+      jiraRecorded = true;
+    } catch (err) {
+      if (!(err instanceof AcliError) || err.kind === 'blocked') throw err;
+      jiraNote = err.message;
+    }
+    return { ...effectiveTicket(latest, sha), jiraRecorded, jiraNote };
+  }
+
+  /** Where the approval gate stands for a branch's current commit (read-only; the page asks after each spec run). */
+  async function specGateFor(branch: unknown): Promise<SpecGate & { sha: string }> {
+    assertReviewable(branch);
+    await assertReady();
+    const sha = await revParse(`${remote}/${branch}`);
+    if (!sha) throw new ReviewError(404, `Branch "${branch}" was not found on ${remote}. Try refreshing.`);
+    const required = (await changedFilesFor(branch, sha, 'rebase')).filter((f) => f.status !== 'deleted' && isRunnableSpecPath(f.path)).map((f) => f.path);
+    return { ...specRun.gate(branch, sha, 'rebase', required), sha };
   }
 
   const specRun = createSpecRunService({
@@ -875,12 +1329,13 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     requireReviewTicket,
     fetchRemote,
     resolveBranch: (branch) => revParse(`${remote}/${branch}`),
-    changedFiles: async (branch) => {
-      const diff = await mustGit(['diff', '-M', '--no-color', '--no-ext-diff', '--no-textconv', `${baseRef}...${remote}/${branch}`], repoPath, 'git diff');
-      return parseDiff(diff).map((f) => ({ path: f.path, status: f.status }));
-    },
-    addWorktree: async (branch, dir) => {
+    changedFiles: changedFilesFor,
+    isMergeBusy: () => mergesInProgress.size > 0,
+    addWorktree: async (branch, dir, sha) => {
       await mustGit(['worktree', 'add', '--detach', '--quiet', dir, `${remote}/${branch}`], repoPath, 'Creating a temporary checkout of the PR');
+      // Exactly the commit that was reviewed, even if a fetch moved the branch meanwhile.
+      const head = (await mustGit(['rev-parse', 'HEAD'], dir, 'git rev-parse')).trim();
+      if (head !== sha) throw new ReviewError(409, changedSince(branch));
     },
     removeWorktree: async (dir) => {
       await git(['worktree', 'remove', '--force', dir]);
@@ -896,6 +1351,7 @@ export function createReviewService(config: ReviewConfig, deps: ReviewServiceDep
     merge,
     ghStatus,
     submitReview,
+    specGate: specGateFor,
     testServer: specRun.testServer,
     startSpecRun: specRun.start,
     getSpecRun: specRun.get,

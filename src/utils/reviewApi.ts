@@ -1,12 +1,15 @@
-import type { GhStatus, MergeResult, ReviewDetail, ReviewIssue, ReviewList, ReviewStatus, SpecJob, TestServerStatus } from '@/types/review';
+import type { GhStatus, MergeResult, ReviewDecisionResult, ReviewDetail, ReviewList, ReviewStatus, SpecGate, SpecJob, TestServerStatus } from '@/types/review';
 
-/** An error from the local review API, with the conflicting files if any. */
+/** An error from the local review API, with the conflicting files if any and a code the page can act on. */
 export class ReviewApiError extends Error {
   details: string[];
-  constructor(message: string, details: string[] = []) {
+  /** e.g. 'conflicts', 'merge-commits', 'specs-not-passed'. */
+  code?: string;
+  constructor(message: string, details: string[] = [], code?: string) {
     super(message);
     this.name = 'ReviewApiError';
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -17,7 +20,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ReviewApiError('Could not reach the local review server. Is the dev server (npm run dev) running?');
   }
-  let body: { success?: boolean; data?: T; error?: string; details?: string[] };
+  let body: { success?: boolean; data?: T; error?: string; details?: string[]; code?: string };
   try {
     body = await response.json();
   } catch {
@@ -25,7 +28,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ReviewApiError('The review API is not available here. Run the app with `npm run dev`.');
   }
   if (!response.ok || !body.success) {
-    throw new ReviewApiError(body.error || `Request failed (${response.status}).`, body.details ?? []);
+    throw new ReviewApiError(body.error || `Request failed (${response.status}).`, body.details ?? [], body.code);
   }
   return body.data as T;
 }
@@ -48,9 +51,9 @@ export const mergeReview = (input: { branch: string; expectedSha: string; moveTo
 
 export type ReviewDecision = 'approved' | 'declined' | 'none';
 
-/** Ticks Approved/Declined (or clears it) on the AT ticket and records the review information. */
+/** Records Approved / Changes requested (or clears it) for this exact commit, with a note, and appends it to the ticket's description. */
 export const submitReviewDecision = (input: { branch: string; expectedSha: string; decision: ReviewDecision; info?: string }) =>
-  call<ReviewIssue>('/decision', {
+  call<ReviewDecisionResult>('/decision', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -59,6 +62,9 @@ export const submitReviewDecision = (input: { branch: string; expectedSha: strin
 // ---- Playwright spec runs (against the local test server) ----
 
 export const fetchTestServer = () => call<TestServerStatus>('/tests/status');
+
+/** Where the approval gate stands for the branch's current commit: which specs have passed for it. */
+export const fetchSpecGate = (branch: string) => call<SpecGate & { sha: string }>(`/tests/gate?branch=${encodeURIComponent(branch)}`);
 
 export const startSpecRun = (input: { branch: string; expectedSha: string; specs: string[] | 'all' }) =>
   call<{ id: string }>('/tests/run', {

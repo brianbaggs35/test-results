@@ -106,7 +106,7 @@ describe('valid markup on the Review pages', () => {
 
   it('the approve and decline modal and the inline merge confirmation', async () => {
     await openPr();
-    fireEvent.click(within(screen.getByTestId('approval')).getByRole('button', { name: /^Decline/ }));
+    fireEvent.click(within(screen.getByTestId('approval')).getByRole('button', { name: /^Request changes/ }));
     expect(await screen.findByTestId('decision-modal')).toBeInTheDocument();
     fireEvent.click(within(screen.getByTestId('decision-modal')).getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByTestId('decision-modal')).not.toBeInTheDocument());
