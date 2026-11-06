@@ -80,3 +80,8 @@ export function safeHref(url: string | null | undefined): string | undefined {
     return undefined;
   }
 }
+
+/** A value that is safe to paste into a shell: plain words as they are, anything else in single quotes. */
+export function shellQuote(value: string): string {
+  return /^[A-Za-z0-9_@%+=:,./~-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}

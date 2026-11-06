@@ -115,7 +115,29 @@ describe('createReviewHandler', () => {
       expect(r.json().success).toBe(true);
       expect(svc[fn]).toHaveBeenCalled();
     }
-    expect(svc.detail).toHaveBeenCalledWith('AT-1-x');
+    expect(svc.detail).toHaveBeenCalledWith('AT-1-x', undefined);
+  });
+
+  it('passes the merge method through (and nothing else it was not told about)', async () => {
+    const svc = service();
+    const handler = createReviewHandler(svc);
+
+    const r1 = res();
+    await handler(req({ url: '/detail?branch=AT-1-x&method=cherry-pick' }), r1.raw);
+    expect(svc.detail).toHaveBeenLastCalledWith('AT-1-x', 'cherry-pick');
+
+    const r2 = res();
+    await handler(jsonPost({ branch: 'AT-1-x', expectedSha: 'abc1234', approved: true, moveToDone: false, method: 'cherry-pick', rebaseMerges: true }), r2.raw);
+    expect(svc.merge).toHaveBeenLastCalledWith({ branch: 'AT-1-x', expectedSha: 'abc1234', moveToDone: false, method: 'cherry-pick' });
+  });
+
+  it('answers with the error code so the page can offer the right next step', async () => {
+    const svc = service();
+    (svc.merge as ReturnType<typeof vi.fn>).mockRejectedValue(new ReviewError(409, 'hit conflicts', ['a.ts'], 'conflicts'));
+    const r = res();
+    await createReviewHandler(svc)(jsonPost({ branch: 'AT-1-x', expectedSha: 'abc1234', approved: true }), r.raw);
+    expect(r.out.statusCode).toBe(409);
+    expect(r.json()).toMatchObject({ success: false, error: 'hit conflicts', details: ['a.ts'], code: 'conflicts' });
   });
 
   it('merges with only the whitelisted fields', async () => {
@@ -270,7 +292,7 @@ describe('decision route', () => {
 
   it('maps service errors and the wrong verb', async () => {
     const r = res();
-    await createReviewHandler(service({ submitReview: vi.fn().mockRejectedValue(new ReviewError(400, 'Say why you are declining')) }))(post({ branch: 'AT-1-x' }), r.raw);
+    await createReviewHandler(service({ submitReview: vi.fn().mockRejectedValue(new ReviewError(400, 'Say what needs to change')) }))(post({ branch: 'AT-1-x' }), r.raw);
     expect(r.out.statusCode).toBe(400);
     const g = res();
     await createReviewHandler(service())(req({ url: '/decision' }), g.raw);

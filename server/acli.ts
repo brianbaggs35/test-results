@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { redactSecrets } from './redact.ts';
@@ -15,11 +15,17 @@ import { redactSecrets } from './redact.ts';
  *        acli jira workitem search  (project = "AT" AND status = "Review")
  *   2. READ one AT work item (its summary, status, assignee and Reviewer)
  *        acli jira workitem view AT-### --fields key,summary,status,assignee,customfield_10550 --json
- *   3. RECORD A REVIEW DECISION on one AT work item that is in the review column:
- *      set its Approval checkboxes (Approved / Declined) and its Review Information text
+ *      That read includes the AT board's Approval checkboxes and Review Information text (so a decision
+ *      ticked in Jira by hand is honoured) and the ticket's description.
+ *   2b. RECORD A REVIEW on one AT work item that is in the review column, in its DESCRIPTION
  *        acli jira workitem edit --from-json <private temp file> --yes
- *      (the guard reads that file and accepts only exactly those two fields, for one AT key)
- *   4. MOVE one AT work item that is currently in the review column to done
+ *      The Approval checkboxes themselves cannot be written from here: acli's edit command only takes
+ *      assignee, description, labels, summary and type (a custom field fails with `unknown field
+ *      "customfield_..."`; Atlassian tracks this as CLOUD-12876). So the decision is written as a
+ *      self-contained panel APPENDED to the end of the description. What is already there is never changed
+ *      or removed: every decision adds a panel (a history, the newest counts), and withdrawing one adds a
+ *      "Withdrawn" panel. The guard reads the file and accepts only {issues: [one AT key], description: <ADF document>}.
+ *   3. MOVE one AT work item that is currently in the review column to done
  *        acli jira workitem transition --key AT-### --status Done --yes
  *      (the caller only does this after the branch was rebased and merged)
  *
@@ -80,10 +86,20 @@ export interface JiraIssue {
   approval: 'approved' | 'declined' | null;
   /** The Review Information text. */
   reviewInfo: string;
+  /** The review recorded in the description by this app (see recordReview), or null. */
+  recorded: RecordedReview | null;
   url: string | null;
 }
 
-export type AcliErrorKind = 'not-installed' | 'not-authenticated' | 'blocked' | 'failed';
+export interface RecordedReview {
+  decision: 'approved' | 'declined';
+  /** The exact commit it applies to. */
+  sha: string;
+  /** The reviewer's note. */
+  info: string;
+}
+
+export type AcliErrorKind = 'not-installed' | 'not-authenticated' | 'blocked' | 'failed' | 'unsupported';
 
 export class AcliError extends Error {
   kind: AcliErrorKind;
@@ -105,8 +121,12 @@ export const APPROVAL_FIELD = 'customfield_10650';
 export const REVIEW_INFO_FIELD = 'customfield_10652';
 export const APPROVAL_OPTION_IDS = { approved: '10478', declined: '10479' } as const;
 export const MAX_REVIEW_INFO_CHARS = 5000;
+export const VIEW_FIELDS = `key,summary,status,assignee,${REVIEWER_FIELD},${APPROVAL_FIELD},${REVIEW_INFO_FIELD},description`;
+/** Where the one temporary file for an edit lives (private, removed straight after). */
 export const REVIEW_EDIT_DIR_PREFIX = join(tmpdir(), 'review-jira-');
-export const VIEW_FIELDS = `key,summary,status,assignee,${REVIEWER_FIELD},${APPROVAL_FIELD},${REVIEW_INFO_FIELD}`;
+/** If a rewrite is ever not verified, the original description is kept here. */
+export const REVIEW_BACKUP_DIR = join(tmpdir(), 'review-jira-backups');
+const MAX_DESCRIPTION_BYTES = 300_000;
 
 const isDoneStatus = (s: string) => ALLOWED_DONE_STATUSES.some((d) => d.toLowerCase() === s.toLowerCase());
 
@@ -126,16 +146,6 @@ const blocked = (why: string) => new AcliError(`Blocked by the AT-only guard rai
  * nothing can ride along inside an argument.
  */
 const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const sameKeys = (o: Record<string, unknown>, keys: string[]) => Object.keys(o).length === keys.length && keys.every((k) => k in o);
-
-/** Plain text -> Atlassian Document Format (what Jira's text-area fields take): one paragraph per line. */
-export function toAdf(text: string): Record<string, unknown> {
-  return {
-    type: 'doc',
-    version: 1,
-    content: text.split('\n').map((line) => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] })),
-  };
-}
 
 /** The ADF back to plain text (paragraphs joined with newlines). */
 export function fromAdf(node: unknown): string {
@@ -148,23 +158,99 @@ export function fromAdf(node: unknown): string {
 
 export type ReviewDecision = 'approved' | 'declined' | 'none';
 
-/** The one edit payload this app may send: one AT ticket, only the Approval and Review Information fields. */
-export function buildReviewPayload(key: string, decision: ReviewDecision, info?: string): Record<string, unknown> {
-  return {
-    issues: [key],
-    [APPROVAL_FIELD]: decision === 'none' ? [] : [{ id: APPROVAL_OPTION_IDS[decision] }],
-    ...(info !== undefined ? { [REVIEW_INFO_FIELD]: toAdf(info) } : {}),
-  };
+// ---- the review panel in the description ------------------------------------
+
+interface AdfNode {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: AdfNode[];
+  text?: string;
+  marks?: Array<{ type: string }>;
+}
+const EMPTY_DOC = (): AdfNode => ({ type: 'doc', content: [], attrs: undefined });
+const REVIEW_PANEL_MARKER = 'Code review: ';
+/** Nodes that carry ids only Atlassian can mint (images, macros): a description with any is never rewritten. */
+const UNSAFE_NODE_TYPES = new Set(['media', 'mediaSingle', 'mediaGroup', 'mediaInline', 'extension', 'bodiedExtension', 'inlineExtension', 'embedCard', 'syncBlock', 'bodiedSyncBlock']);
+
+function normaliseDoc(value: unknown): AdfNode {
+  if (isPlainObject(value) && value.type === 'doc' && Array.isArray(value.content)) return { type: 'doc', content: value.content as AdfNode[], ...(value.version !== undefined ? { version: value.version } : {}) } as AdfNode;
+  return EMPTY_DOC();
 }
 
-/**
- * Reads the edit file and refuses anything but exactly what buildReviewPayload
- * makes: a single AT key, only the two permitted fields, only the two known
- * option ids, and plain paragraph text of a bounded size.
- */
+function hasUnsafeNodes(node: unknown): boolean {
+  if (!isPlainObject(node)) return false;
+  if (typeof node.type === 'string' && UNSAFE_NODE_TYPES.has(node.type)) return true;
+  return Array.isArray(node.content) && node.content.some(hasUnsafeNodes);
+}
+
+function nodeTypes(node: unknown, into: Map<string, number> = new Map()): Map<string, number> {
+  if (!isPlainObject(node)) return into;
+  if (typeof node.type === 'string') into.set(node.type, (into.get(node.type) ?? 0) + 1);
+  if (Array.isArray(node.content)) for (const k of node.content) nodeTypes(k, into);
+  return into;
+}
+
+const isReviewPanel = (n: unknown): n is AdfNode =>
+  isPlainObject(n) && n.type === 'panel' && Array.isArray(n.content) && fromAdf((n.content as unknown[])[0]).startsWith(REVIEW_PANEL_MARKER);
+
+/** The newest review panel in a description (history is kept, so there can be several), as its label, commit and note. */
+function lastReviewPanel(doc: unknown): { label: 'Approved' | 'Changes requested' | 'Withdrawn'; sha: string; info: string } | null {
+  if (!isPlainObject(doc) || !Array.isArray(doc.content)) return null;
+  const panel = [...doc.content].reverse().find(isReviewPanel);
+  if (!panel) return null;
+  const paragraphs = (panel.content ?? []).map((p) => fromAdf(p));
+  // "Declined" is what an early version wrote for the same thing
+  const label = /^Code review: (Approved|Changes requested|Declined|Withdrawn)\b/.exec(paragraphs[0] ?? '');
+  const sha = /^Commit: ([0-9a-f]{40})$/.exec(paragraphs[1] ?? '');
+  if (!label || !sha) return null;
+  const notes = paragraphs.slice(2);
+  if (notes[0] === 'Review notes:') notes.shift();
+  return { label: label[1] === 'Declined' ? 'Changes requested' : (label[1] as 'Approved' | 'Changes requested' | 'Withdrawn'), sha: sha[1], info: notes.join('\n').trim() };
+}
+
+/** The review this app recorded in a description: the newest panel, unless that one withdrew the decision. */
+export function parseReviewPanel(doc: unknown): RecordedReview | null {
+  const last = lastReviewPanel(doc);
+  if (!last || last.label === 'Withdrawn') return null;
+  return { decision: last.label === 'Approved' ? 'approved' : 'declined', sha: last.sha, info: last.info }; // 'declined' is the app's internal word for "changes requested"
+}
+
+const DECISION_LABEL = { approved: 'Approved', declined: 'Changes requested' } as const;
+
+/** The panel: green for Approved, orange for Changes requested, grey for Withdrawn, with the commit it applies to and the note. */
+export function buildReviewPanel(decision: 'approved' | 'declined' | 'withdrawn', info: string, sha: string, at: Date): AdfNode {
+  const text = (value: string, marks?: Array<{ type: string }>): AdfNode => ({ type: 'text', text: value, ...(marks ? { marks } : {}) });
+  const label = decision === 'withdrawn' ? 'Withdrawn' : DECISION_LABEL[decision];
+  const content: AdfNode[] = [
+    { type: 'paragraph', content: [text(`${REVIEW_PANEL_MARKER}${label}`, [{ type: 'strong' }]), text(` (recorded by the Review tab on ${at.toISOString().slice(0, 10)})`)] },
+    { type: 'paragraph', content: [text('Commit: '), text(sha, [{ type: 'code' }])] },
+  ];
+  if (info) {
+    content.push({ type: 'paragraph', content: [text('Review notes:', [{ type: 'strong' }])] });
+    for (const line of info.split('\n')) content.push({ type: 'paragraph', content: line ? [text(line)] : [] });
+  }
+  return { type: 'panel', attrs: { panelType: decision === 'approved' ? 'success' : decision === 'declined' ? 'warning' : 'note' }, content };
+}
+
+/** The description with `panel` added at the very end. Nothing that is already there is changed or removed. */
+export function appendReviewPanel(doc: AdfNode, panel: AdfNode): AdfNode {
+  return { ...doc, content: [...(doc.content ?? []), panel] };
+}
+
+/** The description as plain text and node counts: what must be identical before the write and in everything but the new panel after it. */
+function fingerprint(content: AdfNode[]): string {
+  const doc: AdfNode = { type: 'doc', content };
+  return JSON.stringify({ text: fromAdf(doc), types: [...nodeTypes(doc)].sort() });
+}
+
+/** The edit payload this app may send: one AT ticket and its (whole) description. */
+export function buildReviewPayload(key: string, description: AdfNode): Record<string, unknown> {
+  return { issues: [key], description };
+}
+
 function assertReviewEditFile(file: string): void {
   const rest = typeof file === 'string' && file.startsWith(REVIEW_EDIT_DIR_PREFIX) ? file.slice(REVIEW_EDIT_DIR_PREFIX.length) : '';
-  if (!/^[A-Za-z0-9]+\/edit\.json$/.test(rest) || file.includes('..')) throw blocked('the edit file must be the app\'s own temporary file.');
+  if (!/^[A-Za-z0-9]+\/edit\.json$/.test(rest) || file.includes('..')) throw blocked("the edit file must be the app's own temporary file.");
   let data: unknown;
   try {
     data = JSON.parse(readFileSync(file, 'utf8'));
@@ -177,42 +263,15 @@ function assertReviewEditFile(file: string): void {
 /** The content rules, separate from the file so they can be tested (and audited) on their own. */
 export function assertReviewEditPayload(data: unknown): void {
   if (!isPlainObject(data)) throw blocked('the edit file must be a JSON object.');
-  const allowed = ['issues', APPROVAL_FIELD, REVIEW_INFO_FIELD];
-  if (Object.keys(data).some((k) => !allowed.includes(k))) throw blocked('only the Approval and Review Information fields may be edited.');
+  if (Object.keys(data).length !== 2 || !('issues' in data) || !('description' in data)) throw blocked('only one ticket and its description may be edited.');
   if (!Array.isArray(data.issues) || data.issues.length !== 1 || typeof data.issues[0] !== 'string' || !TICKET_KEY_RE.test(data.issues[0])) {
     throw blocked(`exactly one ${ALLOWED_PROJECT} ticket may be edited.`);
   }
-  if (!(APPROVAL_FIELD in data) && !(REVIEW_INFO_FIELD in data)) throw blocked('nothing to edit.');
-  if (APPROVAL_FIELD in data) {
-    const a = data[APPROVAL_FIELD];
-    const ids = Object.values(APPROVAL_OPTION_IDS) as string[];
-    const ok = Array.isArray(a) && a.length <= 1 && a.every((o) => isPlainObject(o) && sameKeys(o, ['id']) && typeof o.id === 'string' && ids.includes(o.id));
-    if (!ok) throw blocked('Approval may only be set to Approved, Declined or cleared.');
-  }
-  if (REVIEW_INFO_FIELD in data) {
-    const doc = data[REVIEW_INFO_FIELD];
-    let chars = 0;
-    const ok =
-      isPlainObject(doc) &&
-      sameKeys(doc, ['type', 'version', 'content']) &&
-      doc.type === 'doc' &&
-      doc.version === 1 &&
-      Array.isArray(doc.content) &&
-      doc.content.length > 0 &&
-      doc.content.every(
-        (p) =>
-          isPlainObject(p) &&
-          p.type === 'paragraph' &&
-          Array.isArray(p.content) &&
-          p.content.every((t) => {
-            const good = isPlainObject(t) && sameKeys(t, ['type', 'text']) && t.type === 'text' && typeof t.text === 'string';
-            if (good) chars += (t as { text: string }).text.length;
-            return good;
-          }),
-      );
-    if (!ok) throw blocked('Review Information must be plain paragraphs of text.');
-    if (chars > MAX_REVIEW_INFO_CHARS) throw blocked(`Review Information is limited to ${MAX_REVIEW_INFO_CHARS} characters.`);
-  }
+  const doc = data.description;
+  if (!isPlainObject(doc) || doc.type !== 'doc' || !Array.isArray(doc.content)) throw blocked('the description must be an Atlassian Document Format document.');
+  if (!doc.content.every((n) => isPlainObject(n) && typeof n.type === 'string')) throw blocked('the description has an invalid node.');
+  if (Buffer.byteLength(JSON.stringify(doc)) > MAX_DESCRIPTION_BYTES) throw blocked('the description is too large to rewrite.');
+  if (hasUnsafeNodes(doc)) throw blocked('a description with images or macros is never rewritten.');
 }
 
 export function assertAllowedAcliCommand(args: string[], settings: Pick<JiraSettings, 'reviewStatus' | 'doneStatus'>): void {
@@ -323,6 +382,7 @@ export function parseIssues(stdout: string, settings: Pick<JiraSettings, 'review
       reviewers: asNames(f[REVIEWER_FIELD]),
       approval: parseApproval(f[APPROVAL_FIELD]),
       reviewInfo: fromAdf(f[REVIEW_INFO_FIELD]).trim(),
+      recorded: parseReviewPanel(f.description),
       url: base ? `${base}/browse/${r.key}` : null,
     });
   }
@@ -360,11 +420,10 @@ export function createJiraClient(projectKey: string, settings: JiraSettings, raw
   }
 
   /**
-   * Read-only: one AT ticket, with its Reviewer — but only if it is in the
-   * review column right now (else null). One call serves the show page and the
-   * pre-merge check.
+   * Read-only: one AT ticket, with its Reviewer and the raw description — but only if it is in the
+   * review column right now (else null). One call serves the show page and the pre-merge check.
    */
-  async function findInReview(key: string): Promise<JiraIssue | null> {
+  async function viewRaw(key: string): Promise<{ issue: JiraIssue; description: unknown } | null> {
     if (!TICKET_KEY_RE.test(key)) throw new AcliError(`"${key}" is not a ${ALLOWED_PROJECT} ticket key.`);
     const r = await run(['jira', 'workitem', 'view', key, '--fields', VIEW_FIELDS, '--json']);
     if (r.code !== 0) {
@@ -378,49 +437,94 @@ export function createJiraClient(projectKey: string, settings: JiraSettings, raw
     } catch {
       throw new AcliError('Could not read the output of `acli jira workitem view` (expected JSON).');
     }
-    const issue = parseIssues(JSON.stringify(Array.isArray(data) ? data : [data]), settings).find((i) => i.key === key);
-    return issue && issue.status.toLowerCase() === settings.reviewStatus.toLowerCase() ? issue : null;
+    const list = Array.isArray(data) ? data : [data];
+    const issue = parseIssues(JSON.stringify(list), settings).find((i) => i.key === key);
+    if (!issue || issue.status.toLowerCase() !== settings.reviewStatus.toLowerCase()) return null;
+    const raw = list.find((d) => isPlainObject(d) && d.key === key) as { fields?: { description?: unknown } } | undefined;
+    return { issue, description: raw?.fields?.description ?? null };
   }
 
-  /**
-   * Record a review decision on one AT ticket that is in the review column,
-   * then READ IT BACK: acli's `edit` doesn't document custom-field support, so
-   * a change that silently didn't happen is reported instead of assumed.
-   */
-  async function submitReview(key: string, decision: ReviewDecision, info?: string): Promise<JiraIssue> {
-    const current = await findInReview(key);
-    if (!current) throw new AcliError(`${key} is not in "${settings.reviewStatus}" any more, so its review was not changed.`);
-    const text = info === undefined ? undefined : info.replace(/\0/g, '').replace(/\r\n?/g, '\n').trim();
-    if (text !== undefined && text.length > MAX_REVIEW_INFO_CHARS) throw new AcliError(`Review information is limited to ${MAX_REVIEW_INFO_CHARS} characters.`);
+  async function findInReview(key: string): Promise<JiraIssue | null> {
+    return (await viewRaw(key))?.issue ?? null;
+  }
 
+  /** Writes a whole description through the one allowed edit shape, with the private temp file removed straight after. */
+  async function writeDescription(key: string, description: AdfNode): Promise<void> {
     const dir = mkdtempSync(REVIEW_EDIT_DIR_PREFIX);
     try {
       chmodSync(dir, 0o700);
       const file = join(dir, 'edit.json');
-      writeFileSync(file, JSON.stringify(buildReviewPayload(key, decision, text || undefined)), { mode: 0o600 });
+      writeFileSync(file, JSON.stringify(buildReviewPayload(key, description)), { mode: 0o600 });
       const r = await run(['jira', 'workitem', 'edit', '--from-json', file, '--yes']);
-      if (r.code !== 0) {
-        if (/unknown field|not allowed|cannot (?:set|be set)|not on the appropriate screen/i.test(`${r.stderr}${r.stdout}`)) {
-          throw new AcliError(
-            `Your acli can't set these Jira fields (${redactSecrets(`${r.stderr}${r.stdout}`.trim().split('\n')[0] ?? '')}). Set Approval and Review Information on ${key} in Jira instead.`,
-          );
-        }
-        throw explain(r, `Saving the review on ${key}`);
-      }
+      if (r.code !== 0) throw explain(r, `Saving the review on ${key}`);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  }
 
-    const after = await findInReview(key);
-    const want = decision === 'none' ? null : decision;
-    if (!after || after.approval !== want || (text && after.reviewInfo !== text)) {
-      throw new AcliError(`Jira did not save the review on ${key} (the fields are unchanged). Set Approval and Review Information on ${key} in Jira directly.`);
+  function saveBackup(key: string, description: AdfNode): string {
+    mkdirSync(REVIEW_BACKUP_DIR, { recursive: true, mode: 0o700 });
+    const file = join(REVIEW_BACKUP_DIR, `${key}-${Date.now()}.json`);
+    writeFileSync(file, JSON.stringify(description), { mode: 0o600 });
+    return file;
+  }
+
+  /**
+   * Record (or withdraw) a review on one AT ticket that is in the review column by APPENDING a panel to the end of its
+   * description: Approved, Changes requested or Withdrawn, which commit, and the reviewer's note. What is already in the
+   * description is never changed or removed (earlier panels stay, as a history; the newest one counts). A copy of the
+   * original is saved first, the result is read back, and if anything before the new panel differs the original is put
+   * back. A description with images or macros is never rewritten.
+   */
+  async function recordReview(key: string, decision: ReviewDecision, info: string | undefined, sha: string): Promise<JiraIssue> {
+    if (!TICKET_KEY_RE.test(key)) throw new AcliError(`"${key}" is not a ${ALLOWED_PROJECT} ticket key.`);
+    if (decision !== 'none' && !/^[0-9a-f]{40}$/.test(sha)) throw new AcliError('The commit that was reviewed is needed to record a review.');
+    const text = (info ?? '').replace(/\0/g, '').replace(/\r\n?/g, '\n').trim();
+    if (text.length > MAX_REVIEW_INFO_CHARS) throw new AcliError(`Review information is limited to ${MAX_REVIEW_INFO_CHARS} characters.`);
+
+    const before = await viewRaw(key);
+    if (!before) throw new AcliError(`${key} is not in "${settings.reviewStatus}" any more, so its review was not recorded.`);
+    const original = normaliseDoc(before.description);
+    if (hasUnsafeNodes(original)) {
+      throw new AcliError(`${key}'s description has images or macros, which acli can't safely rewrite, so the review was not written to Jira.`, 'unsupported');
     }
-    return after;
+    // What to add. Withdrawing only makes sense if there is a decision to withdraw; repeating the same decision adds nothing.
+    const current = lastReviewPanel(original);
+    const standing = current && current.label !== 'Withdrawn' ? current : null;
+    if (decision === 'none' ? !standing : standing && standing.label === DECISION_LABEL[decision] && standing.sha === sha && standing.info === text) return before.issue;
+    const panel = decision === 'none' ? buildReviewPanel('withdrawn', '', standing!.sha, new Date()) : buildReviewPanel(decision, text, sha, new Date());
+    const next = appendReviewPanel(original, panel);
+
+    const backup = saveBackup(key, original);
+    try {
+      await writeDescription(key, next);
+    } catch (err) {
+      rmSync(backup, { force: true }); // acli refused it, so nothing changed and there is nothing to restore
+      throw err;
+    }
+
+    // Read it back: exactly one new panel at the end, saying what was asked, and everything before it unchanged.
+    const after = await viewRaw(key);
+    const afterContent = after ? normaliseDoc(after.description).content ?? [] : [];
+    const originalContent = original.content ?? [];
+    const written = lastReviewPanel({ content: afterContent });
+    const expectedLabel = decision === 'none' ? 'Withdrawn' : DECISION_LABEL[decision];
+    const reviewOk = !!written && written.label === expectedLabel && written.sha === (decision === 'none' ? standing!.sha : sha) && (decision === 'none' || written.info === text);
+    const restOk = afterContent.length === originalContent.length + 1 && fingerprint(afterContent.slice(0, -1)) === fingerprint(originalContent);
+    if (!after || !reviewOk || !restOk) {
+      try {
+        await writeDescription(key, original); // put it back
+      } catch {
+        // the saved copy is the way back
+      }
+      throw new AcliError(`Jira did not keep the review as written on ${key}, so its description was put back. A copy of the original is at ${backup}. Add the review to ${key} yourself.`);
+    }
+    rmSync(backup, { force: true });
+    return after.issue;
   }
 
   return {
-    submitReview,
+    recordReview,
     findReviewIssue: findInReview,
 
     /** Operation 1 (read-only): AT tickets currently in the review column. */

@@ -1,7 +1,7 @@
-import { Component, useState } from 'react';
+import { Component, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
-import { DiffView as GitDiffView, DiffModeEnum } from '@git-diff-view/react';
+import { DiffFile, DiffView as GitDiffView, DiffModeEnum } from '@git-diff-view/react';
 // The "pure" stylesheet has no Tailwind dependency, so it can't clash with ours.
 import '@git-diff-view/react/styles/diff-view-pure.css';
 import { useTheme } from 'next-themes';
@@ -41,6 +41,38 @@ class DiffBoundary extends Component<{ patch: string; resetKey: string; children
   }
 }
 
+/**
+ * Builds the file's diff, with its syntax colours and the changed-word highlights, BEFORE the viewer renders it.
+ *
+ * Handing the viewer plain `data` makes it build all of that in effects after its first render, and its rows are
+ * memoised: a row that rendered before the highlighter finished never re-reads the colours. Whether a file came out
+ * coloured was a race, so some files on a page were coloured and others plain white. Built here, in one synchronous
+ * step, every row has its colours the first time it renders.
+ */
+const HighlightedDiff: React.FC<{ file: ReviewFile; lang: string | undefined; mode: DiffMode; theme: 'light' | 'dark' }> = ({ file, lang, mode, theme }) => {
+  const diffFile = useMemo(() => {
+    const built = new DiffFile(file.oldPath ?? file.path, '', file.path, '', [buildHunk(file)], lang ?? '', lang ?? '');
+    built.initTheme(theme);
+    built.initRaw();
+    built.buildSplitDiffLines();
+    built.buildUnifiedDiffLines();
+    built.initSyntax();
+    return built;
+    // `theme` only recolours through the viewer's own data-theme, so it is deliberately not a reason to rebuild
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildHunk reads exactly these fields of `file`
+  }, [file.path, file.oldPath, file.status, file.patch, lang]);
+
+  return (
+    <GitDiffView
+      diffFile={diffFile}
+      diffViewMode={mode === 'split' ? DiffModeEnum.Split : DiffModeEnum.Unified}
+      diffViewTheme={theme}
+      diffViewHighlight
+      diffViewFontSize={12}
+    />
+  );
+};
+
 export interface FileDiffProps {
   file: ReviewFile;
   mode?: DiffMode;
@@ -59,7 +91,6 @@ export const FileDiff: React.FC<FileDiffProps> = ({ file, mode = 'split', id, op
   const toggle = onToggle ?? (() => setOpenState(!openState));
   const { resolvedTheme } = useTheme();
   const lang = langFor(file.path);
-
   return (
     <div id={id} className="scroll-mt-24 overflow-hidden rounded-lg border border-border/60 bg-card" data-testid="file-diff" data-viewed={viewed ? 'true' : 'false'}>
       <div className="flex items-center gap-2 bg-muted/50 pr-3 hover:bg-muted">
@@ -98,17 +129,7 @@ export const FileDiff: React.FC<FileDiffProps> = ({ file, mode = 'split', id, op
           ) : (
             <div className="overflow-x-auto" data-testid="diff-body" data-mode={mode}>
               <DiffBoundary patch={file.patch} resetKey={`${file.path}:${mode}`}>
-                <GitDiffView
-                  data={{
-                    oldFile: { fileName: file.oldPath ?? file.path, fileLang: lang },
-                    newFile: { fileName: file.path, fileLang: lang },
-                    hunks: [buildHunk(file)],
-                  }}
-                  diffViewMode={mode === 'split' ? DiffModeEnum.Split : DiffModeEnum.Unified}
-                  diffViewTheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-                  diffViewHighlight
-                  diffViewFontSize={12}
-                />
+                <HighlightedDiff file={file} lang={lang} mode={mode} theme={resolvedTheme === 'dark' ? 'dark' : 'light'} />
               </DiffBoundary>
             </div>
           )}

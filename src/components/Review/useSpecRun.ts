@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cancelSpecRun, fetchSpecJob, fetchTestServer, startSpecRun } from '@/utils/reviewApi';
 import { isFinished } from '@/utils/specFormat';
+import { clearActiveRun, readActiveRun, readRun, writeActiveRun, writeRun } from '@/utils/reviewStorage';
 import type { SpecJob, TestServerStatus } from '@/types/review';
 
 export type FileState = 'idle' | 'running' | 'passed' | 'failed' | 'skipped' | 'error' | 'cancelled';
@@ -15,6 +16,8 @@ export interface SpecRunState {
   fileStates: Record<string, FileState>;
   /** A run is starting or in progress. */
   running: boolean;
+  /** The run shown was brought back from this browser's saved progress (or picked up again after leaving the page). */
+  restored: boolean;
   start: (specs: string[] | 'all') => Promise<boolean>;
   cancel: () => Promise<void>;
   clearError: () => void;
@@ -23,9 +26,10 @@ export interface SpecRunState {
 const MAX_POLL_FAILURES = 5;
 
 /**
- * Starts a spec run on the local dev server and follows it by polling. The run
- * keeps going on the server even if this page is left; nothing is persisted
- * (there is no database) — results live here for as long as the PR page is open.
+ * Starts a spec run on the local dev server and follows it by polling. The run keeps going on the server even if this
+ * page is left, so the run is remembered in this browser (per PR commit): coming back picks a still-running run up
+ * again, or shows the finished results. If the server has lost the run (it was restarted) the saved results are
+ * shown, and a run that never finished is marked as interrupted rather than left spinning.
  */
 export function useSpecRun(branch: string, sha: string, allSpecs: string[], pollMs = 800): SpecRunState {
   const [job, setJob] = useState<SpecJob | null>(null);
@@ -33,10 +37,14 @@ export function useSpecRun(branch: string, sha: string, allSpecs: string[], poll
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileStates, setFileStates] = useState<Record<string, FileState>>({});
+  const [restored, setRestored] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jobId = useRef<string | null>(null);
   const offset = useRef(0);
+  /** Everything received so far: the saved copy needs all of it, and state updates are asynchronous. */
+  const outputRef = useRef('');
+  const lastSavedStatus = useRef<string | null>(null);
   const failures = useRef(0);
   const mounted = useRef(true);
   const startingRef = useRef(false);
@@ -60,6 +68,18 @@ export function useSpecRun(branch: string, sha: string, allSpecs: string[], poll
     });
   }, []);
 
+  /** Keeps the run in this browser: whenever its stage changes, and always when it finishes. */
+  const persist = useCallback(
+    (j: SpecJob) => {
+      const finished = isFinished(j.status);
+      if (!finished && lastSavedStatus.current === j.status) return;
+      lastSavedStatus.current = j.status;
+      writeRun(branch, sha, { ...j, output: outputRef.current });
+      if (finished) clearActiveRun(branch, sha);
+    },
+    [branch, sha],
+  );
+
   const poll = useCallback(
     async (id: string) => {
       if (!mounted.current || jobId.current !== id) return;
@@ -68,8 +88,12 @@ export function useSpecRun(branch: string, sha: string, allSpecs: string[], poll
         if (!mounted.current || jobId.current !== id) return;
         failures.current = 0;
         offset.current = j.nextOffset;
-        if (j.output) setOutput((o) => o + j.output);
+        if (j.output) {
+          outputRef.current += j.output;
+          setOutput((o) => o + j.output);
+        }
         setJob(j);
+        persist(j);
         if (isFinished(j.status)) {
           applyFinal(j);
           return;
@@ -83,8 +107,54 @@ export function useSpecRun(branch: string, sha: string, allSpecs: string[], poll
       }
       timer.current = setTimeout(() => void poll(id), pollMs);
     },
-    [applyFinal, pollMs],
+    [applyFinal, persist, pollMs],
   );
+
+  // Coming back to this PR commit: pick up a run that is still going, or show the one that finished.
+  useEffect(() => {
+    let cancelled = false;
+    const saved = readRun(branch, sha);
+    const showSaved = () => {
+      if (!saved) return;
+      // A run that never finished (the page or the server went away) must not look like it is still going.
+      const job: SpecJob = isFinished(saved.job.status)
+        ? saved.job
+        : { ...saved.job, status: 'error', error: 'This run was interrupted: the dev server was restarted or the run was lost. Run the specs again.' };
+      outputRef.current = job.output;
+      setOutput(job.output);
+      setJob(job);
+      applyFinal(job);
+      setRestored(true);
+    };
+    const activeId = readActiveRun(branch, sha);
+    if (!activeId) {
+      showSaved();
+      return;
+    }
+    fetchSpecJob(activeId, 0)
+      .then((j) => {
+        if (cancelled || !mounted.current) return;
+        jobId.current = activeId;
+        offset.current = j.nextOffset;
+        outputRef.current = j.output;
+        setOutput(j.output);
+        setJob(j);
+        setRestored(true);
+        persist(j);
+        if (isFinished(j.status)) applyFinal(j);
+        else void poll(activeId);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        clearActiveRun(branch, sha); // the server doesn't have it any more
+        showSaved();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // restoring happens once per PR commit; the callbacks are stable for it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch, sha]);
 
   const start = useCallback(
     async (specs: string[] | 'all'): Promise<boolean> => {
@@ -99,6 +169,10 @@ export function useSpecRun(branch: string, sha: string, allSpecs: string[], poll
         jobId.current = id;
         offset.current = 0;
         failures.current = 0;
+        outputRef.current = '';
+        lastSavedStatus.current = null;
+        writeActiveRun(branch, sha, id);
+        setRestored(false);
         setOutput('');
         setJob(null);
         setFileStates((prev) => ({ ...prev, ...Object.fromEntries(files.map((f) => [f, 'running' as const])) }));
@@ -128,7 +202,7 @@ export function useSpecRun(branch: string, sha: string, allSpecs: string[], poll
 
   const running = starting || (job !== null && !isFinished(job.status)) || (jobId.current !== null && job === null && !error);
 
-  return { job, output, starting, error, fileStates, running, start, cancel, clearError: () => setError(null) };
+  return { job, output, starting, error, fileStates, running, restored, start, cancel, clearError: () => setError(null) };
 }
 
 export interface TestServerState {

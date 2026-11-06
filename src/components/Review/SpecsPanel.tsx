@@ -5,7 +5,7 @@ import { plural } from '@/utils/reviewFormat';
 import { formatDuration, groupSupportFiles, splitSpecPath, summarize } from '@/utils/specFormat';
 import { CopyCommand } from './CopyCommand';
 import type { FileState, SpecRunState, TestServerState } from './useSpecRun';
-import type { ReviewDetail } from '@/types/review';
+import type { ReviewDetail, SpecGate } from '@/types/review';
 
 const StateIcon: React.FC<{ state: FileState }> = ({ state }) => {
   switch (state) {
@@ -63,13 +63,15 @@ const SupportFileGroups: React.FC<{ files: string[] }> = ({ files }) => (
 
 export interface SpecsPanelProps {
   detail: ReviewDetail;
+  /** Which specs have passed for this exact commit (the server's record). */
+  gate: SpecGate;
   run: SpecRunState;
   server: TestServerState;
   onRun: (specs: string[] | 'all') => void;
   onOpenOutput: () => void;
 }
 
-export const SpecsPanel: React.FC<SpecsPanelProps> = ({ detail, run, server, onRun, onOpenOutput }) => {
+export const SpecsPanel: React.FC<SpecsPanelProps> = ({ detail, gate, run, server, onRun, onOpenOutput }) => {
   const specs = detail.specs;
   const supportFiles = detail.supportFiles ?? [];
   // Stays visible while re-checking (so you can see it checking); only hidden during the very first check.
@@ -78,6 +80,9 @@ export const SpecsPanel: React.FC<SpecsPanelProps> = ({ detail, run, server, onR
   const blockedReason = run.running ? 'A run is already in progress' : down ? `The test server isn't running — start it with ${startCommand}` : server.checking && !server.status ? 'Checking the test server…' : undefined;
   const disabled = !!blockedReason;
   const last = summarize(run.job?.results ?? null);
+  // what the server knows about each spec for this commit, even if it ran while this page wasn't open
+  const known = new Map(gate.progress.map((p) => [p.file, p]));
+  const passedCount = specs.filter((spec) => known.get(spec) && known.get(spec)!.status !== 'failed').length;
 
   if (specs.length === 0) {
     return (
@@ -130,6 +135,23 @@ export const SpecsPanel: React.FC<SpecsPanelProps> = ({ detail, run, server, onR
         </div>
       </div>
 
+      {specs.length > 0 && (
+        <div
+          className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-sm', gate.satisfied ? 'border-success/40 bg-success/5' : 'border-border/60 bg-muted/30')}
+          data-testid="spec-gate"
+          data-satisfied={gate.satisfied}
+        >
+          {gate.satisfied ? <CheckCircleIcon className="size-4 text-success" /> : <CircleMinusIcon className="size-4 text-muted-foreground" />}
+          <span>
+            <strong data-testid="spec-gate-count">
+              {passedCount} of {specs.length}
+            </strong>{' '}
+            specs have passed for this commit.
+          </span>
+          <span className="text-muted-foreground">{gate.satisfied ? 'The PR can be approved.' : 'Every spec has to pass before the PR can be approved.'}</span>
+        </div>
+      )}
+
       {down && (
         <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4" data-testid="test-server-down">
           <div className="flex items-start gap-3">
@@ -167,13 +189,15 @@ export const SpecsPanel: React.FC<SpecsPanelProps> = ({ detail, run, server, onR
           {last.failed > 0 && <span className="font-medium text-destructive"> · ✗ {last.failed} failed</span>}
           {last.skipped > 0 && <span className="text-muted-foreground"> · {last.skipped} skipped</span>}
           <span className="text-muted-foreground"> · {formatDuration(run.job.elapsedMs)}</span>
+          {run.restored && <span className="text-muted-foreground"> · saved in this browser</span>}
         </p>
       )}
 
       <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card" aria-label="Spec files">
         {specs.map((spec) => {
           const { dir, name } = splitSpecPath(spec);
-          const state: FileState = run.fileStates[spec] ?? 'idle';
+          const earlier = known.get(spec);
+          const state: FileState = run.fileStates[spec] ?? (earlier ? earlier.status : 'idle');
           const result = run.job?.results?.find((r) => r.file === spec);
           return (
             <li key={spec} className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto_2.25rem] items-center gap-3 px-4 py-3" data-testid="spec-row" data-state={state}>
@@ -191,7 +215,9 @@ export const SpecsPanel: React.FC<SpecsPanelProps> = ({ detail, run, server, onR
                       ? 'Could not run'
                       : state === 'cancelled'
                         ? 'Cancelled'
-                        : '—'}
+                        : earlier
+                          ? 'earlier run'
+                          : '—'}
               </span>
               <Button
                 type="button"

@@ -22,16 +22,19 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { defaultDiffMode, plural, safeHref, timeAgo } from '@/utils/reviewFormat';
 import type { DiffMode } from '@/utils/reviewFormat';
-import { fetchReviewDetail, submitReviewDecision } from '@/utils/reviewApi';
-import { readViewed, writeViewed } from '@/utils/reviewStorage';
+import { fetchReviewDetail, fetchSpecGate, submitReviewDecision } from '@/utils/reviewApi';
+import { isFinished } from '@/utils/specFormat';
+import { readSelection, readViewed, writeSelection, writeViewed } from '@/utils/reviewStorage';
 import { FileDiff } from './DiffView';
+import { CopyButton } from './CopyCommand';
 import { ErrorBanner, Skeleton } from './Feedback';
 import { MergeBox } from './MergeBox';
+import type { JiraNote } from './MergeBox';
 import { ReviewDecisionModal } from './ReviewDecisionModal';
 import { SpecRunModal } from './SpecRunModal';
 import { SpecsPanel } from './SpecsPanel';
 import { useSpecRun, useTestServer } from './useSpecRun';
-import type { ReviewBranch, ReviewDetail, ReviewFile, ReviewIssue } from '@/types/review';
+import type { ReviewBranch, ReviewDetail, ReviewFile, ReviewIssue, SpecGate } from '@/types/review';
 import { toast } from 'sonner';
 
 type DetailTab = 'conversation' | 'commits' | 'files' | 'specs';
@@ -62,6 +65,26 @@ const StateChip: React.FC<{ detail: ReviewDetail }> = ({ detail }) => {
     <Badge variant="outline" className="border-success/40 text-success">
       Ready to merge
     </Badge>
+  );
+};
+
+/** Old commits at the bottom of the branch that the base already has: not reviewed, not merged, but not hidden either. */
+const AlreadyInBase: React.FC<{ detail: ReviewDetail }> = ({ detail }) => {
+  const skipped = detail.alreadyInBase ?? [];
+  if (skipped.length === 0) return null;
+  return (
+    <details className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm" data-testid="already-in-base">
+      <summary className="cursor-pointer text-muted-foreground">
+        {plural(skipped.length, 'older commit')} already in {detail.baseBranch} (left out)
+      </summary>
+      <ul className="mt-2 space-y-1">
+        {skipped.map((c) => (
+          <li key={c.sha} className="break-words">
+            {c.subject} <code className="text-xs text-muted-foreground">{c.sha.slice(0, 10)}</code>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 };
 
@@ -103,12 +126,18 @@ const Sidebar: React.FC<{ branch: ReviewBranch; detail: ReviewDetail; ticket: Re
       ),
     ],
     ['Jira status', ticket.status],
-    ['Approval', ticket.approval === 'approved' ? 'Approved' : ticket.approval === 'declined' ? 'Declined' : '—'],
+    ['Approval', ticket.approval === 'approved' ? 'Approved' : ticket.approval === 'declined' ? 'Changes requested' : '—'],
     ['Assignee', ticket.assignee ?? '—'],
     ['Reviewer', ticket.reviewers?.length ? ticket.reviewers.join(', ') : '—'],
     ['Last pushed by', branch.author],
     ['Base', <code key="b" className="rounded bg-muted px-1.5 py-0.5 text-xs">{detail.baseBranch}</code>],
-    ['Compare', <code key="c" className="rounded bg-muted px-1.5 py-0.5 text-xs break-all">{detail.branch}</code>],
+    [
+      'Compare',
+      <span key="c" className="flex items-start gap-1">
+        <code className="min-w-0 rounded bg-muted px-1.5 py-0.5 text-xs break-all">{detail.branch}</code>
+        <CopyButton value={detail.branch} label={`Copy branch name ${detail.branch}`} />
+      </span>,
+    ],
   ];
   return (
     <aside className="space-y-4 text-sm" aria-label="Pull request details" data-testid="pr-sidebar">
@@ -134,10 +163,22 @@ const ReviewBody: React.FC<{
   onBusyChange: (busy: boolean) => void;
   onSpecBusyChange: (busy: boolean) => void;
 }> = ({ detail, branch, onMerged, onReload, onBusyChange, onSpecBusyChange }) => {
-  const [tab, setTab] = useState<DetailTab>('conversation');
+  // Back on the tab you were on if you left this PR by accident (the PR itself is restored by the page).
+  const [tab, setTabState] = useState<DetailTab>(() => {
+    const saved = readSelection();
+    return saved?.branch === detail.branch && (['conversation', 'commits', 'files', 'specs'] as string[]).includes(saved.tab) ? (saved.tab as DetailTab) : 'conversation';
+  });
+  const setTab = (next: DetailTab) => {
+    setTabState(next);
+    writeSelection({ branch: detail.branch, tab: next });
+  };
   const [mode, setModeState] = useState<DiffMode>(readDiffMode);
-  // The ticket as Jira has it: its Approval checkboxes are the single source of truth for "approved".
+  // The ticket with the decision that applies to THIS commit: made in this app, recorded in the ticket's description, or ticked in Jira.
   const [ticket, setTicket] = useState<ReviewIssue>(detail.ticket);
+  // Set when a decision is kept in this app but could not be written into the ticket's description.
+  const [jiraNote, setJiraNote] = useState<JiraNote | null>(null);
+  // Which specs have passed for this exact commit (the server keeps the record; this is refreshed after each run).
+  const [gate, setGate] = useState<SpecGate>(detail.specGate);
   const [deciding, setDeciding] = useState<'approved' | 'declined' | null>(null);
   const [clearing, setClearing] = useState(false);
   const [viewed, setViewedState] = useState<string[]>(() => readViewed(detail.branch, detail.sha));
@@ -153,6 +194,21 @@ const ReviewBody: React.FC<{
   const startRun = async (specs: string[] | 'all') => {
     if (await run.start(specs)) setModalOpen(true);
   };
+
+  // A run finished (or an earlier one was brought back): ask the server where the approval gate stands now.
+  const finishedJobId = run.job && isFinished(run.job.status) ? run.job.id : null;
+  useEffect(() => {
+    if (!finishedJobId) return;
+    let cancelled = false;
+    fetchSpecGate(detail.branch)
+      .then((g) => {
+        if (!cancelled && g.sha === detail.sha) setGate({ required: g.required, progress: g.progress, satisfied: g.satisfied, lastRun: g.lastRun });
+      })
+      .catch(() => undefined); // the gate from the page load stays; approving is checked on the server anyway
+    return () => {
+      cancelled = true;
+    };
+  }, [finishedJobId, detail.branch, detail.sha]);
 
   useEffect(() => {
     onSpecBusyChange(run.running);
@@ -184,10 +240,12 @@ const ReviewBody: React.FC<{
     if (clearing) return;
     setClearing(true);
     try {
-      setTicket(await submitReviewDecision({ branch: detail.branch, expectedSha: detail.sha, decision: 'none' }));
-      toast.success(`${ticket.key}: decision cleared in Jira.`);
+      const result = await submitReviewDecision({ branch: detail.branch, expectedSha: detail.sha, decision: 'none' });
+      setTicket(result);
+      setJiraNote(result.jiraRecorded ? null : { note: result.jiraNote ?? 'Jira could not be updated.', text: '' });
+      toast.success(`${ticket.key}: decision withdrawn.`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not clear the decision in Jira.');
+      toast.error(err instanceof Error ? err.message : 'Could not withdraw the decision.');
     } finally {
       setClearing(false);
     }
@@ -229,25 +287,30 @@ const ReviewBody: React.FC<{
 
   return (
     <>
-      <div className="flex items-end gap-1 overflow-x-auto border-b border-border/60" role="tablist">
-        {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={cn(
-              '-mb-px flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
-              tab === id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {label}
-            {id === 'specs' && run.running && <LoaderIcon className="size-3.5 animate-spin text-primary" aria-label="Specs running" />}
-            {id === 'specs' && !run.running && run.job?.status === 'passed' && <CheckCircleIcon className="size-3.5 text-success" aria-label="Specs passed" />}
-            {id === 'specs' && !run.running && (run.job?.status === 'failed' || run.job?.status === 'error') && <XCircleIcon className="size-3.5 text-destructive" aria-label="Specs failed" />}
-          </button>
-        ))}
-        <span className="ml-auto shrink-0 self-center pr-1 font-mono text-xs">
+      {/* One row: the tabs on the left, the +/- totals on the right behind a divider. The tab list scrolls sideways
+          only on a narrow screen, and then without a visible scrollbar. Its 1px overlap of the row's border (the
+          active tab's underline) is why it must not be the same element that has a border or a vertical overflow. */}
+      <div className="flex items-end justify-between gap-4 border-b border-border/60" data-testid="detail-tabs-row">
+        <div className="-mb-px flex min-w-0 items-end gap-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
+          {tabs.map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={cn(
+                'flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none',
+                tab === id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {label}
+              {id === 'specs' && run.running && <LoaderIcon className="size-3.5 animate-spin text-primary" aria-label="Specs running" />}
+              {id === 'specs' && !run.running && run.job?.status === 'passed' && <CheckCircleIcon className="size-3.5 text-success" aria-label="Specs passed" />}
+              {id === 'specs' && !run.running && (run.job?.status === 'failed' || run.job?.status === 'error') && <XCircleIcon className="size-3.5 text-destructive" aria-label="Specs failed" />}
+            </button>
+          ))}
+        </div>
+        <span className="mb-2 shrink-0 self-end border-l border-border/60 pl-4 font-mono text-xs whitespace-nowrap" data-testid="detail-totals">
           <span className="text-success">+{detail.totals.additions}</span> <span className="text-destructive">−{detail.totals.deletions}</span>
         </span>
       </div>
@@ -285,12 +348,16 @@ const ReviewBody: React.FC<{
               {plural(detail.commits.length, 'commit')} to be rebased onto {detail.baseBranch}
             </h3>
             <CommitList detail={detail} compact />
+            <AlreadyInBase detail={detail} />
           </section>
 
           <MergeBox
             ref={mergeRef}
             detail={{ ...detail, ticket }}
             ticket={ticket}
+            gate={gate}
+            onGoToSpecs={() => setTab('specs')}
+            jiraNote={jiraNote}
             onDecide={setDeciding}
             onClear={() => void clearDecision()}
             clearing={clearing}
@@ -303,11 +370,26 @@ const ReviewBody: React.FC<{
         <Sidebar branch={branch} detail={detail} ticket={ticket} />
       </div>
 
-      {tab === 'commits' && <CommitList detail={detail} />}
+      {tab === 'commits' && (
+        <div className="space-y-3">
+          <CommitList detail={detail} />
+          <AlreadyInBase detail={detail} />
+        </div>
+      )}
 
-      {tab === 'specs' && <SpecsPanel detail={detail} run={run} server={server} onRun={(specs) => void startRun(specs)} onOpenOutput={() => setModalOpen(true)} />}
+      {tab === 'specs' && <SpecsPanel detail={detail} gate={gate} run={run} server={server} onRun={(specs) => void startRun(specs)} onOpenOutput={() => setModalOpen(true)} />}
 
-      <ReviewDecisionModal open={deciding !== null} onOpenChange={(o) => !o && setDeciding(null)} decision={deciding ?? 'approved'} detail={detail} ticket={ticket} onDecided={setTicket} />
+      <ReviewDecisionModal
+        open={deciding !== null}
+        onOpenChange={(o) => !o && setDeciding(null)}
+        decision={deciding ?? 'approved'}
+        detail={detail}
+        ticket={ticket}
+        onDecided={(result, text) => {
+          setTicket(result);
+          setJiraNote(result.jiraRecorded ? null : { note: result.jiraNote ?? 'Jira could not be updated.', text });
+        }}
+      />
 
       <SpecRunModal open={modalOpen} onOpenChange={setModalOpen} run={run} ticketKey={detail.ticket.key} testServerUp={server.up} onRerun={(specs) => void startRun(specs)} />
 
@@ -395,16 +477,16 @@ const ReviewBody: React.FC<{
             data-testid="review-footer"
           >
             <p className="text-sm text-muted-foreground">
-              {viewed.length} of {plural(files.length, 'file')} viewed{approved ? ' · approved in Jira' : ticket.approval === 'declined' ? ' · declined in Jira' : ''}
+              {viewed.length} of {plural(files.length, 'file')} viewed{approved ? ' · approved' : ticket.approval === 'declined' ? ' · changes requested' : ''}
             </p>
             <div className="flex flex-wrap gap-2">
               {ticket.approval === null && detail.unmerged > 0 && detail.canRebase !== false && (
                 <>
                   <Button variant="outline" onClick={() => setDeciding('declined')} className="text-destructive">
                     <ThumbsDownIcon />
-                    Decline…
+                    Request changes…
                   </Button>
-                  <Button variant="outline" onClick={() => setDeciding('approved')}>
+                  <Button variant="outline" onClick={() => setDeciding('approved')} disabled={!gate.satisfied} title={gate.satisfied ? undefined : 'Run the specs first: every spec in this PR has to pass.'}>
                     <ShieldCheckIcon />
                     Approve…
                   </Button>
@@ -518,10 +600,13 @@ export const ReviewDetailView: React.FC<{
           </span>
           <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">{detail?.baseBranch ?? 'playwright-main'}</code>
           <span>from</span>
-          <code className="max-w-full truncate rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">
-            <GitBranchIcon className="mr-1 inline size-3" />
-            {branch.name}
-          </code>
+          <span className="inline-flex max-w-full items-center gap-1">
+            <code className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">
+              <GitBranchIcon className="mr-1 inline size-3" />
+              {branch.name}
+            </code>
+            <CopyButton value={branch.name} label={`Copy branch name ${branch.name}`} />
+          </span>
           {safeHref(detail?.branchUrl) && (
             <a href={safeHref(detail?.branchUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
               View on GitHub <ExternalLinkIcon className="size-3" />

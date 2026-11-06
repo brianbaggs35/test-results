@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GitGuardError, TEMP_WORKTREE_PREFIX, createGitGuard, isTempWorktree } from './gitGuard';
+import { GitGuardError, MAX_PICKS, MAX_PICK_SCAN, TEMP_WORKTREE_PREFIX, createGitGuard, isTempWorktree } from './gitGuard';
 
 const assertAllowed = createGitGuard({ remote: 'origin', baseBranch: 'playwright-main', projectKey: 'AT' });
 const REPO = '/Users/qa/Dev/securicy-app';
@@ -138,7 +138,6 @@ describe('git guard rail: never a merge commit', () => {
     ['pull --no-rebase', ['pull', '--no-rebase', 'origin', 'playwright-main']],
     ['commit-tree (hand-built commits)', ['commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-p', BASE]],
     ['commit', ['commit', '-m', 'x']],
-    ['cherry-pick', ['cherry-pick', SHA]],
     ['reset', ['reset', '--hard', BASE]],
     ['update-ref', ['update-ref', 'refs/heads/playwright-main', SHA]],
   ])('%s is blocked everywhere, even inside the temp worktree', (_name, args) => {
@@ -158,7 +157,7 @@ describe('git guard rail: never a merge commit', () => {
     ['--preserve-merges', ['rebase', '--preserve-merges', BASE]],
     ['--interactive', ['rebase', '-i', BASE]],
     ['--onto', ['rebase', '--onto', BASE, BASE]],
-    ['--continue', ['rebase', '--continue']],
+    ['--exec', ['rebase', '--exec', 'rm -rf /', BASE]],
     ['--strategy', ['rebase', '-s', 'ours', BASE]],
     ['onto master', ['rebase', 'origin/master']],
   ])('rebase %s is blocked: the only rebase is a plain "git rebase %s"-shaped one onto the base (or --abort)', (_name, args) => {
@@ -179,6 +178,101 @@ describe('git guard rail: never a merge commit', () => {
     blocked(['rev-list', '--merges', '--count', `${BASE}...${AT}`]); // wrong separator
     blocked(['rev-list', '--merges', `${BASE}..HEAD`]); // would list commits, not count
     blocked(['rev-list', '--merges', '--count', 'origin/master..HEAD']);
+  });
+});
+
+describe('git guard rail: cherry-pick (replaying the AT commits onto the base)', () => {
+  const A = 'a'.repeat(40);
+  const B = 'b'.repeat(40);
+
+  it('allows a plain cherry-pick of full commit ids, inside the temp worktree', () => {
+    allowed(['cherry-pick', A], TMP);
+    allowed(['cherry-pick', A, B], TMP);
+    allowed(['cherry-pick', ...Array(MAX_PICKS).fill(A)], TMP);
+  });
+
+  it('allows giving up an interrupted cherry-pick, inside the temp worktree', () => {
+    allowed(['cherry-pick', '--abort'], TMP);
+  });
+
+  it('never in the real checkout', () => {
+    blocked(['cherry-pick', A]);
+    blocked(['cherry-pick', '--abort']);
+  });
+
+  it.each([
+    ['-m (picking a merge commit)', ['-m', '1']],
+    ['--mainline', ['--mainline', '1']],
+    ['-n (no commit)', ['-n']],
+    ['--no-commit', ['--no-commit']],
+    ['-x', ['-x']],
+    ['--edit', ['--edit']],
+    ['--strategy', ['--strategy=ours']],
+    ['-s', ['-s', 'ours']],
+    ['-X', ['-X', 'theirs']],
+    ['--allow-empty', ['--allow-empty']],
+    ['--keep-redundant-commits', ['--keep-redundant-commits']],
+    ['--signoff', ['--signoff']],
+    ['--ff', ['--ff']],
+    ['--rerere-autoupdate', ['--rerere-autoupdate']],
+  ])('refuses %s: nothing but plain commit ids', (_name, flags) => {
+    blocked(['cherry-pick', ...(flags as string[]), A], TMP);
+    blocked(['cherry-pick', A, ...(flags as string[])], TMP);
+  });
+
+  it('refuses anything that is not a full lowercase commit id (branches, ranges, HEAD, short ids)', () => {
+    for (const bad of [AT, BASE, 'HEAD', 'HEAD~1', `${A}..${B}`, `${A}^`, 'abc1234', A.toUpperCase(), `${A} ${B}`, '']) blocked(['cherry-pick', bad], TMP);
+    blocked(['cherry-pick'], TMP);
+  });
+
+  it('refuses more than the maximum number of commits', () => {
+    blocked(['cherry-pick', ...Array(MAX_PICKS + 1).fill(A)], TMP);
+  });
+
+  it('can only use the new read-only shapes with exact arguments', () => {
+    allowed(['log', '--first-parent', `--max-count=${MAX_PICK_SCAN}`, '--format=%H', AT]);
+    blocked(['log', '--first-parent', '--max-count=100000', '--format=%H', AT]);
+    blocked(['log', '--first-parent', `--max-count=${MAX_PICK_SCAN}`, '--format=%H', 'origin/master']);
+    blocked(['log', '--first-parent', `--max-count=${MAX_PICK_SCAN}`, '--format=%H', BASE]);
+    allowed(['cherry', BASE, AT, A]);
+    blocked(['cherry', BASE, AT, 'origin/master']);
+    blocked(['cherry', BASE, AT, A, B]);
+    allowed(['merge-tree', '--write-tree', '--name-only', '--no-messages', `--merge-base=${A}`, BASE, B]);
+    blocked(['merge-tree', '--write-tree', '--name-only', '--no-messages', '--merge-base=origin/master', BASE, B]);
+    blocked(['merge-tree', '--write-tree', '--name-only', '--no-messages', `--merge-base=${A}`, 'origin/master', B]);
+    blocked(['merge-tree', '--write-tree', '--name-only', '--no-messages', `--merge-base=${A}`, BASE, 'origin/master']);
+    allowed(['worktree', 'add', '--detach', '--quiet', TMP, BASE]); // the cherry-pick starts from the base
+    blocked(['worktree', 'add', '--detach', '--quiet', TMP, 'origin/master']);
+    blocked(['worktree', 'add', '--detach', '--quiet', '/Users/qa/Desktop/x', BASE]);
+  });
+});
+
+describe('git guard rail: nothing that resolves, stages or inspects a worktree', () => {
+  // There is no conflict editor (yet): none of these are reachable.
+  it.each([
+    ['add a file', ['add', '--', 'a.ts']],
+    ['add everything', ['add', '-A']],
+    ['rm', ['rm', '--quiet', '--', 'a.ts']],
+    ['status', ['status', '--porcelain=v1', '--untracked-files=no']],
+    ['show a stage', ['show', ':2:a.ts']],
+    ['show a commit', ['show', '-s', '--format=%s', SHA]],
+    ['rebase --continue', ['rebase', '--continue']],
+    ['rebase --skip', ['rebase', '--skip']],
+    ['cherry-pick --continue', ['cherry-pick', '--continue']],
+    ['cherry-pick --skip', ['cherry-pick', '--skip']],
+    ['rev-parse --absolute-git-dir', ['rev-parse', '--absolute-git-dir']],
+    ["rev-parse --abbrev-ref HEAD (the checkout's branch)", ['rev-parse', '--abbrev-ref', 'HEAD']],
+    ['merge-base --is-ancestor of a commit', ['merge-base', '--is-ancestor', SHA, 'HEAD']],
+  ])('blocks %s, even in the temp worktree', (_name, args) => {
+    blocked(args as string[]);
+    blocked(args as string[], TMP);
+  });
+
+  it('the only ways out of an interrupted replay are the aborts', () => {
+    allowed(['rebase', '--abort'], TMP);
+    allowed(['cherry-pick', '--abort'], TMP);
+    blocked(['rebase', '--abort']);
+    blocked(['cherry-pick', '--abort']);
   });
 });
 
@@ -265,7 +359,6 @@ describe('git guard rail: everything else is blocked', () => {
     ['fetch with a refspec', ['fetch', 'origin', '+refs/heads/*:refs/heads/*']],
     ['pull', ['pull', 'origin', 'playwright-main']],
     ['merge', ['merge', AT]],
-    ['cherry-pick', ['cherry-pick', SHA]],
     ['branch -D', ['branch', '-D', 'AT-1-x']],
     ['tag', ['tag', '-d', 'v1']],
     ['checkout in the main repo', ['checkout', 'AT-1-x']],
@@ -278,7 +371,6 @@ describe('git guard rail: everything else is blocked', () => {
     ['rebase onto master', ['rebase', 'origin/master']],
     ['interactive rebase', ['rebase', '-i', BASE]],
     ['rebase --exec', ['rebase', '--exec', 'rm -rf /', BASE]],
-    ['rebase --continue', ['rebase', '--continue']],
     ['worktree add without --detach', ['worktree', 'add', TMP, AT]],
     ['worktree add outside temp', ['worktree', 'add', '--detach', '--quiet', '/Users/qa/Desktop/x', AT]],
     ['worktree remove outside temp', ['worktree', 'remove', '--force', REPO]],

@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangleIcon, GitPullRequestIcon, LoaderIcon, RefreshCwIcon } from 'lucide-react';
+import { AlertTriangleIcon, GitPullRequestIcon, LoaderIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { plural } from '@/utils/reviewFormat';
 import { computeLights } from '@/utils/reviewLights';
 import { fetchGhStatus, fetchReviewList, fetchReviewStatus, fetchTestServer } from '@/utils/reviewApi';
+import { clearAllReviewData, clearSelection, pruneMissingBranches, readSelection, savedSummary } from '@/utils/reviewStorage';
 import { ErrorBanner, Skeleton } from './Feedback';
 import { PullRequestTable } from './PullRequestTable';
 import { ReviewDetailView } from './ReviewDetailView';
@@ -44,6 +46,10 @@ export const ReviewPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [saved, setSaved] = useState(savedSummary);
+  // Back on the PR you were on if you left the page by accident: opened once, from the first list that has it.
+  const [restoreTried, setRestoreTried] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     // The GitHub CLI light is informational and slower (it asks GitHub), so it
@@ -53,8 +59,15 @@ export const ReviewPage: React.FC = () => {
     try {
       const st = await fetchReviewStatus();
       setStatus(st);
-      setList(st.ok ? await fetchReviewList() : null);
+      const fresh = st.ok ? await fetchReviewList() : null;
+      setList(fresh);
       setError(null);
+      // Saved progress for PRs that are no longer in the Review column (merged, or the answer to a merge was lost) goes.
+      // Only when Jira was read: an unreadable column must never look like "everything was merged".
+      if (fresh && !fresh.jira.error) {
+        pruneMissingBranches(fresh.tickets.flatMap((t) => t.branches.map((b) => b.name)));
+        setSaved(savedSummary());
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load tickets.');
     } finally {
@@ -66,6 +79,21 @@ export const ReviewPage: React.FC = () => {
     // `load` only sets state after awaiting the network, never synchronously.
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (restoreTried || !list || list.jira.error) return;
+    const want = readSelection();
+    // `list` just arrived from the network; opening the PR you were on is a one-time reaction to that
+    setRestoreTried(true);
+    if (!want) return;
+    for (const ticket of list.tickets) {
+      const branch = ticket.branches.find((b) => b.name === want.branch);
+      if (branch) {
+        setSelection({ ticket, branch });
+        return;
+      }
+    }
+  }, [list, restoreTried]);
 
   const refresh = () => {
     setLoading(true);
@@ -82,9 +110,14 @@ export const ReviewPage: React.FC = () => {
         ticketKey={selection.ticket.key}
         ticketSummary={selection.ticket.summary}
         branch={selection.branch}
-        onBack={() => setSelection(null)}
+        onBack={() => {
+          // leaving on purpose: nothing to come back to
+          clearSelection();
+          setSelection(null);
+        }}
         onMerged={() => {
           setSelection(null);
+          setSaved(savedSummary());
           refresh();
         }}
       />
@@ -164,6 +197,46 @@ export const ReviewPage: React.FC = () => {
               <PullRequestTable tickets={tickets} base={base} onOpen={(ticket, branch) => setSelection({ ticket, branch })} />
             </div>
           )}
+
+          {saved.entries > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground" data-testid="saved-data">
+              <p>
+                Saved in this browser: progress on {plural(saved.prs, 'PR')} (files viewed, spec results, notes in progress). It is cleared automatically when a PR is merged, and kept if a merge fails.
+              </p>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmClear(true)}>
+                <Trash2Icon />
+                Clear saved data
+              </Button>
+            </div>
+          )}
+
+          <Dialog open={confirmClear} onOpenChange={setConfirmClear}>
+            <DialogContent className="max-w-md" data-testid="clear-saved-modal">
+              <div className="space-y-1 pr-6">
+                <DialogTitle>Clear saved review data?</DialogTitle>
+                <DialogDescription>
+                  This removes what this browser saved for reviews: files you marked viewed, spec results, and notes you were typing. Nothing on Jira, GitHub or the server changes, and spec results still count on the server for approving.
+                </DialogDescription>
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setConfirmClear(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    clearAllReviewData();
+                    setSaved(savedSummary());
+                    setConfirmClear(false);
+                  }}
+                >
+                  <Trash2Icon />
+                  Clear saved data
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>

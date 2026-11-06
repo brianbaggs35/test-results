@@ -54,9 +54,10 @@ const VALID_JUNIT_XML =
 describe('PublishPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    // Tests must not depend on whatever VITE_EXECUTED_BY happens to be set
-    // to in the real .env on this machine — force "unset" by default, and
-    // let the one test that wants it set override this explicitly.
+    // Tests must not depend on whatever VITE_PUBLISHED_BY / VITE_EXECUTED_BY
+    // happen to be set to in the real .env on this machine — force "unset" by
+    // default, and let the tests that want them set override this explicitly.
+    vi.stubEnv('VITE_PUBLISHED_BY', '');
     vi.stubEnv('VITE_EXECUTED_BY', '');
   });
 
@@ -96,20 +97,45 @@ describe('PublishPage', () => {
     expect(screen.getByPlaceholderText('e.g., 54')).toHaveValue('');
   });
 
-  it('should leave the "Executed By" row blank when VITE_EXECUTED_BY is not set', () => {
+  it('should leave the "Published By" row blank when VITE_PUBLISHED_BY is not set', () => {
     render(<PublishPage testData={null} />);
 
-    expect(screen.getByPlaceholderText('e.g., Executed By')).toHaveValue('');
+    expect(screen.getByPlaceholderText('e.g., Published By')).toHaveValue('');
     expect(screen.getByPlaceholderText('e.g., Brian')).toHaveValue('');
   });
 
-  it('should pre-fill "Executed By" from VITE_EXECUTED_BY when it is set', () => {
-    vi.stubEnv('VITE_EXECUTED_BY', 'Brian');
+  it('should pre-fill "Published By" from VITE_PUBLISHED_BY when it is set', () => {
+    vi.stubEnv('VITE_PUBLISHED_BY', 'Brian');
 
     render(<PublishPage testData={null} />);
 
-    expect(screen.getByPlaceholderText('e.g., Executed By')).toHaveValue('Executed By');
+    expect(screen.getByPlaceholderText('e.g., Published By')).toHaveValue('Published By');
     expect(screen.getByPlaceholderText('e.g., Brian')).toHaveValue('Brian');
+  });
+
+  it('should still pre-fill from the old VITE_EXECUTED_BY name so an existing .env keeps working', () => {
+    vi.stubEnv('VITE_EXECUTED_BY', 'Matthew');
+
+    render(<PublishPage testData={null} />);
+
+    expect(screen.getByPlaceholderText('e.g., Published By')).toHaveValue('Published By');
+    expect(screen.getByPlaceholderText('e.g., Brian')).toHaveValue('Matthew');
+  });
+
+  it('should prefer VITE_PUBLISHED_BY when both are set', () => {
+    vi.stubEnv('VITE_EXECUTED_BY', 'Old Name');
+    vi.stubEnv('VITE_PUBLISHED_BY', 'New Name');
+
+    render(<PublishPage testData={null} />);
+
+    expect(screen.getByPlaceholderText('e.g., Brian')).toHaveValue('New Name');
+  });
+
+  it('should no longer use the old "Executed By" wording anywhere on the page', () => {
+    render(<PublishPage testData={null} />);
+
+    expect(screen.queryByPlaceholderText('e.g., Executed By')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Executed By')).not.toBeInTheDocument();
   });
 
   it('should allow typing in title input', async () => {
@@ -127,7 +153,7 @@ describe('PublishPage', () => {
 
     const metaKey0 = screen.getByPlaceholderText('e.g., Failed Tests');
     const metaVal0 = screen.getByPlaceholderText('e.g., 54');
-    const metaKey1 = screen.getByPlaceholderText('e.g., Executed By');
+    const metaKey1 = screen.getByPlaceholderText('e.g., Published By');
     const metaVal1 = screen.getByPlaceholderText('e.g., Brian');
 
     // metaKey0 starts pre-filled with "Failed Tests" — clear it first so
@@ -135,12 +161,12 @@ describe('PublishPage', () => {
     await user.clear(metaKey0);
     await user.type(metaKey0, 'Renamed Key');
     await user.type(metaVal0, '10');
-    await user.type(metaKey1, 'Executed By');
+    await user.type(metaKey1, 'Published By');
     await user.type(metaVal1, 'Alice');
 
     expect(metaKey0).toHaveValue('Renamed Key');
     expect(metaVal0).toHaveValue('10');
-    expect(metaKey1).toHaveValue('Executed By');
+    expect(metaKey1).toHaveValue('Published By');
     expect(metaVal1).toHaveValue('Alice');
   });
 
@@ -324,7 +350,7 @@ describe('PublishPage', () => {
     await user.type(screen.getByLabelText('Title'), 'Title');
     // Only fill in the value for the pre-filled "Failed Tests" key.
     await user.type(screen.getByPlaceholderText('e.g., 54'), 'MyValue');
-    // Leave the second metadata entry (Executed By) empty entirely
+    // Leave the second metadata entry (Published By) empty entirely
 
     fireEvent.click(screen.getByText('Publish'));
 
